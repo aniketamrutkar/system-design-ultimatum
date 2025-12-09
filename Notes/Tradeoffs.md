@@ -48,6 +48,20 @@ A comprehensive reference for understanding key tradeoffs in system design inter
 - SQL: Consistency + Complex Queries ↔ Harder to scale horizontally
 - NoSQL: Scalability + Flexibility ↔ Limited query capabilities, eventual consistency
 
+### Common Databases: When to Use What
+
+| DB | Model | Strengths | Best For | Watchouts |
+|----|-------|-----------|----------|-----------|
+| **DynamoDB** | Managed key-value/document | Serverless, predictable latency, auto-scaling, TTLs | Massive scale key-value lookups, bursty traffic, IoT/session/user settings | Hot partitions cost $$, limited query patterns, single-table design learning curve |
+| **Cassandra** | Wide-column (AP) | Linear write scaling, multi-region friendly, tunable consistency | Write-heavy time-series/logs/metrics, large append-only datasets | Eventual consistency by default, partition-key centric modeling, tombstone/GC tuning |
+| **PostgreSQL** | Relational | Strong ACID, rich SQL/JSONB, extensions (PostGIS/FDW), mature tooling | OLTP with complex queries/joins, moderate scale analytics, transactional workloads | Vertical limits; sharding/replica mgmt needed at very high scale; tune vacuum/autovacuum |
+| **MySQL** | Relational | Battle-tested, easy ops, good replication, wide ecosystem | Simpler OLTP, LAMP stacks, read-heavy with replicas | Manual sharding at scale, fewer advanced SQL features vs Postgres, replica lag considerations |
+| **MongoDB** | Document | Flexible schema, rich queries and indexes, good developer velocity | Evolving schemas (content/user profiles), nested documents, moderate real-time reads | Data integrity relies on schema discipline; multi-doc transactions newer; large/hot docs hurt |
+| **Neo4j** | Graph | Native graph traversals, expressive Cypher queries | Highly connected data (social, fraud rings, recommendations, network/topology) | Not optimized for wide OLTP; different scaling model; specialized skill set/licensing |
+| **Other quick picks** | | Redis: ultra-fast cache/leaderboards; Snowflake/BigQuery: analytics; Elasticsearch/OpenSearch: search/logs | Use per specialized need | Each adds infra/ops cost; keep surface area small |
+
+**How to decide quickly:** Start with PostgreSQL or MySQL for most OLTP apps; pick DynamoDB/Cassandra when horizontal write scaling and simple access patterns dominate; choose MongoDB for flexible schemas without heavy joins; reach for graph (Neo4j) only when relationships are the core query.
+
 ---
 
 ### Read Replicas vs Sharding
@@ -213,6 +227,21 @@ A comprehensive reference for understanding key tradeoffs in system design inter
 - Long Polling: Near-real-time over HTTP ↔ Held connections, proxy timeouts
 - WebSockets: Full-duplex + lowest latency ↔ Infra complexity (sticky sessions, scaling, backpressure)
 - SSE: Simple server→client push ↔ One-way only, needs reconnect logic
+
+### Chaos Engineering Levels (Netflix Playbook)
+
+| Tool | What It Does | When to Use | Notes/Tradeoffs |
+|------|--------------|-------------|-----------------|
+| **Chaos Monkey** | Terminates random servers/instances | Every service; baseline resiliency validation | Catches single-instance brittleness; assumes stateless or fast reattach to state |
+| **Chaos Gorilla** | Simulates losing an entire AZ | Critical systems where downtime hits revenue/reputation | Validates multi-AZ design, autoscaling, and failover runbooks |
+| **Chaos Kong** | Simulates losing an entire region | Rare; only for global, highest-availability systems | Expensive to practice; requires active-active or warm standby cross-region |
+
+**Context:** Netflix can run these because services are mostly stateless, globally aware, and designed for availability from day one (multi-AZ/region, retries, circuit breakers, resilient data stores).
+
+**Practical guidance:**
+- Monkey: default for all services; start here to harden base reliability.
+- Gorilla: enable for revenue/brand-critical paths once multi-AZ is proven.
+- Kong: usually overkill; reserve for globally distributed, tier-0 systems with cross-region architecture and clear blast-radius controls.
 
 ---
 

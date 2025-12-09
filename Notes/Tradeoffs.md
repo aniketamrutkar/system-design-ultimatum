@@ -190,6 +190,30 @@ A comprehensive reference for understanding key tradeoffs in system design inter
 - Sync: Simple + Immediate ↔ Tight coupling
 - Async: Decoupling + Scalability ↔ Complexity
 
+### Client Updates: Short Polling vs Long Polling vs WebSockets vs Server-Sent Events (SSE)
+
+| Aspect | Short Polling | Long Polling | WebSockets | SSE |
+|--------|---------------|--------------|------------|-----|
+| **Connection Model** | Client polls on interval (e.g., every 5s) | Client holds request open until data or timeout, then re-issues | Full-duplex persistent TCP (via HTTP upgrade) | One-way server → client over persistent HTTP |
+| **Latency** | Interval-based; higher if interval large | Low; server responds immediately when data ready | Very low; bi-directional | Low; server pushes as events occur |
+| **Server Load** | Many requests; wasted when nothing changes | Fewer requests; each may tie up a worker until data | Few connections; efficient after handshake | Few connections; efficient for push |
+| **Scalability Pain** | High QPS, connection overhead | Thread/conn held per client; needs async IO | Many open sockets; needs load balancers/proxies that handle sticky/WS | Many open connections; similar infra to WS but simpler |
+| **Use When** | Simple/low-traffic; no server push needed | Need near-real-time but infra limited to HTTP; moderate scale | Interactive, two-way updates (chat, games, collab) | Real-time, server-to-client only (tickers, notifications, logs) |
+| **Drawbacks** | Wasted cycles, stale data between polls | Holding connections; timeouts; intermediate proxies can drop | More complex protocol, connection mgmt, backpressure | One-way only; older browsers need polyfills; retry/backoff handling |
+| **Examples** | CRON-like dashboard refresh | Live score updates without WS/SSE support | Chat apps, multiplayer games, collaborative docs | Stock quotes, live comments, monitoring dashboards |
+
+**How to choose:**
+- Start with long polling if you need push-ish behavior but are limited to plain HTTP and modest scale.
+- Use WebSockets for interactive, high-frequency bi-directional flows or when clients need to push frequently.
+- Use SSE for server-to-client streaming where simplicity and HTTP semantics matter (auto-reconnect, events).
+- Reserve short polling for low-QPS or legacy paths where real-time is not critical and change rate is low.
+
+**Tradeoff Summary:**
+- Short Polling: Easiest to add ↔ Latency + wasted requests at scale
+- Long Polling: Near-real-time over HTTP ↔ Held connections, proxy timeouts
+- WebSockets: Full-duplex + lowest latency ↔ Infra complexity (sticky sessions, scaling, backpressure)
+- SSE: Simple server→client push ↔ One-way only, needs reconnect logic
+
 ---
 
 ## Scalability Patterns

@@ -8,6 +8,7 @@ Quick references
 - Alex Xu's System Design Interview book
 - [System Design Fight Club](https://www.youtube.com/@SDFC)
 - [Hello Interview notes](https://www.hellointerview.com/learn/system-design/in-a-hurry/introduction)
+- [ByteMonk](https://www.youtube.com/@ByteMonk)
 
 ## AI Design Resources
 

@@ -123,6 +123,43 @@ A comprehensive reference for understanding key tradeoffs in system design inter
 
 ---
 
+### Data Structures & Indexing Tradeoffs
+
+| Structure | Strengths | Tradeoffs | When to Use |
+|----------|-----------|-----------|-------------|
+| **Bloom Filter** | Very space-efficient membership checks; O(k) inserts/queries; avoids expensive lookups | False positives; no value retrieval; hard deletes unless counting/quotient; needs sizing to meet FP rate | Prefiltering before DB/cache lookups, cache-penetration protection, existence checks at massive scale |
+| **Redis Hash (Hash Map)** | Compact storage for many small fields; O(1) field access; atomic field updates | No per-field TTL; no secondary indexes or range queries; very large hashes can rehash and become memory-heavy | Grouping related attributes under one key (user profiles, counters, feature flags) |
+| **Trie (Prefix Tree)** | Fast prefix search/autocomplete; lexicographic traversal; O(k) lookups | High memory overhead; pointer-heavy/cache-unfriendly; slower for random access vs hash | Prefix matching, autocomplete, routing tables, dictionary lookups |
+| **B+ Tree** | Ordered index; efficient range scans; disk/page-friendly with high fanout | More complex writes (splits/merges); slower point lookups than hash; tuning page size and fill factor | Database indexes, range queries, ordered pagination, time-series by key |
+
+**Why Choose Bloom Filter:**
+- Minimize expensive DB hits for non-existent keys
+- Protect caches from "thundering misses" or abuse
+- Pre-check existence in distributed systems
+
+**Why Choose Redis Hash:**
+- Reduce key overhead vs many small keys
+- Update fields atomically without rewriting whole object
+- Keep related data co-located for cache locality
+
+**Why Choose Trie:**
+- Prefix search or autocomplete is core query
+- Need ordered, lexicographic traversal
+- Longest-prefix matching (routing, IPs)
+
+**Why Choose B+ Tree:**
+- Range queries, ordered scans, and pagination
+- Disk-based storage where minimizing IO matters
+- Multi-column indexes that benefit from ordering
+
+**Tradeoff Summary:**
+- Bloom Filter: Space-efficient existence checks ↔ False positives, no value retrieval
+- Redis Hash: Memory efficiency + field-level updates ↔ No per-field TTL, no range queries
+- Trie: Fast prefix queries ↔ High memory overhead
+- B+ Tree: Range scans + ordered access ↔ More complex writes
+
+---
+
 ## Caching Strategies
 
 ### Cache Aside vs Write-Through vs Write-Behind
@@ -133,7 +170,7 @@ A comprehensive reference for understanding key tradeoffs in system design inter
 | **Write-Through** | App writes to cache and DB synchronously | Cache always consistent with DB; read hits are fast | Write latency (two writes); wasted cache space for unread data | Read-heavy with critical consistency (inventory, pricing) |
 | **Write-Behind (Write-Back)** | App writes to cache; cache asynchronously writes to DB | Fast writes; reduced DB load; batch writes possible | Risk of data loss if cache fails; eventual consistency | Write-heavy with acceptable data loss risk (analytics events, logs) |
 | **Refresh-Ahead** | Cache proactively refreshes before expiration | Reduced latency; no cache miss penalty | Wasted resources if data not accessed; complex to implement | Predictable access patterns (homepage, trending content) |
-
+https://media.licdn.com/dms/image/v2/D5622AQEElt9sWCpj7g/feedshare-shrink_1280/B56ZrkK72qJsAs-/0/1764764664024?e=1766620800&v=beta&t=q65MufpMjQ7-RPZnDg8E9EORftsJg-enbDdCWASdUhs
 **Why Choose Each:**
 - **Cache Aside**: Most flexible and common pattern; works when you don't know what to cache upfront
 - **Write-Through**: Need strong consistency between cache and DB

@@ -59,6 +59,424 @@
 
 ---
 
+## Workflow Orchestration Tools (Airflow & Alternatives)
+
+### Apache Airflow vs Alternatives
+
+| Tool | Best For | Latency | Complexity | Cost | Learning Curve |
+|------|----------|---------|-----------|------|-----------------|
+| **Apache Airflow** | Complex DAGs, dependencies, Python workflows | Minutes to hours | High control | Low (OSS) | Moderate |
+| **Prefect** | Modern workflows, error handling, UI | Minutes to hours | Medium | Low (cloud free tier) | Easy |
+| **Dagster** | Data-aware orchestration, testing | Minutes to hours | Medium | Medium | Moderate |
+| **Temporal** | Long-running workflows, state mgmt | Can be real-time | Very high | Medium | Hard |
+| **Cron + Python** | Simple one-off jobs | Minutes | Very low | Minimal | Easy |
+| **Cloud Composer** (GCP) | Managed Airflow, Google ecosystem | Minutes to hours | High control | High | Moderate |
+| **AWS Step Functions** | AWS ecosystem, serverless | Seconds to hours | Low | Pay per transition | Easy |
+| **Luigi** (Spotify) | Simple DAGs, quick prototyping | Minutes to hours | Low | Free (OSS) | Very easy |
+
+### Detailed Comparison
+
+#### Apache Airflow
+**Pros:**
+- Most popular, large community, extensive plugins (200+)
+- Pure Python (DAGs are code)
+- Rich UI with monitoring, backfill, retry
+- Handles complex dependencies
+- Extensive logging and alerting
+
+**Cons:**
+- Complex to set up and operate (MetaDB, Scheduler, Webserver, Workers)
+- High operational overhead
+- Not designed for high-frequency tasks (minute-level inefficient)
+- Debugging DAGs can be difficult
+- Memory overhead for large DAGs
+
+**Best for:** Complex batch ETL pipelines, dependencies between 100+ tasks, long-running workflows
+
+**Example:**
+```python
+from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
+
+default_args = {
+    'owner': 'data_team',
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5),
+}
+
+dag = DAG(
+    'etl_pipeline',
+    default_args=default_args,
+    schedule_interval='0 2 * * *',  # 2 AM daily
+    start_date=datetime(2024, 1, 1),
+)
+
+def extract_data():
+    # Query API
+    import requests
+    data = requests.get('https://api.example.com/events').json()
+    return data
+
+def transform_data(ti):
+    # Get data from upstream task
+    data = ti.xcom_pull(task_ids='extract')
+    # Transform: filter, aggregate, clean
+    transformed = [d for d in data if d['valid']]
+    ti.xcom_push(key='cleaned_data', value=transformed)
+
+def load_data(ti):
+    data = ti.xcom_pull(task_ids='transform', key='cleaned_data')
+    # Load to data warehouse
+    import psycopg2
+    conn = psycopg2.connect("dbname=warehouse")
+    cur = conn.cursor()
+    for row in data:
+        cur.execute("INSERT INTO events VALUES (%s, %s)", row)
+    conn.commit()
+
+extract = PythonOperator(
+    task_id='extract',
+    python_callable=extract_data,
+    dag=dag,
+)
+
+transform = PythonOperator(
+    task_id='transform',
+    python_callable=transform_data,
+    dag=dag,
+)
+
+load = PythonOperator(
+    task_id='load',
+    python_callable=load_data,
+    dag=dag,
+)
+
+dq_check = BashOperator(
+    task_id='data_quality_check',
+    bash_command='python /scripts/validate.py',
+    dag=dag,
+)
+
+# Define dependencies
+extract >> transform >> load >> dq_check
+```
+
+---
+
+#### Prefect
+**Pros:**
+- Modern Python-first design
+- Automatic retry, error handling, logging
+- Better UX (cleaner API)
+- Cloud-hosted option (free tier)
+- Data validation built-in
+- Better for experimental/evolving workflows
+
+**Cons:**
+- Smaller community than Airflow
+- Less plugins available
+- Vendor lock-in risk (cloud)
+- Overkill for simple jobs
+
+**Best for:** Modern teams, experimental workflows, preference for UX, cloud-native deployments
+
+**Example:**
+```python
+from prefect import flow, task
+from prefect.tasks.bash import bash_shell
+import requests
+
+@task(retries=2, retry_delay_seconds=300)
+def extract_data():
+    response = requests.get('https://api.example.com/events')
+    response.raise_for_status()
+    return response.json()
+
+@task
+def transform_data(data):
+    # Type hints help Prefect understand data flow
+    return [d for d in data if d['valid']]
+
+@task
+def load_data(data):
+    # Prefect handles logging automatically
+    print(f"Loading {len(data)} records")
+    # Load to warehouse
+    pass
+
+@flow
+def etl_pipeline():
+    raw_data = extract_data()
+    clean_data = transform_data(raw_data)
+    load_data(clean_data)
+
+# Schedule: every day at 2 AM
+if __name__ == "__main__":
+    etl_pipeline()
+```
+
+---
+
+#### Dagster
+**Pros:**
+- Data-aware (understands data assets)
+- Built-in testing framework
+- Better for data engineering teams
+- Excellent for multi-stage pipelines
+- Clear separation of logic from orchestration
+
+**Cons:**
+- Steeper learning curve
+- Smaller community
+- Relatively new (less battle-tested)
+- More opinionated structure
+
+**Best for:** Data engineering teams, asset-oriented pipelines, testing-first culture
+
+**Example:**
+```python
+from dagster import job, op, In, Out
+
+@op
+def extract_data():
+    import requests
+    return requests.get('https://api.example.com/events').json()
+
+@op
+def transform_data(data):
+    return [d for d in data if d['valid']]
+
+@op
+def load_data(data):
+    print(f"Loaded {len(data)} records to warehouse")
+
+@job
+def etl_job():
+    load_data(transform_data(extract_data()))
+
+if __name__ == "__main__":
+    etl_job.execute_in_process()
+```
+
+---
+
+#### AWS Step Functions
+**Pros:**
+- Fully managed (no operational overhead)
+- Integrates with 200+ AWS services
+- Pay per execution (low cost if infrequent)
+- State machine approach (clear logic)
+- Serverless
+
+**Cons:**
+- Limited to AWS ecosystem
+- Cannot easily move pipelines
+- Definition language is JSON (not code)
+- Less flexible for complex logic
+
+**Best for:** AWS-only shops, simple to medium workflows, low operational overhead needed
+
+**Example (State Machine JSON):**
+```json
+{
+  "Comment": "ETL pipeline",
+  "StartAt": "ExtractData",
+  "States": {
+    "ExtractData": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:123456789:function:extract",
+      "Next": "TransformData",
+      "Retry": [{
+        "ErrorEquals": ["States.TaskFailed"],
+        "IntervalSeconds": 300,
+        "MaxAttempts": 2,
+        "BackoffRate": 1.0
+      }]
+    },
+    "TransformData": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:123456789:function:transform",
+      "Next": "LoadData"
+    },
+    "LoadData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "processed_events",
+        "Item": {
+          "id": {"S.$": "$.id"},
+          "data": {"S.$": "$.data"}
+        }
+      },
+      "End": true
+    }
+  }
+}
+```
+
+---
+
+#### Luigi (Spotify)
+**Pros:**
+- Extremely simple (100 lines to complete pipeline)
+- Python-native
+- No dependencies (works locally)
+- Good for quick prototyping
+- Low overhead
+
+**Cons:**
+- Limited UI (CLI only)
+- Not scalable beyond 100 tasks
+- No built-in retry logic
+- Poor visibility
+- Abandoned (less maintenance)
+
+**Best for:** Quick prototyping, simple one-off jobs, local development
+
+**Example:**
+```python
+import luigi
+import requests
+import pandas as pd
+
+class ExtractData(luigi.Task):
+    def output(self):
+        return luigi.LocalTarget('data/raw.json')
+    
+    def run(self):
+        data = requests.get('https://api.example.com/events').json()
+        with self.output().open('w') as f:
+            import json
+            json.dump(data, f)
+
+class TransformData(luigi.Task):
+    def requires(self):
+        return ExtractData()
+    
+    def output(self):
+        return luigi.LocalTarget('data/transformed.csv')
+    
+    def run(self):
+        df = pd.read_json(self.input().path)
+        df = df[df['valid'] == True]
+        df.to_csv(self.output().path, index=False)
+
+class LoadData(luigi.Task):
+    def requires(self):
+        return TransformData()
+    
+    def run(self):
+        df = pd.read_csv(self.input().path)
+        # Load to warehouse
+        print(f"Loaded {len(df)} rows")
+
+if __name__ == '__main__':
+    luigi.build([LoadData()], local_scheduler=True)
+```
+
+---
+
+### Decision Tree: Which Orchestrator to Use?
+
+```
+START
+├─ Is it AWS-only? → YES → Use Step Functions ✓
+├─ Need to deploy today?
+│  ├─ YES → Use Luigi or cron ✓
+│  ├─ NO → Continue
+├─ 100+ task dependencies?
+│  ├─ YES → Use Airflow ✓
+│  ├─ NO → Continue
+├─ Prefer modern UI/UX?
+│  ├─ YES → Use Prefect ✓
+│  ├─ NO → Continue
+├─ Need data asset tracking?
+│  ├─ YES → Use Dagster ✓
+│  ├─ NO → Airflow ✓
+```
+
+### Comparison: Real Example (Data Pipeline)
+
+**Scenario**: ETL pipeline runs daily, 20 tasks, dependencies, needs monitoring
+
+**Option 1: Airflow**
+```
+Setup: 2 weeks (MetaDB, Scheduler, config)
+Code: 150 lines Python
+Monitoring: Excellent UI
+Operations: Requires ops team
+Cost: Infrastructure + personnel
+Scalability: Handles 1000+ tasks
+```
+
+**Option 2: Prefect**
+```
+Setup: 2 days (sign up, deploy)
+Code: 100 lines Python (simpler)
+Monitoring: Modern UI (cloud)
+Operations: Managed (Prefect handles)
+Cost: Lower (no infrastructure)
+Scalability: 500+ tasks
+```
+
+**Option 3: AWS Step Functions**
+```
+Setup: 1 day
+Code: 200 lines JSON
+Monitoring: AWS CloudWatch
+Operations: Fully managed
+Cost: $0.25 per 1M executions
+Scalability: 1000+ concurrent
+```
+
+**Option 4: Luigi**
+```
+Setup: Hours
+Code: 50 lines Python
+Monitoring: CLI only
+Operations: Manual
+Cost: Minimal
+Scalability: 100 tasks max
+```
+
+---
+
+### Real-World Examples
+
+**Netflix (Airflow)**
+- 10,000+ daily DAGs
+- Complex dependencies across teams
+- Custom operators for internal services
+- Airflow chosen for: flexibility, community support
+
+**Uber (Luigi → Spark)**
+- Started with Luigi
+- Migrated to Spark when data grew
+- Luigi works great for startup, doesn't scale
+- Lesson: Start with Luigi, migrate to Airflow/Spark when needed
+
+**Stripe (Custom + Step Functions)**
+- AWS-first architecture
+- Step Functions for standard workflows
+- Custom Rust scheduler for ultra-high-throughput
+- Lesson: Step Functions works until you need custom control
+
+---
+
+### When to Use Each
+
+| Use Airflow If | Use Prefect If | Use Step Functions If | Use Luigi If |
+|---|---|---|---|
+| Complex DAGs with 100+ tasks | Prefer modern UX, experimental | AWS-only ecosystem | Quick prototype, <100 tasks |
+| Need extensive plugins | Small team, less ops burden | Serverless requirement | Learning, local development |
+| Multi-org pipelines | Cloud-native preference | Tight AWS integration | Simple scheduled jobs |
+| High operational overhead acceptable | Growth-focused team | Pay-per-execution model | Development speed matters |
+
+---
+
 ## Lambda vs Kappa Architecture
 
 ### Lambda Architecture (Batch + Stream Hybrid)

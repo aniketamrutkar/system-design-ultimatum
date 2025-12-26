@@ -75,3 +75,12 @@ Monolith vs Microservices, architecture evolution, when to migrate, data consist
 - Monolith vs microservices decision
 - Distributed transaction patterns
 - Service boundary design
+### 9. [REST & gRPC Best Practices](./09-REST-gRPC-Best-Practices.md)
+REST API design principles, HTTP methods semantics, versioning strategies, pagination strategies (offset, cursor, page, seek), filtering & sorting, caching optimization, gRPC proto design, streaming strategies, performance tuning
+
+**Key topics:**
+- Resource-oriented REST design
+- Pagination for large datasets (100M+ records)
+- gRPC for microservices (10K+ QPS)
+- API optimization techniques (compression, rate limiting, async)
+- Field selection and sparse fieldsets

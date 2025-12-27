@@ -75,6 +75,7 @@ Monolith vs Microservices, architecture evolution, when to migrate, data consist
 - Monolith vs microservices decision
 - Distributed transaction patterns
 - Service boundary design
+
 ### 9. [REST & gRPC Best Practices](./09-REST-gRPC-Best-Practices.md)
 REST API design principles, HTTP methods semantics, versioning strategies, pagination strategies (offset, cursor, page, seek), filtering & sorting, caching optimization, gRPC proto design, streaming strategies, performance tuning
 
@@ -84,3 +85,27 @@ REST API design principles, HTTP methods semantics, versioning strategies, pagin
 - gRPC for microservices (10K+ QPS)
 - API optimization techniques (compression, rate limiting, async)
 - Field selection and sparse fieldsets
+
+### 10. [Kafka Deep Dive](./10-Kafka-Deep-Dive.md)
+Apache Kafka from ground up, core components (brokers, topics, partitions, replicas, consumer groups), producers and consumers, replication and high availability, Zookeeper vs KRaft, performance tuning, monitoring, exactly-once semantics, real-world patterns
+
+**Key topics:**
+- Kafka architecture and components
+- Producer batching, acknowledgments, idempotence
+- Consumer offset management, rebalancing, lag monitoring
+- High availability with replication (99.99% uptime)
+- Exactly-once payment processing
+- Event sourcing and CQRS patterns
+
+### 11. [Design Patterns](./11-Design-Patterns.md)
+CQRS, Event Sourcing, Saga Pattern, Circuit Breaker, Bulkhead, Retry with exponential backoff, Eventual Consistency, Sharding, Cache-Aside, Write-Through, Multi-Tenancy, API Gateway, Strangler Fig
+
+**Key topics:**
+- CQRS for read/write optimization
+- Event Sourcing for audit trails and time-travel
+- Saga pattern for distributed transactions
+- Fault tolerance patterns (circuit breaker, bulkhead, retry)
+- Sharding strategies for scalability
+- Migration patterns (strangler fig)
+- Multi-tenancy isolation levels
+

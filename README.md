@@ -38,6 +38,3 @@ Install the Excalidraw extension in VS Code to open and edit `.excalidraw` files
 - Follow the filename convention and place the file in an appropriate folder.
 - Open a PR with the proposed changes.
 
-## Credits
-
-- Component symbols used in many diagrams come from [Fabian Hinsenkamp](https://bigtechcoach.gumroad.com/l/excalidraw-system-design-symbols)

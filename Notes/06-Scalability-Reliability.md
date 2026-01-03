@@ -1,5 +1,245 @@
 # Scalability and Reliability Patterns
 
+## Back-of-Envelope Calculations
+
+Quick estimation techniques for system design interviews. These are rough estimates used to validate architectural decisions.
+
+### Time and Storage Units
+
+| Unit | Bytes | Time |
+|------|-------|------|
+| **KB** | 10³ | 1 millisecond |
+| **MB** | 10⁶ | 1 second |
+| **GB** | 10⁹ | 1 minute |
+| **TB** | 10¹² | 1 hour |
+| **PB** | 10¹⁵ | 1 day |
+
+### Latency Numbers Every Programmer Should Know
+
+```
+L1 cache reference:                     0.5 ns
+Branch mispredict:                      5 ns
+L2 cache reference:                     7 ns
+Mutex lock/unlock:                    100 ns
+Main memory reference:                100 ns
+Compress 1KB with Snappy:           3,000 ns (3 µs)
+Send 1KB over 1 Gbps network:      10,000 ns (10 µs)
+Read 1MB sequentially from memory: 250,000 ns (250 µs)
+Round trip within same datacenter:  500,000 ns (500 µs)
+Read 1MB sequentially from SSD:   1,000,000 ns (1 ms)
+Disk seek:                        10,000,000 ns (10 ms)
+Read 1MB sequentially from disk:  20,000,000 ns (20 ms)
+Send packet CA → Netherlands:    150,000,000 ns (150 ms)
+```
+
+**Rule of thumb**: Disk is ~40x slower than memory, network is ~150-200x slower than memory
+
+### Common QPS (Queries Per Second) Calculations
+
+**Given**: X million users, Y% daily active, Z requests per user per day
+
+```
+Formula: (X million × Y% × Z requests) / (86,400 seconds/day)
+
+Example: 1B users, 50% DAU, 10 requests/day
+= (1,000,000,000 × 0.5 × 10) / 86,400
+= 5,000,000,000 / 86,400
+= ~57,870 QPS
+
+Peak traffic rule: Multiply by 3-5x (peak is 3-5x average)
+= 57,870 × 5 = ~290,000 QPS peak
+```
+
+### Data Volume Calculations
+
+**Given**: X million users, Y data per user, Z days retention
+
+```
+Formula: X million × Y × Z = total storage
+
+Example: 1B users, 1KB per user, 30 days retention
+= 1,000,000,000 × 1KB × 30
+= 30TB total
+
+But need redundancy:
+- 3x replication: 30TB × 3 = 90TB
+- 2x for backup: 30TB × 2 = 60TB
+- Total: ~150TB
+```
+
+### Database Sizing
+
+**Single MySQL server capacity**:
+```
+Memory: 64GB
+Max connections: 10,000
+Throughput: 
+  - 10,000 QPS read (cached)
+  - 1,000 QPS write
+  - Mixed: 5,000 QPS
+
+Before hitting CPU/memory limits, disk I/O becomes bottleneck
+```
+
+**When to shard**:
+```
+Data size: > 1TB → Consider sharding
+QPS: > 10,000 → Consider sharding
+Connections: > 5,000 → Consider sharding
+
+Sharding key: User ID, geographic region, or hash
+```
+
+### Server Capacity Planning
+
+**Single web server (8 core, 32GB RAM)**:
+```
+Memory per connection: ~1MB
+Max connections: 32,000
+
+QPS capacity:
+- Simple operations: ~10,000 QPS
+- Complex operations: ~1,000 QPS
+- CPU-bound: ~5,000 QPS
+```
+
+**Number of servers needed**:
+```
+Formula: Peak QPS / QPS per server
+
+Example: 300,000 peak QPS, 10,000 QPS per server
+= 300,000 / 10,000 = 30 servers
+
+With redundancy (rolling updates, failures):
+= 30 × 1.3 = 39 servers (30% buffer)
+```
+
+### Load Balancer Sizing
+
+```
+Modern LB (AWS ALB):
+- Max 25,000 new connections/second
+- Max 1,000,000 concurrent connections per LB
+
+For 10M concurrent connections:
+= 10,000,000 / 1,000,000 = 10 LBs needed
+
+For multi-region HA:
+= 10 LBs × 2 regions = 20 LBs total
+```
+
+### Cache Sizing
+
+**Rule**: Cache hit rate ~90% means 10x reduction in database load
+
+```
+Example without cache:
+- 100,000 QPS to database
+- Database capacity: 10,000 QPS
+- Problem: Overloaded
+
+With cache (90% hit rate):
+- Cache serves: 90,000 QPS (in-memory, fast)
+- DB serves: 10,000 QPS (miss traffic)
+- Balanced!
+```
+
+**Cache memory needed**:
+```
+Formula: (QPS × avg_object_size × TTL) / hit_rate
+
+Example: 100,000 QPS, 1KB avg object, 1 hour TTL, 90% hit rate
+= (100,000 × 1KB × 3,600) / 0.9
+= 360,000,000 KB / 0.9
+= ~400GB cache
+
+Practical: Use distributed cache (Redis) across 10 servers
+= 40GB per Redis instance (reasonable)
+```
+
+### Bandwidth Calculation
+
+**Given**: Peak QPS, average response size
+
+```
+Formula: Peak QPS × Avg response size
+
+Example: 300,000 peak QPS, 10KB response
+= 300,000 × 10KB = 3,000,000 KB/s = 3GB/s
+
+Bandwidth needed:
+- 10 Gbps link: 10GB/s (can handle it)
+- But need redundancy: 2 × 10Gbps = 20Gbps total
+
+Rule of thumb: Provision 2-3x peak bandwidth for headroom
+```
+
+### Video Streaming Bandwidth
+
+```
+Netflix scenario: 100M users, 50% watching simultaneously
+
+Bitrate per stream: 5 Mbps (HD)
+Total bandwidth needed: 50M × 5 Mbps = 250 Tbps
+
+Wow, that's massive! How does Netflix handle it?
+
+Solution: CDN + regional caching
+- Cache video in edge locations (ISP networks)
+- Only ~10-20% requires backbone traffic
+- Backbone: 250 Tbps × 15% = 37.5 Tbps (still huge, but manageable)
+```
+
+### Example: Design Instagram Feed for 100M DAU
+
+```
+1. Calculate QPS:
+   - 100M DAU × 20 requests/day / 86,400 = ~23,000 QPS avg
+   - Peak: 23,000 × 5 = ~115,000 QPS
+
+2. Database sizing:
+   - Each feed = 100 posts × 1KB = 100KB
+   - 100M users × 100KB = 10TB storage
+   - With 3x replication: 30TB
+   - Needs sharding (> 1TB)
+
+3. Server capacity:
+   - 115,000 peak QPS / 10,000 per server = 11.5 → 15 servers
+   - With 30% redundancy: ~20 servers
+
+4. Cache sizing:
+   - 90% hit rate assumption
+   - Feed objects: 100M users × 100KB × 0.1 (10% miss) = 1TB
+   - Split across 25 Redis instances = 40GB each
+
+5. Bandwidth:
+   - 115,000 QPS × 100KB = 11.5GB/s
+   - Need 100 Gbps backbone
+```
+
+### Back-of-Envelope Checklist
+
+When estimating, ask:
+```
+✓ How many users? (total, DAU, peak concurrent)
+✓ Request rate? (QPS average, QPS peak)
+✓ Data volume? (per user, total, growth rate)
+✓ Latency requirements? (response time SLA)
+✓ Availability requirements? (uptime SLA)
+✓ Bandwidth constraints? (network capacity)
+✓ Storage retention? (how long to keep data)
+✓ Consistency requirements? (strong vs eventual)
+
+Then size:
+1. Servers needed
+2. Database needed
+3. Cache needed
+4. Bandwidth needed
+5. Storage needed
+```
+
+---
+
 ## Vertical vs Horizontal Scaling
 
 | Aspect | Vertical (Scale Up) | Horizontal (Scale Out) | When to Use |
@@ -62,6 +302,229 @@
 | **Master-Slave** | Single master writes, slaves read-only | Simple to understand | Single point of failure for writes | Read-heavy workloads |
 | **Master-Master** | Multiple masters, bidirectional sync | No write SPOF | Conflict resolution complex | Multi-region setup |
 | **Quorum-based** | Majority of replicas needed for consistency | Strong consistency + HA | Slower writes (wait for majority) | Critical data (banking) |
+
+---
+
+## SLI, SLO, and SLA
+
+**Definitions**:
+
+| Term | Definition | Example | Owner |
+|------|-----------|---------|-------|
+| **SLI** (Service Level Indicator) | A specific metric that measures system behavior | API response time: 95th percentile = 200ms; Error rate: 0.01% | Engineering |
+| **SLO** (Service Level Objective) | Internal target for SLI performance | API response time should be ≤200ms for 99.5% of requests | Engineering & PM |
+| **SLA** (Service Level Agreement) | Legal commitment with consequences for missing SLO | If uptime <99.9%, customer gets 10% refund | Business/Legal |
+
+**Key Differences**:
+- **SLI**: Measurement (what we track)
+- **SLO**: Target (what we aim for)
+- **SLA**: Contract (what we promise)
+
+---
+
+### Common SLIs
+
+| Category | Metric | How to Measure | Good Target |
+|----------|--------|----------------|-------------|
+| **Availability** | Uptime | `(total_time - downtime) / total_time` | 99.9% (8.76 hrs/year downtime) |
+| **Latency** | Response time (P50, P95, P99) | Request → Response time | P95 < 200ms, P99 < 1s |
+| **Error rate** | Failed requests / total requests | HTTP 5xx + timeouts | < 0.1% |
+| **Throughput** | Requests per second | Track QPS | Track trend, alert on drops |
+| **Completeness** | Data accuracy | Queries returning correct results | > 99.9% accuracy |
+| **Freshness** | Data staleness | Time since last update | < 5 minutes (depends on use case) |
+
+---
+
+### SLO Target Hierarchy
+
+```
+Enterprise customers: 99.99% uptime (52 minutes/year downtime)
+  ↓
+Standard customers: 99.9% uptime (8.76 hours/year downtime)
+  ↓
+Free tier: 99% uptime (3.65 days/year downtime)
+
+Why tiered?
+- Premium customers need higher reliability
+- Premium tier → higher cost → justifies more ops investment
+```
+
+**Cost vs reliability**:
+```
+99% uptime: 1 failure/100 requests (cheap infra)
+99.9% uptime: 1 failure/1000 requests (replicas + monitoring)
+99.99% uptime: 1 failure/10,000 requests (multi-region, chaos testing)
+99.999% uptime: 1 failure/100,000 requests (enterprise-grade)
+
+Each 9 costs ~3-5x more than the previous level
+```
+
+---
+
+### Error Budget Concept
+
+**Error budget** = Allowed downtime in a period to still meet SLO
+
+```
+SLO: 99.9% uptime per month
+Total month hours: 730 hours
+Error budget: (1 - 0.999) × 730 = 0.73 hours = 43.8 minutes/month
+
+If already used 30 minutes, only 13.8 minutes remaining
+→ Can't do risky deployments
+→ Must be extra cautious (no canary → full rollout)
+```
+
+**Managing error budget**:
+```python
+# Example implementation
+error_budget_remaining = calculate_budget_remaining()
+
+if error_budget_remaining > 50%:
+    # Aggressive: canary deployment, feature flags
+    deploy_with_canary()
+    
+elif error_budget_remaining > 10%:
+    # Conservative: manual rollout, heavy monitoring
+    deploy_manually_with_heavy_monitoring()
+    
+else:
+    # Critical: freeze all deployments
+    only_fix_critical_bugs()
+    no_new_features()
+```
+
+**Incident impact on budget**:
+```
+Incident: User auth service down for 10 minutes
+Impact: 10,000 failed requests / 1,000,000 total = 1% error rate
+
+Error budget burn:
+  If SLO is 99.9% (0.1% errors allowed)
+  This incident used: 1% / 0.1% = 10x the budget
+  
+Result: Error budget depleted for rest of month
+```
+
+---
+
+### SLO Design Best Practices
+
+**1. Make SLOs realistic**
+```
+Bad SLO: 99.99% on single-region system (impossible)
+Good SLO: 99% on standard tier, 99.9% on premium
+
+Reality: Systems with single points of failure max out at ~99%
+Multi-region systems can reach 99.99%
+```
+
+**2. Balance multiple metrics**
+```
+# Don't just optimize uptime
+SLO for Netflix:
+  - Uptime: 99.99%
+  - Latency (P99): < 1 second
+  - Error rate: < 0.1%
+  
+Optimizing only uptime can hurt latency
+(always return cached/stale data = 100% uptime but bad UX)
+```
+
+**3. Set SLOs lower than infrastructure capability**
+```
+Infrastructure: 99.99% availability
+SLO: 99.9% availability (leave 0.09% buffer)
+
+Why buffer?
+- Deployments, maintenance
+- Network blips
+- Monitoring false positives
+```
+
+**4. Monitor SLI trends, not just thresholds**
+```
+Alert when:
+  - P95 latency exceeds 500ms (threshold breach)
+  - P95 latency increases 50% week-over-week (trend)
+  
+Second alert catches degradation before total failure
+```
+
+---
+
+### SLA Examples
+
+**Google Cloud SLA**:
+```
+Compute Engine:
+  - 99.95% availability
+  - Credits if breached:
+    - 99%-99.95%: 10% credit
+    - 95%-99%: 30% credit
+    - <95%: 100% credit
+    
+Design: SLO (99.9%) < SLA (99.95%)
+If SLO breached, still might make SLA
+Extra buffer for one-time incidents
+```
+
+**AWS SLA**:
+```
+EC2:
+  - 99.99% availability SLA
+  - Applied per instance
+  - Multiple instances in different AZs recommended
+  
+If one instance fails:
+  - That instance gets credits
+  - Other instances unaffected
+```
+
+**Stripe SLA (payment processing)**:
+```
+- 99.99% uptime required (financial services)
+- <50ms latency for payment processing
+- Incident response: <15 minutes
+- Requires multi-region active-active setup
+```
+
+---
+
+### Typical Service Tier SLOs
+
+| Service Type | Uptime Target | Latency (P95) | Error Rate |
+|--------------|---------------|---------------|-----------|
+| **API Gateway** | 99.99% | < 50ms | < 0.01% |
+| **Web server** | 99.9% | < 200ms | < 0.1% |
+| **Background job** | 99% | 1 minute | < 1% |
+| **Batch analytics** | 95% | 1 hour | < 5% |
+| **Cache layer** | 99.5% | < 5ms | < 0.5% |
+
+---
+
+### Monitoring & Alerting for SLOs
+
+```python
+# Example: Monitor SLO burn rate
+def check_slo_burn():
+    # SLO: 99.9% uptime = 0.1% error rate allowed
+    
+    current_error_rate = get_error_rate_last_hour()
+    
+    if current_error_rate > 1%:
+        # 10x error budget burn rate
+        # Will deplete monthly budget in ~3 hours
+        alert("CRITICAL: SLO burn rate 10x. Incident response needed")
+    
+    elif current_error_rate > 0.5%:
+        # 5x error budget burn rate
+        alert("WARNING: High SLO burn rate. Investigate")
+    
+    elif current_error_rate > 0.15%:
+        # 1.5x error budget burn rate (acceptable)
+        log("Normal SLO burn rate")
+```
 
 ---
 

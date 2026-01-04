@@ -59,6 +59,586 @@
 
 ---
 
+## Deep Dive: Apache Spark
+
+### What is Spark?
+
+**Definition**: Distributed computing framework for large-scale batch and stream processing with in-memory processing.
+
+**Core concept**: Split work across cluster, process in-memory for speed
+
+```
+Traditional Hadoop (MapReduce):
+  Read disk → Process → Write disk → Read disk → Process → Write disk
+  Slow because: disk I/O between stages
+
+Spark:
+  Read disk → Process (in-memory) → Process → Process → Write disk
+  Fast because: intermediate results stay in memory
+```
+
+### Architecture
+
+**Driver Program** (your code)
+↓
+**Cluster Manager** (allocates resources)
+- Standalone, YARN, Kubernetes, Mesos
+↓
+**Executors** (worker nodes)
+- Each has memory and cores
+- Run tasks in parallel
+
+### RDDs vs DataFrames vs Datasets
+
+| Aspect | RDD | DataFrame | Dataset |
+|--------|-----|-----------|---------|
+| **What it is** | Immutable distributed collection | Structured table (like SQL) | Strongly-typed distributed collection |
+| **Schema** | Untyped | Has schema | Typed |
+| **Performance** | Slow (no optimization) | Fast (Catalyst optimizer) | Fast (optimization + type safety) |
+| **API** | map, filter, reduce | SQL-like (select, where, join) | Functional + SQL |
+| **Best for** | Unstructured data, prototyping | SQL queries, structured data | Production code (type safe) |
+| **Python support** | Full | Full | Scala/Java only |
+
+**Recommendation**: Use **DataFrames** for most cases. Better performance, easier SQL integration.
+
+### Spark Job Execution
+
+```
+1. Create RDD/DataFrame
+2. Apply transformations (lazy - not executed yet)
+   - map, filter, flatMap, join, groupBy
+3. Call action (triggers execution)
+   - collect(), count(), save(), show()
+4. Driver creates DAG (directed acyclic graph)
+5. Scheduler submits tasks to executors
+6. Results collected back to driver
+```
+
+**Example**:
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("example").getOrCreate()
+
+# Read data (lazy)
+df = spark.read.csv("data.csv", header=True)
+
+# Transformations (lazy - not executed)
+df_filtered = df.filter(df['age'] > 25)
+df_grouped = df_filtered.groupBy('country').count()
+
+# Action (executes all transformations)
+df_grouped.show()  # Only here does actual computation happen
+
+# Output:
+# +-------+-----+
+# |country|count|
+# +-------+-----+
+# |USA    |1000 |
+# |UK     |500  |
+# +-------+-----+
+```
+
+### Key Concepts
+
+**1. Partitions**
+- Data split across cluster
+- Each executor processes one partition
+- More partitions = more parallelism
+
+```python
+# Default: auto-partitioned based on data size
+df = spark.read.csv("1GB_file.csv")  # Maybe 16 partitions
+
+# Explicit repartitioning
+df_repartitioned = df.repartition(32)  # Now 32 partitions
+df_repartitioned.show()
+
+# Check partition count
+print(df.rdd.getNumPartitions())  # Output: 32
+```
+
+**2. Shuffle**
+- Moving data between executors (expensive!)
+- Happens on: groupBy, join, distinct
+
+```python
+# This causes shuffle (expensive)
+df.groupBy('country').count()
+# Data must move to same executor for same country
+
+# Minimize shuffles in real jobs
+```
+
+**3. Wide vs Narrow Transformations**
+```
+Narrow: One partition output depends on one input partition
+- map, filter, select
+- No data movement needed
+
+Wide: One partition output depends on multiple input partitions  
+- groupBy, join, shuffle
+- Data must move across network
+- Expensive!
+```
+
+**Example**:
+```python
+# Narrow (fast)
+df.filter(df['age'] > 25)  # Each partition filters independently
+
+# Wide (slow - shuffle)
+df.groupBy('country').count()  # Data from all partitions must move
+```
+
+### Performance Tuning
+
+**1. Partition size**
+```python
+# Too few partitions: underutilization
+df.repartition(2)  # Only 2 executors working, others idle
+
+# Too many partitions: overhead
+df.repartition(10000)  # Task creation overhead > benefit
+
+# Sweet spot: partition size 128MB
+# For 100GB file: 100GB / 128MB = ~800 partitions
+```
+
+**2. Memory management**
+```python
+# Driver memory: holds results
+spark = SparkSession.builder \
+    .config("spark.driver.memory", "8g") \
+    .appName("app") \
+    .getOrCreate()
+
+# Executor memory: processing
+spark.conf.set("spark.executor.memory", "16g")
+
+# Too much: GC pauses
+# Too little: OOM errors
+```
+
+**3. Cache hot data**
+```python
+# Without cache:
+df.groupBy('id').count().show()  # Recompute from source
+df.groupBy('id').sum('amount').show()  # Recompute again
+
+# With cache:
+df.cache()  # Store in memory after first use
+df.groupBy('id').count().show()  # Compute once, cache
+df.groupBy('id').sum('amount').show()  # Use cached version (fast!)
+```
+
+**4. Broadcast variables**
+```python
+# Scenario: Small lookup table needed on all executors
+lookup = {"US": "United States", "UK": "United Kingdom"}
+
+# Without broadcast: Sends to each partition (wasteful)
+# With broadcast: Send once to each executor
+
+broadcast_lookup = spark.broadcast(lookup)
+
+def enrich_country(code):
+    return broadcast_lookup.value.get(code, code)
+
+df.withColumn("country_name", enrich_country(df['country_code']))
+```
+
+### Common Patterns
+
+**1. ETL Pipeline**
+```python
+# Extract
+df = spark.read.parquet("s3://bucket/data/*.parquet")
+
+# Transform
+df_clean = df.dropna()
+df_clean = df_clean.filter(df_clean['amount'] > 0)
+df_clean = df_clean.withColumn('amount_usd', df['amount'] * 1.1)
+
+# Load
+df_clean.write.mode("overwrite").parquet("s3://bucket/output/")
+```
+
+**2. Streaming (micro-batches)**
+```python
+from pyspark.sql.functions import col, window
+
+# Read from Kafka
+df_stream = spark.readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "broker:9092") \
+    .option("subscribe", "events") \
+    .load()
+
+# Parse JSON
+events = df_stream.select(col("value").cast("string"))
+
+# 5-minute sliding window
+windowed = events.groupBy(window(col("timestamp"), "5 minutes")).count()
+
+# Write to console (for testing)
+query = windowed.writeStream \
+    .format("console") \
+    .option("checkpointLocation", "/tmp/checkpoint") \
+    .start()
+
+query.awaitTermination()
+```
+
+**3. Join operations**
+```python
+# Broadcast join (small table + large table)
+users = spark.read.csv("users.csv")  # 1GB
+events = spark.read.csv("events.csv")  # 100GB
+
+# Spark automatically broadcasts small table
+result = events.join(users, "user_id")  # Efficient
+
+# Explicit broadcast for control
+result = events.join(broadcast(users), "user_id")
+
+# Shuffle join (both large) - slow
+users2 = spark.read.csv("users2.csv")  # 50GB
+result = events.join(users2, "user_id")  # Shuffle happens
+```
+
+### Spark vs Hadoop Comparison
+
+| Aspect | Spark | Hadoop/MapReduce |
+|--------|-------|------------------|
+| **Speed** | 10-100x faster (in-memory) | Baseline (disk-based) |
+| **Learning curve** | Medium | Steep |
+| **Cost** | More memory needed | Cheaper (disk-heavy) |
+| **ML integration** | MLlib included | Separate (Mahout) |
+| **Streaming** | Spark Streaming | Not suitable |
+| **Iterative algorithms** | Fast (in-memory) | Slow (disk I/O between iterations) |
+
+---
+
+## Deep Dive: Apache Flink
+
+### What is Flink?
+
+**Definition**: Unified stream processing framework that handles both streams and batches with low latency and exactly-once semantics.
+
+**Key difference from Spark Streaming**:
+```
+Spark Streaming (micro-batches):
+  Events arrive → Batch 1 (0-1s) → Process → Results
+               → Batch 2 (1-2s) → Process → Results
+  Minimum latency: 500ms (batch duration)
+
+Flink (true streaming):
+  Event 1 → Process immediately → Results (< 100ms)
+  Event 2 → Process immediately → Results (< 100ms)
+  Minimum latency: 1-10ms (event at a time)
+```
+
+### Architecture
+
+```
+Source Operators (Kafka, Files, Sockets)
+        ↓
+DataStream API (transformations)
+        ↓
+Sink Operators (HDFS, Kafka, DB)
+```
+
+**Execution Model**: Directed Acyclic Graph (DAG)
+- Each node is an operator
+- Each edge is a data flow
+- Operators process in parallel
+
+### DataStream API
+
+**Basic Structure**:
+```python
+from pyspark.streaming import StreamingContext
+from pyspark.sql import SparkSession
+
+# For Flink, use different imports
+env = StreamExecutionEnvironment.get_execution_environment()
+
+# Source
+data_stream = env.add_source(KafkaSource(...))
+
+# Transformations
+processed = data_stream.map(lambda x: x * 2) \
+                       .filter(lambda x: x > 100)
+
+# Sink
+processed.add_sink(KafkaSink(...))
+
+# Execute
+env.execute("Job Name")
+```
+
+### Key Concepts
+
+**1. Windowing**
+- Divide infinite stream into finite buckets
+- Process each window separately
+
+```python
+from flink.datastream.window import TumblingEventTimeWindows
+from flink.datastream.functions import AggregateFunction
+import time
+
+# Window types
+# Tumbling: Fixed size, no overlap
+# [0-60s] [60-120s] [120-180s]
+windowed = stream.window(TumblingEventTimeWindows.of(Time.seconds(60)))
+
+# Sliding: Overlap
+# [0-60s] [30-90s] [60-120s]
+windowed = stream.window(SlidingEventTimeWindows.of(
+    Time.seconds(120),  # window size
+    Time.seconds(30)    # slide by
+))
+
+# Session: Triggered by inactivity
+# [events] <gap> [events] <gap> [events]
+windowed = stream.window(SessionWindow(Time.minutes(5)))
+```
+
+**2. State Management**
+- Remember information across events
+- Example: Running total, max in window
+
+```python
+from flink.datastream.state import MapState, AggregateFunction
+
+class CountingFunction(AggregateFunction):
+    def create_accumulator(self):
+        return 0  # Start state
+    
+    def add(self, value, accumulator):
+        return accumulator + value  # Update state
+    
+    def get_result(self, accumulator):
+        return accumulator  # Return state
+    
+    def merge(self, a, b):
+        return a + b  # Merge two states
+
+# Use in window
+stream.keyBy(lambda x: x['user_id']) \
+      .window(TumblingEventTimeWindows.of(Time.minutes(5))) \
+      .aggregate(CountingFunction())
+```
+
+**3. Exactly-Once Semantics**
+- Guarantee: Each event processed exactly once
+- No duplicates, no loss
+
+```
+Without exactly-once:
+  Kafka → Flink (process) → DB
+  System crashes after processing, before DB write
+  Result: Event lost
+
+  Flink → DB → Crash
+  Event already in DB, but retry sends again
+  Result: Duplicate
+
+With exactly-once:
+  Flink checkpoints state
+  On restart, resume from checkpoint
+  No duplicates, no loss
+```
+
+**Implementation**:
+```python
+env = StreamExecutionEnvironment.get_execution_environment()
+
+# Enable checkpointing (exactly-once)
+env.enable_checkpointing(60000)  # Checkpoint every 60s
+env.get_checkpoint_config() \
+    .set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+
+# Idempotent sink required for exactly-once
+stream.add_sink(IdempotentKafkaSink(...))
+```
+
+### Common Patterns
+
+**1. Real-time Fraud Detection**
+```python
+class FraudDetectionFunction(KeyedProcessFunction):
+    def open(self, runtime_context):
+        # State: last seen timestamp, count
+        self.timer_state = runtime_context.get_state(...)
+    
+    def process_element(self, value, ctx):
+        user_id = value['user_id']
+        amount = value['amount']
+        
+        # Check rules
+        if amount > 10000:
+            yield ('fraud', value)
+        elif amount > 5000:
+            # Ask for 2FA
+            yield ('verify', value)
+        else:
+            yield ('allow', value)
+
+# Apply
+stream.keyBy(lambda x: x['user_id']) \
+      .process(FraudDetectionFunction())
+```
+
+**2. Aggregation with Session Windows**
+```python
+# Example: User session analytics
+# Session ends after 5 minutes of inactivity
+
+stream.keyBy(lambda x: x['user_id']) \
+      .window(SessionWindow(Time.minutes(5))) \
+      .apply(lambda session_events: {
+          'user_id': session_events[0]['user_id'],
+          'session_duration': len(session_events),
+          'total_actions': len(session_events),
+          'total_revenue': sum(e['amount'] for e in session_events)
+      })
+```
+
+**3. Stream-to-Batch Join**
+```python
+# Stream: User clicks
+# Batch: Product catalog (side input)
+
+from flink.datastream.functions import CoFlatMapFunction
+
+class EnrichedClicksFunction(CoFlatMapFunction):
+    def flat_map1(self, value):
+        # Stream processing (clicks)
+        yield value
+    
+    def flat_map2(self, value):
+        # Side input (catalog updates)
+        # Cache/update product info
+        cache[value['product_id']] = value
+
+# Implement enrichment
+clicks.connect(catalog) \
+      .flat_map(EnrichedClicksFunction())
+```
+
+### Flink vs Spark Streaming
+
+| Aspect | Flink | Spark Streaming |
+|--------|-------|-----------------|
+| **Latency** | < 100ms (true streaming) | 500ms-1s (micro-batches) |
+| **Semantics** | Exactly-once | At-least-once (configurable) |
+| **Complexity** | Higher (state mgmt) | Lower (simpler API) |
+| **Maturity** | Growing | Very mature |
+| **Ecosystem** | Smaller | Large (Spark ML, SQL) |
+| **Memory** | Lower | Higher |
+| **Scaling** | Excellent | Good |
+| **Learning curve** | Steep | Moderate |
+
+### When to Use Flink
+
+✅ **Use Flink when:**
+- Need < 100ms latency
+- Complex state management required
+- Exactly-once semantics critical
+- Processing complex event streams
+- Can handle operational complexity
+
+❌ **Use Spark Streaming when:**
+- 500ms latency acceptable
+- Simpler code preferred
+- Integration with batch jobs needed
+- Team already knows Spark
+- Lower operational overhead
+
+### Flink Deployment
+
+**Standalone Mode**:
+```bash
+# Start cluster
+./bin/start-cluster.sh
+
+# Run job
+./bin/flink run -d -c MyJob MyJob.jar
+
+# Monitor
+http://localhost:8081 (web UI)
+```
+
+**Kubernetes**:
+```yaml
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: fraud-detection
+spec:
+  image: flink:latest
+  flinkVersion: v1_18
+  replicas: 3
+  taskManager:
+    replicas: 5
+  jarSpec:
+    jarURI: s3://bucket/fraud-detection.jar
+  entrypoint: com.example.FraudDetectionJob
+```
+
+---
+
+### Spark vs Flink: Decision Matrix
+
+```
+Need real-time analytics? 
+├─ YES, < 100ms latency → Flink ✓
+├─ YES, 500ms-1s OK → Spark Streaming ✓
+└─ NO, batch jobs → Spark ✓
+
+Exactly-once semantics critical?
+├─ YES → Flink ✓
+└─ NO → Spark Streaming ✓
+
+Complex state management?
+├─ YES → Flink ✓
+└─ NO → Spark ✓
+
+Need unified batch+stream?
+├─ YES → Spark (but not true streaming) ✓
+└─ YES (pure stream) → Flink ✓
+
+Team expertise?
+├─ Spark → Spark ✓
+├─ Kafka → Kafka Streams or Flink ✓
+└─ New → Start with Spark, migrate if needed
+```
+
+### Real-World Examples
+
+**Netflix (Spark)**
+- Personalization pipeline
+- Offline training with Spark
+- Real-time serving (not Spark Streaming)
+- Reason: Batch retraining daily, serve pre-computed
+
+**Uber (Flink)**
+- Real-time geospatial processing
+- Driver matching (< 100ms requirement)
+- Exactly-once semantics important
+- Handles millions of events/sec
+
+**LinkedIn (Kafka + Flink)**
+- Click stream analytics
+- LinkedIn's own Kafka
+- Flink for real-time processing
+- Serves analytics dashboard
+
+---
+
 ## Workflow Orchestration Tools (Airflow & Alternatives)
 
 ### Apache Airflow vs Alternatives

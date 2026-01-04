@@ -80,6 +80,95 @@ function markdownToHtml(markdown) {
   return html;
 }
 
+// Generate SVG preview from Excalidraw JSON
+function generateExcalidrawSvgPreview(data) {
+  if (!data.elements || data.elements.length === 0) {
+    return '<p style="color: #999;">No elements in diagram</p>';
+  }
+
+  // Calculate bounds of all elements
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  
+  data.elements.forEach(element => {
+    if (element.x !== undefined && element.y !== undefined) {
+      minX = Math.min(minX, element.x);
+      minY = Math.min(minY, element.y);
+      const width = element.width || 100;
+      const height = element.height || 100;
+      maxX = Math.max(maxX, element.x + width);
+      maxY = Math.max(maxY, element.y + height);
+    }
+  });
+
+  // Add padding
+  const padding = 20;
+  minX -= padding;
+  minY -= padding;
+  maxX += padding;
+  maxY += padding;
+
+  const width = maxX - minX || 800;
+  const height = maxY - minY || 600;
+
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" style="border: 1px solid #ddd; border-radius: 4px; background: white;">';
+
+  // Draw elements
+  data.elements.forEach(element => {
+    const x = element.x || 0;
+    const y = element.y || 0;
+    const w = element.width || 100;
+    const h = element.height || 100;
+
+    const fill = element.backgroundColor || '#ffffff';
+    const stroke = element.strokeColor || '#000000';
+    const strokeWidth = element.strokeWidth === 'bold' ? 2 : element.strokeWidth === 'extra-bold' ? 3 : 1;
+
+    if (element.type === 'rectangle') {
+      svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" rx="' + (element.roundness ? 4 : 0) + '"/>';
+    } else if (element.type === 'diamond') {
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      svg += '<path d="M ' + cx + ' ' + y + ' L ' + (x + w) + ' ' + cy + ' L ' + cx + ' ' + (y + h) + ' L ' + x + ' ' + cy + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
+    } else if (element.type === 'ellipse') {
+      svg += '<ellipse cx="' + (x + w / 2) + '" cy="' + (y + h / 2) + '" rx="' + (w / 2) + '" ry="' + (h / 2) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
+    } else if (element.type === 'line') {
+      svg += '<line x1="' + x + '" y1="' + y + '" x2="' + (x + w) + '" y2="' + (y + h) + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
+    } else if (element.type === 'arrow') {
+      const endX = x + w;
+      const endY = y + h;
+      svg += '<defs><marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="' + stroke + '" /></marker></defs>';
+      svg += '<line x1="' + x + '" y1="' + y + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" marker-end="url(#arrowhead)"/>';
+    } else if (element.type === 'text') {
+      const fontSize = element.fontSize || 16;
+      svg += '<text x="' + (x + 5) + '" y="' + (y + fontSize) + '" font-size="' + fontSize + '" fill="' + stroke + '">' + (element.text || '') + '</text>';
+    }
+  });
+
+  // Draw connectors/arrows between elements
+  if (data.elements) {
+    data.elements.forEach(element => {
+      if (element.type === 'arrow' || element.type === 'line') {
+        const startX = element.x || 0;
+        const startY = element.y || 0;
+        const endX = (element.x || 0) + (element.width || 0);
+        const endY = (element.y || 0) + (element.height || 0);
+        const stroke = element.strokeColor || '#666666';
+        const strokeWidth = element.strokeWidth === 'bold' ? 2 : 1;
+        
+        if (element.type === 'arrow') {
+          svg += '<defs><marker id="arrowhead-connector" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="' + stroke + '" /></marker></defs>';
+          svg += '<line x1="' + startX + '" y1="' + startY + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" marker-end="url(#arrowhead-connector)"/>';
+        } else {
+          svg += '<line x1="' + startX + '" y1="' + startY + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
+        }
+      }
+    });
+  }
+
+  svg += '</svg>';
+  return svg;
+}
+
 // Helper function to recursively get all files
 function getAllFiles(dir, fileList = []) {
   const files = fs.readdirSync(dir);
@@ -335,17 +424,61 @@ li {
   border: 1px solid #e0e0e0;
 }
 
-.diagram-content {
+.diagram-preview {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 6px;
+  margin-bottom: 2rem;
+  text-align: center;
+  border: 1px solid #e0e0e0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.diagram-preview svg {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}
+
+.diagram-json {
   background: white;
   padding: 1rem;
   border-radius: 4px;
-  max-height: 600px;
+  max-height: 400px;
   overflow-y: auto;
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
   color: #666;
   white-space: pre-wrap;
   word-break: break-all;
+  border: 1px solid #ddd;
+}
+
+.diagram-info {
+  background: #e3f2fd;
+  padding: 1rem;
+  border-left: 4px solid #667eea;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+}
+
+details {
+  margin: 1rem 0;
+}
+
+summary {
+  cursor: pointer;
+  padding: 0.75rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #667eea;
+  user-select: none;
+}
+
+summary:hover {
+  background: #efefef;
 }
 
 footer {
@@ -480,21 +613,29 @@ excalidrawFiles.forEach(filePath => {
     const content = fs.readFileSync(filePath, 'utf8');
     const data = JSON.parse(content);
     
-    // Extract basic info
+    // Generate SVG preview
+    const svgPreview = generateExcalidrawSvgPreview(data);
+    
     let diagramInfo = '<div class="diagram-container">';
-    diagramInfo += '<h2>📊 Diagram: ' + filename + '</h2>';
-    diagramInfo += '<p><strong>File:</strong> ' + filePath + '</p>';
     
-    if (data.metadata) {
-      diagramInfo += '<p><strong>Elements:</strong> ' + (data.elements ? data.elements.length : 0) + '</p>';
-    }
+    // Add info box
+    diagramInfo += '<div class="diagram-info">';
+    diagramInfo += '<strong>📊 Diagram:</strong> ' + filename + '<br/>';
+    diagramInfo += '<strong>Elements:</strong> ' + (data.elements ? data.elements.length : 0) + '<br/>';
+    diagramInfo += '<strong>Action:</strong> <a href="https://excalidraw.com" target="_blank">Open in Excalidraw Editor →</a>';
+    diagramInfo += '</div>';
     
-    diagramInfo += '<div style="margin-top: 1.5rem;">';
-    diagramInfo += '<h3>Diagram Structure (JSON)</h3>';
-    diagramInfo += '<div class="diagram-content">' + JSON.stringify(data, null, 2) + '</div>';
+    // Add SVG preview
+    diagramInfo += '<h3>Visual Preview</h3>';
+    diagramInfo += '<div class="diagram-preview">' + svgPreview + '</div>';
+    
+    // Add JSON data below
+    diagramInfo += '<h3>Diagram Data</h3>';
+    diagramInfo += '<details><summary>📄 Show JSON Data</summary>';
+    diagramInfo += '<div class="diagram-json">' + JSON.stringify(data, null, 2) + '</div>';
+    diagramInfo += '</details>';
+    
     diagramInfo += '</div>';
-    diagramInfo += '</div>';
-    diagramInfo += '<p style="margin-top: 1rem;"><em>Note: To view and edit this diagram interactively, please visit the <a href="https://excalidraw.com" target="_blank">Excalidraw editor</a> or open the file in VS Code with the Excalidraw extension.</em></p>';
     
     const fullHtml = generatePageTemplate(filename, diagramInfo);
     
@@ -516,7 +657,7 @@ const indexContent = `
     <li>Browse the navigation menu on the left to explore study notes and diagrams</li>
     <li>Click on any file to view its content directly</li>
     <li>Markdown files are rendered as readable HTML pages</li>
-    <li>Excalidraw diagrams are displayed as structured data with JSON preview</li>
+    <li>Excalidraw diagrams are displayed as visual previews with structured data</li>
   </ul>
 </div>
 
@@ -555,7 +696,8 @@ const indexContent = `
   <h3 style="margin-top: 0;">💡 Tips</h3>
   <ul>
     <li>Use the search function (Ctrl/Cmd+F) to find topics across all pages</li>
-    <li>Diagrams show their structure as JSON - use the Excalidraw editor or VS Code extension for visual editing</li>
+    <li>Diagrams show visual preview with expandable JSON data</li>
+    <li>Click "Open in Excalidraw Editor" to edit diagrams interactively</li>
     <li>All content is automatically organized by folder</li>
     <li>Pages update automatically when changes are pushed to the repository</li>
   </ul>

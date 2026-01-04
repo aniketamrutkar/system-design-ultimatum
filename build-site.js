@@ -80,90 +80,87 @@ function markdownToHtml(markdown) {
   return html;
 }
 
-// Generate SVG preview from Excalidraw JSON
+// Generate better SVG preview from Excalidraw JSON
 function generateExcalidrawSvgPreview(data) {
   if (!data.elements || data.elements.length === 0) {
-    return '<p style="color: #999;">No elements in diagram</p>';
+    return '<p style="color: #999; text-align: center;">No elements in diagram</p>';
   }
 
-  // Calculate bounds of all elements
+  // Filter out non-drawable elements and calculate bounds
+  const drawableElements = data.elements.filter(el => el.type && el.x !== undefined && el.y !== undefined);
+  
+  if (drawableElements.length === 0) {
+    return '<p style="color: #999; text-align: center;">No drawable elements</p>';
+  }
+
+  // Calculate bounds more carefully
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   
-  data.elements.forEach(element => {
-    if (element.x !== undefined && element.y !== undefined) {
-      minX = Math.min(minX, element.x);
-      minY = Math.min(minY, element.y);
-      const width = element.width || 100;
-      const height = element.height || 100;
-      maxX = Math.max(maxX, element.x + width);
-      maxY = Math.max(maxY, element.y + height);
-    }
-  });
-
-  // Add padding
-  const padding = 20;
-  minX -= padding;
-  minY -= padding;
-  maxX += padding;
-  maxY += padding;
-
-  const width = maxX - minX || 800;
-  const height = maxY - minY || 600;
-
-  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" style="border: 1px solid #ddd; border-radius: 4px; background: white;">';
-
-  // Draw elements
-  data.elements.forEach(element => {
+  drawableElements.forEach(element => {
     const x = element.x || 0;
     const y = element.y || 0;
     const w = element.width || 100;
     const h = element.height || 100;
-
-    const fill = element.backgroundColor || '#ffffff';
-    const stroke = element.strokeColor || '#000000';
-    const strokeWidth = element.strokeWidth === 'bold' ? 2 : element.strokeWidth === 'extra-bold' ? 3 : 1;
-
-    if (element.type === 'rectangle') {
-      svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" rx="' + (element.roundness ? 4 : 0) + '"/>';
-    } else if (element.type === 'diamond') {
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-      svg += '<path d="M ' + cx + ' ' + y + ' L ' + (x + w) + ' ' + cy + ' L ' + cx + ' ' + (y + h) + ' L ' + x + ' ' + cy + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
-    } else if (element.type === 'ellipse') {
-      svg += '<ellipse cx="' + (x + w / 2) + '" cy="' + (y + h / 2) + '" rx="' + (w / 2) + '" ry="' + (h / 2) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
-    } else if (element.type === 'line') {
-      svg += '<line x1="' + x + '" y1="' + y + '" x2="' + (x + w) + '" y2="' + (y + h) + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
-    } else if (element.type === 'arrow') {
-      const endX = x + w;
-      const endY = y + h;
-      svg += '<defs><marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="' + stroke + '" /></marker></defs>';
-      svg += '<line x1="' + x + '" y1="' + y + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" marker-end="url(#arrowhead)"/>';
-    } else if (element.type === 'text') {
-      const fontSize = element.fontSize || 16;
-      svg += '<text x="' + (x + 5) + '" y="' + (y + fontSize) + '" font-size="' + fontSize + '" fill="' + stroke + '">' + (element.text || '') + '</text>';
-    }
+    
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
   });
 
-  // Draw connectors/arrows between elements
-  if (data.elements) {
-    data.elements.forEach(element => {
-      if (element.type === 'arrow' || element.type === 'line') {
-        const startX = element.x || 0;
-        const startY = element.y || 0;
-        const endX = (element.x || 0) + (element.width || 0);
-        const endY = (element.y || 0) + (element.height || 0);
-        const stroke = element.strokeColor || '#666666';
-        const strokeWidth = element.strokeWidth === 'bold' ? 2 : 1;
-        
-        if (element.type === 'arrow') {
-          svg += '<defs><marker id="arrowhead-connector" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="' + stroke + '" /></marker></defs>';
-          svg += '<line x1="' + startX + '" y1="' + startY + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" marker-end="url(#arrowhead-connector)"/>';
-        } else {
-          svg += '<line x1="' + startX + '" y1="' + startY + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
-        }
+  // Add reasonable padding
+  const padding = 40;
+  minX = Math.max(-10000, minX - padding);
+  minY = Math.max(-10000, minY - padding);
+  maxX = Math.min(10000, maxX + padding);
+  maxY = Math.min(10000, maxY + padding);
+
+  const width = Math.min(maxX - minX, 2000) || 800;
+  const height = Math.min(maxY - minY, 1500) || 600;
+  const scale = Math.min(1, Math.min(2000 / (maxX - minX), 1500 / (maxY - minY)));
+
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.round(width) + '" height="' + Math.round(height) + '" viewBox="' + Math.round(minX) + ' ' + Math.round(minY) + ' ' + Math.round(width / scale) + ' ' + Math.round(height / scale) + '" style="border: 1px solid #ddd; border-radius: 4px; background: white; display: block; margin: 0 auto;">';
+  
+  // Define arrowhead marker
+  svg += '<defs><marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="#666" /></marker></defs>';
+
+  // Draw elements
+  drawableElements.forEach(element => {
+    try {
+      const x = element.x || 0;
+      const y = element.y || 0;
+      const w = element.width || 100;
+      const h = element.height || 100;
+      const fill = element.backgroundColor || '#ffffff';
+      const stroke = element.strokeColor || '#000000';
+      const strokeWidth = element.strokeWidth === 'bold' ? 2 : element.strokeWidth === 'extra-bold' ? 3 : 1;
+
+      if (element.type === 'rectangle') {
+        const radius = element.roundness ? 8 : 0;
+        svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" rx="' + radius + '"/>';
+      } 
+      else if (element.type === 'diamond') {
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        svg += '<path d="M ' + cx + ' ' + y + ' L ' + (x + w) + ' ' + cy + ' L ' + cx + ' ' + (y + h) + ' L ' + x + ' ' + cy + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
+      } 
+      else if (element.type === 'ellipse') {
+        svg += '<ellipse cx="' + (x + w / 2) + '" cy="' + (y + h / 2) + '" rx="' + (w / 2) + '" ry="' + (h / 2) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
+      } 
+      else if (element.type === 'line' || element.type === 'arrow') {
+        const endX = x + w;
+        const endY = y + h;
+        svg += '<line x1="' + x + '" y1="' + y + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" marker-end="' + (element.type === 'arrow' ? 'url(#arrowhead)' : '') + '"/>';
       }
-    });
-  }
+      else if (element.type === 'text') {
+        const fontSize = Math.min(element.fontSize || 16, 24);
+        const textContent = (element.text || '').substring(0, 50);
+        svg += '<text x="' + (x + 5) + '" y="' + (y + fontSize + 2) + '" font-size="' + fontSize + '" fill="' + stroke + '" font-family="Arial, sans-serif">' + textContent + '</text>';
+      }
+    } catch (e) {
+      // Skip problematic elements
+    }
+  });
 
   svg += '</svg>';
   return svg;
@@ -431,14 +428,14 @@ li {
   margin-bottom: 2rem;
   text-align: center;
   border: 1px solid #e0e0e0;
-  max-width: 100%;
   overflow-x: auto;
 }
 
 .diagram-preview svg {
   max-width: 100%;
   height: auto;
-  display: inline-block;
+  display: block;
+  margin: 0 auto;
 }
 
 .diagram-json {
@@ -632,7 +629,7 @@ excalidrawFiles.forEach(filePath => {
     // Add JSON data below
     diagramInfo += '<h3>Diagram Data</h3>';
     diagramInfo += '<details><summary>📄 Show JSON Data</summary>';
-    diagramInfo += '<div class="diagram-json">' + JSON.stringify(data, null, 2) + '</div>';
+    diagramInfo += '<div class="diagram-json">' + JSON.stringify(data, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
     diagramInfo += '</details>';
     
     diagramInfo += '</div>';

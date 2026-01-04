@@ -3,6 +3,19 @@
 const fs = require('fs');
 const path = require('path');
 
+const escapeHtml = (str = '') =>
+  String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const toHtmlFileName = (filePath, ext) =>
+  filePath.replace(/^\.\//, '').replace(/\//g, '_').replace(ext, '.html');
+
+const safeHref = (fileName) => escapeHtml(encodeURI(fileName));
+
 // Create docs directory
 const docsDir = './docs';
 if (!fs.existsSync(docsDir)) {
@@ -11,9 +24,6 @@ if (!fs.existsSync(docsDir)) {
 
 // Lightweight markdown to HTML converter optimized for Notes
 function markdownToHtml(markdown) {
-  const escapeHtml = (str = '') =>
-    str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
   const applyInline = (text = '') => {
     let t = escapeHtml(text);
     t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" loading="lazy" />');
@@ -924,27 +934,40 @@ function generateNav() {
 
   function renderFolder(node, depth = 0) {
     let html = '';
-    const childNames = Array.from(node.children.keys()).sort();
+    const childNames = Array.from(node.children.keys()).sort((a, b) => a.localeCompare(b));
 
     childNames.forEach(name => {
       const child = node.children.get(name);
       const hasContent = child.files.markdown.length + child.files.excalidraw.length + child.children.size > 0;
       if (!hasContent) return;
 
-      html += '<details class="nav-folder"' + (depth === 0 ? ' open' : '') + '>';
-      html += '<summary class="nav-folder-title">' + name + '</summary>';
+      const indentPx = depth * 12;
+      html += '<details class="nav-folder" data-depth="' + depth + '" style="margin-left:' + indentPx + 'px">';
+      html += '<summary class="nav-folder-title">' + escapeHtml(name) + '</summary>';
       html += '<div class="nav-folder-body">';
 
-      child.files.markdown.forEach(f => {
+      // Sort markdown files by name
+      const sortedMarkdown = child.files.markdown.slice().sort((a, b) => 
+        path.basename(a, '.md').localeCompare(path.basename(b, '.md'))
+      );
+      
+      sortedMarkdown.forEach(f => {
         const itemName = path.basename(f, '.md');
-        const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
-        html += '<a href="' + htmlFile + '" class="nav-item">📄 ' + itemName + '</a>';
+        const htmlFile = toHtmlFileName(f, '.md');
+        const itemIndent = indentPx + 12;
+        html += '<a href="' + safeHref(htmlFile) + '" class="nav-item" style="padding-left:' + (16 + itemIndent / 8) + 'px">📄 ' + escapeHtml(itemName) + '</a>';
       });
 
-      child.files.excalidraw.forEach(f => {
+      // Sort excalidraw files by name
+      const sortedExcalidraw = child.files.excalidraw.slice().sort((a, b) => 
+        path.basename(a, '.excalidraw').localeCompare(path.basename(b, '.excalidraw'))
+      );
+      
+      sortedExcalidraw.forEach(f => {
         const itemName = path.basename(f, '.excalidraw');
-        const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
-        html += '<a href="' + htmlFile + '" class="nav-item">📊 ' + itemName + '</a>';
+        const htmlFile = toHtmlFileName(f, '.excalidraw');
+        const itemIndent = indentPx + 12;
+        html += '<a href="' + safeHref(htmlFile) + '" class="nav-item" style="padding-left:' + (16 + itemIndent / 8) + 'px">📊 ' + escapeHtml(itemName) + '</a>';
       });
 
       html += renderFolder(child, depth + 1);
@@ -954,7 +977,7 @@ function generateNav() {
     return html;
   }
 
-  let nav = '<nav class="sidebar"><div class="nav-header"><a href="index.html">🏠 Home</a></div><div class="nav-content">';
+  let nav = '<nav class="sidebar"><div class="nav-header"><a href="' + safeHref('index.html') + '">🏠 System Design</a></div><div class="nav-content">';
   nav += renderFolder(tree, 0);
   nav += '</div></nav>';
   return nav;
@@ -962,12 +985,13 @@ function generateNav() {
 
 // Generate base page template
 function generatePageTemplate(title, content) {
+  const safeTitle = escapeHtml(title);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title} - System Design Ultimatum</title>
+    <title>${safeTitle} - System Design Ultimatum</title>
     <style>
 ${globalStyles}
     </style>
@@ -976,7 +1000,7 @@ ${globalStyles}
 ${generateNav()}
     <div class="main-content">
         <header>
-            <h1>${title}</h1>
+            <h1>${safeTitle}</h1>
         </header>
         <div class="container content-page">
 ${content}
@@ -994,7 +1018,7 @@ ${content}
 markdownFiles.forEach(filePath => {
   const filename = path.basename(filePath, '.md');
   const directory = path.dirname(filePath).replace(/^\.\//, '');
-  const htmlFileName = filePath.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
+  const htmlFileName = toHtmlFileName(filePath, '.md');
   
   try {
     const content = fs.readFileSync(filePath, 'utf8');
@@ -1011,8 +1035,10 @@ markdownFiles.forEach(filePath => {
 // Generate excalidraw files
 excalidrawFiles.forEach(filePath => {
   const filename = path.basename(filePath, '.excalidraw');
-  const htmlFileName = filePath.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
+  const htmlFileName = toHtmlFileName(filePath, '.excalidraw');
   const svgFileName = htmlFileName.replace('.html', '.svg');
+  const safeFileName = escapeHtml(filename);
+  const safeSvgHref = safeHref(svgFileName);
   
   try {
     const content = fs.readFileSync(filePath, 'utf8');
@@ -1028,7 +1054,7 @@ excalidrawFiles.forEach(filePath => {
     
     // Add info box
     diagramInfo += '<div class="diagram-info">';
-    diagramInfo += '<strong>📊 Diagram:</strong> ' + filename + '<br/>';
+    diagramInfo += '<strong>📊 Diagram:</strong> ' + safeFileName + '<br/>';
     diagramInfo += '<strong>Elements:</strong> ' + (data.elements ? data.elements.length : 0) + '<br/>';
     diagramInfo += '<strong>Action:</strong> <a href="https://excalidraw.com" target="_blank">Open in Excalidraw Editor →</a>';
     diagramInfo += '</div>';
@@ -1036,8 +1062,8 @@ excalidrawFiles.forEach(filePath => {
     // Add SVG preview
     diagramInfo += '<h3>Visual Preview</h3>';
     if (svgResult.hasElements) {
-      diagramInfo += '<div class="diagram-preview"><img src="' + svgFileName + '" alt="' + filename + ' diagram" loading="lazy"/></div>';
-      diagramInfo += '<p style="margin: 0 0 1.5rem;"><a href="' + svgFileName + '" download>⬇️ Download SVG</a></p>';
+      diagramInfo += '<div class="diagram-preview"><img src="' + safeSvgHref + '" alt="' + safeFileName + ' diagram" loading="lazy"/></div>';
+      diagramInfo += '<p style="margin: 0 0 1.5rem;"><a href="' + safeSvgHref + '" download>⬇️ Download SVG</a></p>';
     } else {
       diagramInfo += '<div class="diagram-preview">' + svgResult.svg + '</div>';
     }
@@ -1083,21 +1109,29 @@ const indexContent = `
 
 <div style="margin-top: 2rem; padding: 1.5rem; background: #f9f9f9; border-radius: 8px;">
   <h3>🔍 Quick Links by Category</h3>
-  ${Object.keys(filesByFolder).sort().map(folder => {
+  ${Object.keys(filesByFolder).sort((a, b) => a.localeCompare(b)).map(folder => {
     const { markdown, excalidraw } = filesByFolder[folder];
     const folderName = folder || 'Root';
-    let html = '<div style="margin-bottom: 1.5rem;"><strong>' + folderName + '</strong><br/>';
+    let html = '<div style="margin-bottom: 1.5rem;"><strong>' + escapeHtml(folderName) + '</strong><br/>';
     
-    markdown.forEach(f => {
+    // Sort markdown files
+    const sortedMarkdown = markdown.slice().sort((a, b) => 
+      path.basename(a, '.md').localeCompare(path.basename(b, '.md'))
+    );
+    sortedMarkdown.forEach(f => {
       const name = path.basename(f, '.md');
-      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
-      html += '<a href="' + htmlFile + '">📄 ' + name + '</a><br/>';
+      const htmlFile = toHtmlFileName(f, '.md');
+      html += '<a href="' + safeHref(htmlFile) + '">📄 ' + escapeHtml(name) + '</a><br/>';
     });
     
-    excalidraw.forEach(f => {
+    // Sort excalidraw files
+    const sortedExcalidraw = excalidraw.slice().sort((a, b) => 
+      path.basename(a, '.excalidraw').localeCompare(path.basename(b, '.excalidraw'))
+    );
+    sortedExcalidraw.forEach(f => {
       const name = path.basename(f, '.excalidraw');
-      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
-      html += '<a href="' + htmlFile + '">📊 ' + name + '</a><br/>';
+      const htmlFile = toHtmlFileName(f, '.excalidraw');
+      html += '<a href="' + safeHref(htmlFile) + '">📊 ' + escapeHtml(name) + '</a><br/>';
     });
     
     html += '</div>';

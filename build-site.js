@@ -80,90 +80,280 @@ function markdownToHtml(markdown) {
   return html;
 }
 
-// Generate better SVG preview from Excalidraw JSON
-function generateExcalidrawSvgPreview(data) {
-  if (!data.elements || data.elements.length === 0) {
-    return '<p style="color: #999; text-align: center;">No elements in diagram</p>';
+// Generate SVG preview + standalone SVG export from Excalidraw JSON
+function generateExcalidrawSvgPreview(data, name = 'Diagram') {
+  const elements = (data.elements || []).filter(el => el && !el.isDeleted);
+  if (elements.length === 0) {
+    return { svg: '<p style="color: #999; text-align: center;">No elements in diagram</p>', hasElements: false };
   }
 
-  // Filter out non-drawable elements and calculate bounds
-  const drawableElements = data.elements.filter(el => el.type && el.x !== undefined && el.y !== undefined);
-  
-  if (drawableElements.length === 0) {
-    return '<p style="color: #999; text-align: center;">No drawable elements</p>';
+  const background = data.appState?.viewBackgroundColor || '#ffffff';
+  const patternCache = new Map();
+  const defs = [];
+
+  const clamp = (val, fallback = 0) => (Number.isFinite(val) ? val : fallback);
+
+  const rotatePoint = (px, py, cx, cy, angle) => {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return [
+      cx + (px - cx) * cos - (py - cy) * sin,
+      cy + (px - cx) * sin + (py - cy) * cos,
+    ];
+  };
+
+  const getRoundness = (element) => {
+    if (!element.roundness) return 0;
+    if (typeof element.roundness === 'number') return element.roundness;
+    return clamp(element.roundness.value, 0);
+  };
+
+  const escapeText = (text = '') =>
+    text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const getStrokeDasharray = (style, strokeWidth) => {
+    if (style === 'dashed') return `${strokeWidth * 4} ${strokeWidth * 3}`;
+    if (style === 'dotted') return `${strokeWidth} ${strokeWidth * 2.5}`;
+    return '';
+  };
+
+  const ensurePattern = (fillStyle, strokeColor, backgroundColor) => {
+    const key = `${fillStyle}-${strokeColor}-${backgroundColor}`;
+    if (patternCache.has(key)) {
+      return patternCache.get(key);
+    }
+
+    const id = `pattern-${patternCache.size + 1}`;
+    let pattern = `<pattern id="${id}" patternUnits="userSpaceOnUse" width="8" height="8">`;
+    pattern += `<rect width="8" height="8" fill="${backgroundColor}"/>`;
+
+    if (fillStyle === 'hachure') {
+      pattern += `<path d="M0 8 L8 0" stroke="${strokeColor}" stroke-width="1" />`;
+    } else {
+      pattern += `<path d="M0 8 L8 0" stroke="${strokeColor}" stroke-width="1" />`;
+      pattern += `<path d="M0 0 L8 8" stroke="${strokeColor}" stroke-width="1" />`;
+    }
+
+    pattern += '</pattern>';
+    patternCache.set(key, id);
+    defs.push(pattern);
+    return id;
+  };
+
+  const getFill = (element) => {
+    const bg = element.backgroundColor || 'transparent';
+    if (bg === 'transparent' || element.type === 'line' || element.type === 'arrow') return 'none';
+
+    if (element.fillStyle === 'hachure' || element.fillStyle === 'cross-hatch') {
+      const patternId = ensurePattern(element.fillStyle, element.strokeColor || '#000000', bg);
+      return `url(#${patternId})`;
+    }
+
+    return bg;
+  };
+
+  const fontFamilyMap = {
+    1: 'Virgil, Segoe UI, sans-serif',
+    2: 'Helvetica Neue, Arial, sans-serif',
+    3: 'Cascadia Code, SFMono-Regular, Consolas, monospace',
+    4: 'Assistant, Arial, sans-serif',
+    5: 'Inter, Helvetica Neue, Arial, sans-serif',
+  };
+
+  const getElementBounds = (element) => {
+    const angle = clamp(element.angle, 0);
+    if (element.type === 'arrow' || element.type === 'line') {
+      const points = element.points && element.points.length ? element.points : [[0, 0], [element.width || 0, element.height || 0]];
+      const coords = points.map(([px, py]) => [element.x + px, element.y + py]);
+      const cx = element.x + clamp(element.width, 0) / 2;
+      const cy = element.y + clamp(element.height, 0) / 2;
+
+      const rotated = angle
+        ? coords.map(([px, py]) => rotatePoint(px, py, cx, cy, angle))
+        : coords;
+
+      const xs = rotated.map(p => p[0]);
+      const ys = rotated.map(p => p[1]);
+
+      return {
+        minX: Math.min(...xs),
+        minY: Math.min(...ys),
+        maxX: Math.max(...xs),
+        maxY: Math.max(...ys),
+      };
+    }
+
+    const w = clamp(element.width, 0);
+    const h = clamp(element.height, 0);
+    const corners = [
+      [element.x, element.y],
+      [element.x + w, element.y],
+      [element.x + w, element.y + h],
+      [element.x, element.y + h],
+    ];
+
+    const cx = element.x + w / 2;
+    const cy = element.y + h / 2;
+    const rotated = angle
+      ? corners.map(([px, py]) => rotatePoint(px, py, cx, cy, angle))
+      : corners;
+
+    const xs = rotated.map(p => p[0]);
+    const ys = rotated.map(p => p[1]);
+
+    return {
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys),
+    };
+  };
+
+  const bounds = elements.map(getElementBounds).reduce((acc, b) => ({
+    minX: Math.min(acc.minX, b.minX),
+    minY: Math.min(acc.minY, b.minY),
+    maxX: Math.max(acc.maxX, b.maxX),
+    maxY: Math.max(acc.maxY, b.maxY),
+  }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+  if (!Number.isFinite(bounds.minX)) {
+    return { svg: '<p style="color: #999; text-align: center;">No drawable elements</p>', hasElements: false };
   }
 
-  // Calculate bounds more carefully
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  
-  drawableElements.forEach(element => {
-    const x = element.x || 0;
-    const y = element.y || 0;
-    const w = element.width || 100;
-    const h = element.height || 100;
-    
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x + w);
-    maxY = Math.max(maxY, y + h);
-  });
+  const padding = 32;
+  const minX = Math.floor(bounds.minX - padding);
+  const minY = Math.floor(bounds.minY - padding);
+  const width = Math.ceil(bounds.maxX - bounds.minX + padding * 2) || 800;
+  const height = Math.ceil(bounds.maxY - bounds.minY + padding * 2) || 600;
 
-  // Add reasonable padding
-  const padding = 40;
-  minX = Math.max(-10000, minX - padding);
-  minY = Math.max(-10000, minY - padding);
-  maxX = Math.min(10000, maxX + padding);
-  maxY = Math.min(10000, maxY + padding);
+  const marker = '<marker id="arrowhead" markerWidth="14" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" /></marker>';
+  defs.push(marker);
 
-  const width = Math.min(maxX - minX, 2000) || 800;
-  const height = Math.min(maxY - minY, 1500) || 600;
-  const scale = Math.min(1, Math.min(2000 / (maxX - minX), 1500 / (maxY - minY)));
+  const svgParts = [];
+  svgParts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX} ${minY} ${width} ${height}" style="background:${background};">`);
+  svgParts.push('<defs>' + defs.join('') + '</defs>');
+  svgParts.push(`<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${background}" />`);
 
-  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + Math.round(width) + '" height="' + Math.round(height) + '" viewBox="' + Math.round(minX) + ' ' + Math.round(minY) + ' ' + Math.round(width / scale) + ' ' + Math.round(height / scale) + '" style="border: 1px solid #ddd; border-radius: 4px; background: white; display: block; margin: 0 auto;">';
-  
-  // Define arrowhead marker
-  svg += '<defs><marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="#666" /></marker></defs>';
+  const filesMap = data.files || {};
 
-  // Draw elements
-  drawableElements.forEach(element => {
-    try {
-      const x = element.x || 0;
-      const y = element.y || 0;
-      const w = element.width || 100;
-      const h = element.height || 100;
-      const fill = element.backgroundColor || '#ffffff';
-      const stroke = element.strokeColor || '#000000';
-      const strokeWidth = element.strokeWidth === 'bold' ? 2 : element.strokeWidth === 'extra-bold' ? 3 : 1;
+  const renderLinearElement = (element) => {
+    const strokeWidth = clamp(element.strokeWidth, 1) || 1;
+    const stroke = element.strokeColor || '#000000';
+    const opacity = typeof element.opacity === 'number' ? element.opacity / 100 : 1;
+    const points = element.points && element.points.length ? element.points : [[0, 0], [element.width || 0, element.height || 0]];
+    const absPoints = points.map(([px, py]) => [element.x + px, element.y + py]);
+    const dashArray = getStrokeDasharray(element.strokeStyle, strokeWidth);
+    const centerX = element.x + clamp(element.width, 0) / 2;
+    const centerY = element.y + clamp(element.height, 0) / 2;
 
-      if (element.type === 'rectangle') {
-        const radius = element.roundness ? 8 : 0;
-        svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" rx="' + radius + '"/>';
-      } 
-      else if (element.type === 'diamond') {
-        const cx = x + w / 2;
-        const cy = y + h / 2;
-        svg += '<path d="M ' + cx + ' ' + y + ' L ' + (x + w) + ' ' + cy + ' L ' + cx + ' ' + (y + h) + ' L ' + x + ' ' + cy + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
-      } 
-      else if (element.type === 'ellipse') {
-        svg += '<ellipse cx="' + (x + w / 2) + '" cy="' + (y + h / 2) + '" rx="' + (w / 2) + '" ry="' + (h / 2) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>';
-      } 
-      else if (element.type === 'line' || element.type === 'arrow') {
-        const endX = x + w;
-        const endY = y + h;
-        svg += '<line x1="' + x + '" y1="' + y + '" x2="' + endX + '" y2="' + endY + '" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" marker-end="' + (element.type === 'arrow' ? 'url(#arrowhead)' : '') + '"/>';
+    const rotatedPoints = element.angle
+      ? absPoints.map(([px, py]) => rotatePoint(px, py, centerX, centerY, element.angle))
+      : absPoints;
+
+    const pointsAttr = rotatedPoints.map(([px, py]) => `${px},${py}`).join(' ');
+    const startMarker = element.startArrowhead === 'arrow' ? ' url(#arrowhead)' : '';
+    const endMarker = element.endArrowhead === 'arrow' ? ' url(#arrowhead)' : '';
+
+    return `<polyline points="${pointsAttr}" fill="none" stroke="${stroke}" color="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${dashArray ? ` stroke-dasharray="${dashArray}"` : ''} ${startMarker ? `marker-start="${startMarker.trim()}"` : ''} ${endMarker ? `marker-end="${endMarker.trim()}"` : ''} opacity="${opacity}" />`;
+  };
+
+  const renderTextElement = (element) => {
+    const fontSize = clamp(element.fontSize, 16) || 16;
+    const fontFamily = fontFamilyMap[element.fontFamily] || 'Arial, sans-serif';
+    const opacity = typeof element.opacity === 'number' ? element.opacity / 100 : 1;
+    const lines = (element.text || '').split('\n');
+    const lineHeightPx = (element.lineHeight || 1.25) * fontSize;
+    const totalHeight = lines.length * lineHeightPx;
+
+    let x = element.x;
+    if (element.textAlign === 'center') x = element.x + clamp(element.width, 0) / 2;
+    else if (element.textAlign === 'right') x = element.x + clamp(element.width, 0);
+
+    let y = element.y + fontSize;
+    if (element.verticalAlign === 'middle') {
+      y = element.y + clamp(element.height, totalHeight) / 2 - totalHeight / 2 + fontSize;
+    } else if (element.verticalAlign === 'bottom') {
+      y = element.y + clamp(element.height, totalHeight) - totalHeight + fontSize * 0.9;
+    }
+
+    const anchor = element.textAlign === 'center' ? 'middle' : element.textAlign === 'right' ? 'end' : 'start';
+    const transform = element.angle ? ` transform="rotate(${(element.angle * 180 / Math.PI).toFixed(3)} ${x} ${y - fontSize})"` : '';
+
+    const tspans = lines.map((line, idx) => `<tspan x="${x}" dy="${idx === 0 ? 0 : lineHeightPx}">${escapeText(line)}</tspan>`).join('');
+    return `<text x="${x}" y="${y}" font-size="${fontSize}" font-family="${fontFamily}" fill="${element.strokeColor || '#000'}" text-anchor="${anchor}" opacity="${opacity}"${transform}>${tspans}</text>`;
+  };
+
+  const renderShape = (element) => {
+    const strokeWidth = clamp(element.strokeWidth, 1) || 1;
+    const stroke = element.strokeColor || '#000000';
+    const fill = getFill(element);
+    const dashArray = getStrokeDasharray(element.strokeStyle, strokeWidth);
+    const opacity = typeof element.opacity === 'number' ? element.opacity / 100 : 1;
+    const roundness = getRoundness(element);
+    const transform = element.angle
+      ? ` transform="rotate(${(element.angle * 180 / Math.PI).toFixed(3)} ${element.x + element.width / 2} ${element.y + element.height / 2})"`
+      : '';
+
+    if (element.type === 'rectangle') {
+      return `<rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" rx="${roundness}" ry="${roundness}"${dashArray ? ` stroke-dasharray="${dashArray}"` : ''} opacity="${opacity}"${transform} />`;
+    }
+
+    if (element.type === 'ellipse') {
+      const cx = element.x + element.width / 2;
+      const cy = element.y + element.height / 2;
+      return `<ellipse cx="${cx}" cy="${cy}" rx="${element.width / 2}" ry="${element.height / 2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${dashArray ? ` stroke-dasharray="${dashArray}"` : ''} opacity="${opacity}"${transform} />`;
+    }
+
+    if (element.type === 'diamond') {
+      const x = element.x;
+      const y = element.y;
+      const w = element.width;
+      const h = element.height;
+      const points = [
+        [x + w / 2, y],
+        [x + w, y + h / 2],
+        [x + w / 2, y + h],
+        [x, y + h / 2],
+      ].map(([px, py]) => (element.angle ? rotatePoint(px, py, x + w / 2, y + h / 2, element.angle) : [px, py]))
+        .map(([px, py]) => `${px},${py}`)
+        .join(' ');
+
+      return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${dashArray ? ` stroke-dasharray="${dashArray}"` : ''} opacity="${opacity}" />`;
+    }
+
+    if (element.type === 'image') {
+      const fileId = element.fileId;
+      const imageData = fileId && filesMap[fileId];
+      const href = imageData?.dataURL || '';
+      const transformAttr = element.angle
+        ? ` transform="rotate(${(element.angle * 180 / Math.PI).toFixed(3)} ${element.x + element.width / 2} ${element.y + element.height / 2})"`
+        : '';
+      if (!href) {
+        return `<rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" fill="#f5f5f5" stroke="#999" stroke-width="${strokeWidth}" opacity="${opacity}"${transformAttr} />`;
       }
-      else if (element.type === 'text') {
-        const fontSize = Math.min(element.fontSize || 16, 24);
-        const textContent = (element.text || '').substring(0, 50);
-        svg += '<text x="' + (x + 5) + '" y="' + (y + fontSize + 2) + '" font-size="' + fontSize + '" fill="' + stroke + '" font-family="Arial, sans-serif">' + textContent + '</text>';
-      }
-    } catch (e) {
-      // Skip problematic elements
+
+      return `<image href="${href}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" preserveAspectRatio="xMidYMid meet" opacity="${opacity}"${transformAttr} />`;
+    }
+
+    return '';
+  };
+
+  elements.forEach(element => {
+    if (element.type === 'line' || element.type === 'arrow') {
+      svgParts.push(renderLinearElement(element));
+    } else if (element.type === 'text') {
+      svgParts.push(renderTextElement(element));
+    } else {
+      svgParts.push(renderShape(element));
     }
   });
 
-  svg += '</svg>';
-  return svg;
+  svgParts.push('</svg>');
+
+  return {
+    svg: svgParts.join(''),
+    hasElements: true,
+  };
 }
 
 // Helper function to recursively get all files
@@ -438,6 +628,13 @@ li {
   margin: 0 auto;
 }
 
+.diagram-preview img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
 .diagram-json {
   background: white;
   padding: 1rem;
@@ -605,13 +802,17 @@ markdownFiles.forEach(filePath => {
 excalidrawFiles.forEach(filePath => {
   const filename = path.basename(filePath, '.excalidraw');
   const htmlFileName = filePath.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
+  const svgFileName = htmlFileName.replace('.html', '.svg');
   
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const data = JSON.parse(content);
     
-    // Generate SVG preview
-    const svgPreview = generateExcalidrawSvgPreview(data);
+    // Generate SVG preview + standalone file
+    const svgResult = generateExcalidrawSvgPreview(data, filename);
+    if (svgResult.hasElements) {
+      fs.writeFileSync(path.join(docsDir, svgFileName), svgResult.svg);
+    }
     
     let diagramInfo = '<div class="diagram-container">';
     
@@ -624,7 +825,12 @@ excalidrawFiles.forEach(filePath => {
     
     // Add SVG preview
     diagramInfo += '<h3>Visual Preview</h3>';
-    diagramInfo += '<div class="diagram-preview">' + svgPreview + '</div>';
+    if (svgResult.hasElements) {
+      diagramInfo += '<div class="diagram-preview"><img src="' + svgFileName + '" alt="' + filename + ' diagram" loading="lazy"/></div>';
+      diagramInfo += '<p style="margin: 0 0 1.5rem;"><a href="' + svgFileName + '" download>⬇️ Download SVG</a></p>';
+    } else {
+      diagramInfo += '<div class="diagram-preview">' + svgResult.svg + '</div>';
+    }
     
     // Add JSON data below
     diagramInfo += '<h3>Diagram Data</h3>';

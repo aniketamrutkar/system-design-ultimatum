@@ -211,6 +211,12 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
   const patternCache = new Map();
   const defs = [];
 
+  const safeNumber = (val, fallback = 0) => (Number.isFinite(val) ? val : fallback);
+  const safePositive = (val, fallback = 1) => {
+    const n = safeNumber(val, fallback);
+    return Math.abs(n) > 0 ? Math.abs(n) : fallback;
+  };
+
   const clamp = (val, fallback = 0) => (Number.isFinite(val) ? val : fallback);
 
   const rotatePoint = (px, py, cx, cy, angle) => {
@@ -227,6 +233,19 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
     if (typeof element.roundness === 'number') return element.roundness;
     return clamp(element.roundness.value, 0);
   };
+
+  const normalizeElement = (element) => ({
+    ...element,
+    x: safeNumber(element.x, 0),
+    y: safeNumber(element.y, 0),
+    width: safePositive(element.width, 1),
+    height: safePositive(element.height, 1),
+    strokeWidth: safePositive(element.strokeWidth, 1),
+    opacity: Number.isFinite(element.opacity) ? element.opacity : 100,
+    angle: safeNumber(element.angle, 0),
+  });
+
+  const normalizedElements = elements.map(normalizeElement);
 
   const escapeText = (text = '') =>
     text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -284,7 +303,7 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
     const angle = clamp(element.angle, 0);
     if (element.type === 'arrow' || element.type === 'line') {
       const points = element.points && element.points.length ? element.points : [[0, 0], [element.width || 0, element.height || 0]];
-      const coords = points.map(([px, py]) => [element.x + px, element.y + py]);
+      const coords = points.map(([px, py]) => [element.x + safeNumber(px, 0), element.y + safeNumber(py, 0)]);
       const cx = element.x + clamp(element.width, 0) / 2;
       const cy = element.y + clamp(element.height, 0) / 2;
 
@@ -329,7 +348,7 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
     };
   };
 
-  const bounds = elements.map(getElementBounds).reduce((acc, b) => ({
+  const bounds = normalizedElements.map(getElementBounds).reduce((acc, b) => ({
     minX: Math.min(acc.minX, b.minX),
     minY: Math.min(acc.minY, b.minY),
     maxX: Math.max(acc.maxX, b.maxX),
@@ -362,8 +381,8 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
     const strokeWidth = clamp(element.strokeWidth, 1) || 1;
     const stroke = element.strokeColor || '#000000';
     const opacity = typeof element.opacity === 'number' ? element.opacity / 100 : 1;
-    const points = element.points && element.points.length ? element.points : [[0, 0], [element.width || 0, element.height || 0]];
-    const absPoints = points.map(([px, py]) => [element.x + px, element.y + py]);
+    const points = Array.isArray(element.points) && element.points.length ? element.points : [[0, 0], [element.width || 0, element.height || 0]];
+    const absPoints = points.map(([px, py]) => [element.x + safeNumber(px, 0), element.y + safeNumber(py, 0)]);
     const dashArray = getStrokeDasharray(element.strokeStyle, strokeWidth);
     const centerX = element.x + clamp(element.width, 0) / 2;
     const centerY = element.y + clamp(element.height, 0) / 2;
@@ -457,10 +476,11 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
       return `<image href="${href}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" preserveAspectRatio="xMidYMid meet" opacity="${opacity}"${transformAttr} />`;
     }
 
+    // Fallback for unknown types
     return '';
   };
 
-  elements.forEach(element => {
+  normalizedElements.forEach(element => {
     if (element.type === 'line' || element.type === 'arrow') {
       svgParts.push(renderLinearElement(element));
     } else if (element.type === 'text') {

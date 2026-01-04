@@ -62,7 +62,11 @@ function markdownToHtml(markdown) {
     }
   };
 
-  lines.forEach(rawLine => {
+  const isSeparatorRow = (row) => /^\s*\|?\s*:?-{3,}:?(?:\s*\|\s*:?-{3,}:?)*\s*\|?\s*$/.test(row);
+  const splitCells = (row) => row.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => applyInline(c.trim()));
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
     const line = rawLine.trimEnd();
 
     if (line.startsWith('```')) {
@@ -78,19 +82,19 @@ function markdownToHtml(markdown) {
         inCode = true;
         codeLang = line.replace(/```/, '').trim();
       }
-      return;
+      continue;
     }
 
     if (inCode) {
       codeLines.push(rawLine);
-      return;
+      continue;
     }
 
     if (!line) {
       closeParagraph();
       closeLists();
       closeBlockquote();
-      return;
+      continue;
     }
 
     if (/^(\*\s*\*\s*\*|---)$/.test(line)) {
@@ -98,7 +102,7 @@ function markdownToHtml(markdown) {
       closeLists();
       closeBlockquote();
       html.push('<hr/>');
-      return;
+      continue;
     }
 
     const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
@@ -108,7 +112,36 @@ function markdownToHtml(markdown) {
       closeBlockquote();
       const level = headingMatch[1].length;
       html.push('<h' + level + '>' + applyInline(headingMatch[2].trim()) + '</h' + level + '>');
-      return;
+      continue;
+    }
+
+    // Tables (continuous pipe-starting lines)
+    const nextLine = lines[i + 1]?.trim();
+    if (line.startsWith('|') && nextLine && nextLine.startsWith('|')) {
+      const tableLines = [];
+      let j = i;
+      while (j < lines.length && lines[j].trim().startsWith('|')) {
+        tableLines.push(lines[j].trim());
+        j++;
+      }
+      if (tableLines.length >= 2) {
+        closeParagraph();
+        closeLists();
+        closeBlockquote();
+
+        const headerCells = splitCells(tableLines[0]);
+        const bodyLines = isSeparatorRow(tableLines[1]) ? tableLines.slice(2) : tableLines.slice(1);
+        const bodyRows = bodyLines.map(splitCells);
+
+        let tableHtml = '<table><thead><tr>' + headerCells.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>';
+        bodyRows.forEach(row => {
+          tableHtml += '<tr>' + row.map(c => '<td>' + c + '</td>').join('') + '</tr>';
+        });
+        tableHtml += '</tbody></table>';
+        html.push(tableHtml);
+        i = j - 1;
+        continue;
+      }
     }
 
     if (line.startsWith('>')) {
@@ -119,7 +152,7 @@ function markdownToHtml(markdown) {
         inBlockquote = true;
       }
       html.push('<p>' + applyInline(line.replace(/^>\s?/, '').trim()) + '</p>');
-      return;
+      continue;
     }
 
     const olMatch = line.match(/^\d+\.\s+(.*)$/);
@@ -134,7 +167,7 @@ function markdownToHtml(markdown) {
         inOl = true;
       }
       html.push('<li>' + applyInline(olMatch[1]) + '</li>');
-      return;
+      continue;
     }
 
     const ulMatch = line.match(/^[-*]\s+(.*)$/);
@@ -149,19 +182,18 @@ function markdownToHtml(markdown) {
         inUl = true;
       }
       html.push('<li>' + applyInline(ulMatch[1]) + '</li>');
-      return;
+      continue;
     }
 
     // Default: part of a paragraph
     paragraph = paragraph ? paragraph + ' ' + line.trim() : line.trim();
-  });
+  }
 
   closeParagraph();
   closeLists();
   closeBlockquote();
 
   if (inCode) {
-    // Unclosed fence fallthrough
     html.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>');
   }
 
@@ -241,11 +273,11 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
   };
 
   const fontFamilyMap = {
-    1: 'Excalifont, Virgil, Segoe UI, sans-serif',
-    2: 'Excalifont, Helvetica Neue, Arial, sans-serif',
-    3: 'Excalifont, Cascadia Code, SFMono-Regular, Consolas, monospace',
-    4: 'Excalifont, Assistant, Arial, sans-serif',
-    5: 'Excalifont, Inter, Helvetica Neue, Arial, sans-serif',
+    1: 'Excalifont',
+    2: 'Excalifont',
+    3: 'Excalifont',
+    4: 'Excalifont',
+    5: 'Excalifont',
   };
 
   const getElementBounds = (element) => {
@@ -313,6 +345,8 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
   const minY = Math.floor(bounds.minY - padding);
   const width = Math.ceil(bounds.maxX - bounds.minX + padding * 2) || 800;
   const height = Math.ceil(bounds.maxY - bounds.minY + padding * 2) || 600;
+
+  defs.push('<style type="text/css">@font-face{font-family:"Excalifont";src:url("https://unpkg.com/@excalidraw/excalidraw@0.17.6/fonts/Excalifont-Regular.woff2") format("woff2");font-display:swap;} text{font-family:"Excalifont";}</style>');
 
   const marker = '<marker id="arrowhead" markerWidth="14" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" /></marker>';
   defs.push(marker);

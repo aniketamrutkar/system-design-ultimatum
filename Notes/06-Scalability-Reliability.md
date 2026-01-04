@@ -295,6 +295,243 @@ Then size:
 
 ---
 
+## Compare-and-Swap (CAS) for Atomic Operations
+
+**What it is:** CPU/VM primitive that atomically updates a memory location only if its current value matches an expected value. Avoids locks for simple, contended operations.
+
+**Why use it:** Fast and non-blocking for small critical sections like counters, versioned writes, or state flips. Reduces contention compared to coarse locks.
+
+### How CAS Works
+
+**Hardware level** (all at once, no interruption):
+1. Read current value from memory address
+2. Compare it against the expected value
+3. If match: write new value and return `true`
+4. If no match: discard new value and return `false`
+
+**The atomic guarantee**: No other thread can modify the memory between the compare and swap steps.
+
+**Conceptual flow:**
+1. Read current value `cur`.
+2. Compute `next` from `cur`.
+3. CAS(address, expected=cur, new=next) → succeeds or fails.
+4. On failure, read again and retry or back off.
+
+**Pseudo-code (increment counter):**
+```
+do {
+  cur = load(addr)                    // Read current
+  next = cur + 1                      // Calculate new
+} while (!CAS(addr, cur, next))       // Retry if someone changed it
+```
+
+### Real-World Examples
+
+**1. Atomic Counter (Page View Tracking)**
+```
+// Without CAS (using lock):
+lock(counter_lock)
+counter++
+unlock(counter_lock)
+// Problem: Lock contention on hot counters
+
+// With CAS (lock-free):
+do {
+  current = load(counter)
+  new = current + 1
+} while (!CAS(counter, current, new))
+// Faster: No lock, just retry loop
+// Contention is handled by retries, not waiting
+```
+
+**2. Versioned Update (Optimistic Locking)**
+```
+// Scenario: Multiple threads updating a user record version
+// Thread A: Read user version=3, wants to update
+// Thread B: Updates version to 4 (increments it)
+// Thread A's update should fail since version changed
+
+do {
+  user = read(user_id)
+  version = user.version
+  user.name = "new name"
+  user.version = version + 1
+} while (!CAS(user_obj, version, version+1))
+
+// This ensures: "Only commit if nobody else changed this"
+```
+
+**3. Lock-Free Stack Pop**
+```
+// Stack: head → [A] → [B] → [C]
+// Thread wants to pop A
+
+do {
+  top = load(head)                    // top = [A]
+  next = top.next                     // next = [B]
+} while (!CAS(head, top, next))       // Replace head with [B]
+
+// If another thread pushed new node between read and CAS:
+// CAS fails, loop retries with new head
+```
+
+**4. Thread-Safe State Machine**
+```
+// States: IDLE (0), RUNNING (1), STOPPED (2)
+enum State { IDLE = 0, RUNNING = 1, STOPPED = 2 }
+
+// Only transition IDLE → RUNNING
+do {
+  state = load(state_var)
+  if (state != IDLE) return false     // Can't start, not idle
+} while (!CAS(state_var, IDLE, RUNNING))
+
+// Guarantees: Only one thread successfully transitions to RUNNING
+```
+
+### CAS vs Locks: Performance Comparison
+
+**Under Low Contention (few threads):**
+```
+Operation       | Lock Time  | CAS Time   | Winner
+----------------|------------|------------|--------
+Increment       | 50 ns      | 5 ns       | CAS (10x faster)
+Read + Update   | 80 ns      | 10 ns      | CAS (8x faster)
+```
+
+**Under High Contention (many threads):**
+```
+Threads | Lock QPS    | CAS QPS     | Winner
+--------|-------------|-------------|--------
+1       | 1,000,000   | 5,000,000   | CAS
+4       | 200,000     | 3,000,000   | CAS
+16      | 50,000      | 1,500,000   | CAS (still!)
+64      | 10,000      | 500,000     | CAS (now degrading)
+256     | 2,000       | 50,000      | CAS (with backoff)
+```
+
+**Why CAS wins even under contention:**
+- Locks: Threads block, OS scheduler overhead increases
+- CAS: Threads retry, but no context switching cost
+- Add exponential backoff to CAS under extreme contention
+
+### When to Use CAS
+
+✅ **Good for:**
+- Counters (hit counters, stats)
+- Sequence numbers (request IDs, event ordering)
+- Simple state flags (started, completed)
+- Optimistic concurrency control
+- Lock-free data structures
+- Reference counting
+
+❌ **Bad for:**
+- Complex multi-field updates
+- Conditional logic involving multiple values
+- Long critical sections
+- When ABA problem is hard to solve
+
+**Rule of thumb:** If the operation fits in 1-2 CPU instructions, CAS is better. If it requires 10+ instructions, use locks.
+
+### The ABA Problem and Solutions
+
+**What is it:**
+```
+Thread 1: reads value = A
+         (context switch)
+Thread 2: changes A → B → A
+         (thread 1 resumes)
+Thread 1: CAS(addr, A, new_value)  ✓ Succeeds!
+         But the A now is different from the original A!
+```
+
+**Example - Stack pop with ABA:**
+```
+// Stack: [A] → [B]
+// Thread 1 tries to pop A
+head = load(&stack)          // head = [A]
+next = head.next             // next = [B]
+                             // (Thread 2 pops [A], then pushes it back)
+// Now A is a freed/reused node!
+CAS(&stack, head, next)      // ✓ Succeeds, but now pointing to invalid [A]!
+```
+
+**Solutions:**
+
+1. **Add version counter (most common):**
+```
+// Store: (value, version)
+// CAS(addr, (expected_val, expected_ver), (new_val, new_ver+1))
+
+do {
+  (value, version) = load(addr)
+  new_version = version + 1
+} while (!CAS(addr, (value, version), (new_val, new_version)))
+// Version changes guarantee uniqueness
+```
+
+2. **Use generation numbers:**
+```
+struct VersionedRef {
+  void* ptr;           // The actual pointer
+  uint64_t generation; // Incremented on each reuse
+}
+// CAS on entire struct ensures ABA safety
+```
+
+3. **Hazard pointers (advanced):**
+```
+// Thread marks pointer as "in-use"
+// Other threads cannot recycle it
+// Slower but fully ABA-safe
+```
+
+### Practical Considerations
+
+**CPU Support:**
+```
+x86/x64:        CAS, CMPXCHG (single & double-wide)
+ARM:            LDREX, STREX (LL/SC - Load-Link/Store-Conditional)
+Modern CPUs:    Compare-And-Swap, Load-Acquire, Store-Release (memory barriers)
+```
+
+**Language Support:**
+```
+Java:           java.util.concurrent.atomic.AtomicInteger.compareAndSet()
+C++:            std::atomic::compare_exchange_strong()
+Go:             sync/atomic.CompareAndSwapUint64()
+Rust:           std::sync::atomic::AtomicUsize::compare_exchange()
+Python:         multiprocessing.Value (limited); usually use locks
+```
+
+**When Contention Gets Too High - Add Backoff:**
+```
+// Exponential backoff
+uint32_t attempts = 0;
+do {
+  cur = load(addr)
+  next = cur + 1
+  if (!CAS(addr, cur, next)) {
+    // Failed, back off exponentially
+    sleep(min(1ms << attempts++, 100ms))
+  }
+} while (CAS failed)
+```
+
+**Alternatives to CAS:**
+```
+Pattern                          | Trade-off
+---------------------------------|------------------------------------------
+Coarse lock                       | Simple, but high contention cost
+Sharded locks (per-core)          | Good balance, less contention
+CAS with backoff                  | Fast but needs tuning
+Partitioned atomic variables      | Best for counters, split work across threads
+Lock-free queues                  | Complex, but scale well
+Eventual consistency              | Highest throughput, but weaker guarantees
+```
+
+---
+
 ## Replication Patterns
 
 | Pattern | How It Works | Pros | Cons | When to Use |
@@ -816,4 +1053,3 @@ With 10M connections:
 - Single point of failure
 - Geographic latency (users far away)
 - Doesn't scale beyond 1M connections
-

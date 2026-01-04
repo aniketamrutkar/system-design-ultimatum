@@ -2,7 +2,13 @@
 
 A curated collection of system-design diagrams in Excalidraw format. These diagrams collect patterns, example architectures, and interview-style whiteboard sketches. Most files in this repo come from public system-design study sources (annotations preserved in file names) and use a shared Excalidraw component set.
 
-Quick references
+## 🌐 Website
+
+**Live site:** [https://Prakash-sa.github.io/system-design-ultimatum/](https://Prakash-sa.github.io/system-design-ultimatum/)
+
+The site automatically updates whenever you push changes to the main branch. See [DEPLOYMENT.md](DEPLOYMENT.md) for details.
+
+## Quick references
 
 - [Jordan Has No Life's YouTube channel](https://www.youtube.com/@jordanhasnolife5163)
 - Alex Xu's System Design Interview book
@@ -20,21 +26,32 @@ Quick references
 - [GFG](https://www.geeksforgeeks.org/artificial-intelligence/agentic-ai-architecture/)
 - [Vectorize 1](https://vectorize.io/blog/designing-agentic-ai-systems-part-1-agent-architectures)
 
+## Setup
+
 Install the Excalidraw extension in VS Code to open and edit `.excalidraw` files directly in the editor.
-
-## Video Links
-
-- [ACID Database](https://www.youtube.com/watch?v=o60GzEywHgE)
 
 ## Purpose
 
 - Keep diagrams discoverable and reusable
 - Provide an indexed, versioned set of interview / example system designs
 - Make it easy to open and iterate on diagrams locally or in Excalidraw web app
+- Automatically publish to GitHub Pages for easy sharing
+
+## Automated Deployment
+
+This repository is configured for automatic deployment to GitHub Pages:
+
+- Every push to `main` triggers a GitHub Actions workflow
+- The workflow builds a static HTML site with all notes and diagrams
+- Site is automatically deployed to [GitHub Pages](https://Prakash-sa.github.io/system-design-ultimatum/)
+- No manual deployment needed!
+
+For setup details, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Contribution guidelines
 
 - Add a short description + metadata header in each new diagram.
 - Follow the filename convention and place the file in an appropriate folder.
 - Open a PR with the proposed changes.
+- Your changes will automatically be deployed to the live site when merged!
 

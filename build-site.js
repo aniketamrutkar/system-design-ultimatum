@@ -565,6 +565,25 @@ function getFilesByFolder() {
 
 const filesByFolder = getFilesByFolder();
 
+function buildFolderTree() {
+  const root = { name: 'Root', children: new Map(), files: { markdown: [], excalidraw: [] } };
+
+  Object.entries(filesByFolder).forEach(([folder, files]) => {
+    const parts = folder.split('/').filter(Boolean);
+    let node = root;
+    parts.forEach(part => {
+      if (!node.children.has(part)) {
+        node.children.set(part, { name: part, children: new Map(), files: { markdown: [], excalidraw: [] } });
+      }
+      node = node.children.get(part);
+    });
+    node.files.markdown.push(...files.markdown);
+    node.files.excalidraw.push(...files.excalidraw);
+  });
+
+  return root;
+}
+
 // Generate CSS
 const globalStyles = `
 * {
@@ -619,13 +638,15 @@ body {
   margin-bottom: 0.5rem;
 }
 
-.nav-folder-title {
+.nav-folder summary {
   padding: 0.75rem 1rem;
   font-weight: 600;
   color: #667eea;
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  cursor: pointer;
+  list-style: none;
 }
 
 .nav-item {
@@ -636,6 +657,10 @@ body {
   font-size: 0.95rem;
   border-left: 3px solid transparent;
   transition: all 0.2s;
+}
+
+.nav-folder-body {
+  padding-left: 0.5rem;
 }
 
 .nav-item:hover {
@@ -895,30 +920,42 @@ footer {
 
 // Generate navigation HTML
 function generateNav() {
-  const folders = Object.keys(filesByFolder).sort();
+  const tree = buildFolderTree();
+
+  function renderFolder(node, depth = 0) {
+    let html = '';
+    const childNames = Array.from(node.children.keys()).sort();
+
+    childNames.forEach(name => {
+      const child = node.children.get(name);
+      const hasContent = child.files.markdown.length + child.files.excalidraw.length + child.children.size > 0;
+      if (!hasContent) return;
+
+      html += '<details class="nav-folder"' + (depth === 0 ? ' open' : '') + '>';
+      html += '<summary class="nav-folder-title">' + name + '</summary>';
+      html += '<div class="nav-folder-body">';
+
+      child.files.markdown.forEach(f => {
+        const itemName = path.basename(f, '.md');
+        const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
+        html += '<a href="' + htmlFile + '" class="nav-item">📄 ' + itemName + '</a>';
+      });
+
+      child.files.excalidraw.forEach(f => {
+        const itemName = path.basename(f, '.excalidraw');
+        const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
+        html += '<a href="' + htmlFile + '" class="nav-item">📊 ' + itemName + '</a>';
+      });
+
+      html += renderFolder(child, depth + 1);
+      html += '</div></details>';
+    });
+
+    return html;
+  }
+
   let nav = '<nav class="sidebar"><div class="nav-header"><a href="index.html">🏠 Home</a></div><div class="nav-content">';
-  
-  folders.forEach(folder => {
-    const folderName = folder || 'Root';
-    nav += '<div class="nav-folder"><div class="nav-folder-title">' + folderName + '</div>';
-    
-    const { markdown, excalidraw } = filesByFolder[folder];
-    
-    markdown.forEach(f => {
-      const name = path.basename(f, '.md');
-      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
-      nav += '<a href="' + htmlFile + '" class="nav-item">📄 ' + name + '</a>';
-    });
-    
-    excalidraw.forEach(f => {
-      const name = path.basename(f, '.excalidraw');
-      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
-      nav += '<a href="' + htmlFile + '" class="nav-item">📊 ' + name + '</a>';
-    });
-    
-    nav += '</div>';
-  });
-  
+  nav += renderFolder(tree, 0);
   nav += '</div></nav>';
   return nav;
 }

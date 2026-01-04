@@ -13,10 +13,10 @@ This repository is configured to automatically deploy to GitHub Pages whenever y
    - Generates individual HTML pages for each markdown file and diagram
    - Creates a navigation sidebar with all files organized by folder
    - Renders markdown as readable HTML (no GitHub redirect)
-   - Displays excalidraw diagrams as JSON data viewers
-   - Creates a beautiful, fully-functional website accessible entirely on GitHub Pages
+   - Displays Excalidraw diagrams with SVG previews + downloadable SVGs, plus JSON viewers
+   - Creates a fully-functional website accessible entirely on GitHub Pages
 
-## � Site Features
+## 📑 Site Features
 
 ### Navigation Sidebar
 - Fixed sidebar with organized folder structure
@@ -33,6 +33,7 @@ This repository is configured to automatically deploy to GitHub Pages whenever y
 ### Excalidraw Diagrams
 - Each diagram gets its own page
 - Shows diagram metadata and structure
+- Inline SVG preview plus downloadable SVG export
 - JSON preview of diagram data
 - Link to Excalidraw editor for interactive viewing/editing
 - Direct preview without leaving the site
@@ -43,7 +44,7 @@ This repository is configured to automatically deploy to GitHub Pages whenever y
 - Breadcrumb-style navigation via sidebar
 - Consistent header on all pages
 
-## �🚀 How to Use
+## 🚀 How to Use
 
 ### Initial Setup (One-time)
 
@@ -90,13 +91,14 @@ The workflow (`.github/workflows/deploy-to-pages.yml`):
 ### Build Script
 
 The build script (`build-site.js`):
-- Scans all `.md` files in the `Notes/` directory
+- Scans all `.md` files and renders them to HTML
 - Scans all `.excalidraw` files in the repository
 - Generates a beautiful HTML index with:
   - All study notes linked
   - All diagrams organized by category
   - Direct links to GitHub for viewing/editing
   - Responsive design that works on mobile
+  - Downloadable SVGs per diagram
 
 ## 🎨 Customization
 
@@ -141,7 +143,7 @@ Check the Actions tab for error messages. Common issues:
 ## 📊 What Gets Deployed?
 
 ✅ All markdown files (`.md`) - converted to readable HTML pages
-✅ All excalidraw diagrams - displayed as JSON with metadata
+✅ All Excalidraw diagrams - displayed with SVG previews and metadata
 ✅ Navigation sidebar with folder organization
 ✅ Auto-generated `index.html` and individual pages for each file
 ✅ Responsive design for desktop and mobile
@@ -179,6 +181,8 @@ git add docs/
 git commit -m "Rebuild site"
 git push origin main
 ```
+
+`docs/` is ignored in the repo and normally produced by CI; commit it only for a manual override or debugging.
 
 ## 📞 Support
 

@@ -9,75 +9,163 @@ if (!fs.existsSync(docsDir)) {
   fs.mkdirSync(docsDir, { recursive: true });
 }
 
-// Simple markdown to HTML converter
+// Lightweight markdown to HTML converter optimized for Notes
 function markdownToHtml(markdown) {
-  let html = markdown;
-  
-  // Escape HTML
-  html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  
-  // Code blocks (before other replacements)
-  const codeBlocks = [];
-  html = html.replace(/```[\s\S]*?```/gm, (match) => {
-    codeBlocks.push(match);
-    return '___CODE_BLOCK_' + (codeBlocks.length - 1) + '___';
+  const escapeHtml = (str = '') =>
+    str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const applyInline = (text = '') => {
+    let t = escapeHtml(text);
+    t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" loading="lazy" />');
+    t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    t = t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/__(.*?)__/g, '<strong>$1</strong>');
+    t = t.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    t = t.replace(/_(.*?)_/g, '<em>$1</em>');
+    t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return t;
+  };
+
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+  const html = [];
+
+  let inCode = false;
+  let codeLang = '';
+  let codeLines = [];
+  let inUl = false;
+  let inOl = false;
+  let inBlockquote = false;
+  let paragraph = '';
+
+  const closeParagraph = () => {
+    if (paragraph.trim()) {
+      html.push('<p>' + applyInline(paragraph.trim()) + '</p>');
+      paragraph = '';
+    }
+  };
+
+  const closeLists = () => {
+    if (inUl) {
+      html.push('</ul>');
+      inUl = false;
+    }
+    if (inOl) {
+      html.push('</ol>');
+      inOl = false;
+    }
+  };
+
+  const closeBlockquote = () => {
+    if (inBlockquote) {
+      html.push('</blockquote>');
+      inBlockquote = false;
+    }
+  };
+
+  lines.forEach(rawLine => {
+    const line = rawLine.trimEnd();
+
+    if (line.startsWith('```')) {
+      if (inCode) {
+        html.push('<pre><code class="language-' + escapeHtml(codeLang) + '">' + escapeHtml(codeLines.join('\n')) + '</code></pre>');
+        codeLines = [];
+        codeLang = '';
+        inCode = false;
+      } else {
+        closeParagraph();
+        closeLists();
+        closeBlockquote();
+        inCode = true;
+        codeLang = line.replace(/```/, '').trim();
+      }
+      return;
+    }
+
+    if (inCode) {
+      codeLines.push(rawLine);
+      return;
+    }
+
+    if (!line) {
+      closeParagraph();
+      closeLists();
+      closeBlockquote();
+      return;
+    }
+
+    if (/^(\*\s*\*\s*\*|---)$/.test(line)) {
+      closeParagraph();
+      closeLists();
+      closeBlockquote();
+      html.push('<hr/>');
+      return;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      closeParagraph();
+      closeLists();
+      closeBlockquote();
+      const level = headingMatch[1].length;
+      html.push('<h' + level + '>' + applyInline(headingMatch[2].trim()) + '</h' + level + '>');
+      return;
+    }
+
+    if (line.startsWith('>')) {
+      closeParagraph();
+      closeLists();
+      if (!inBlockquote) {
+        html.push('<blockquote>');
+        inBlockquote = true;
+      }
+      html.push('<p>' + applyInline(line.replace(/^>\s?/, '').trim()) + '</p>');
+      return;
+    }
+
+    const olMatch = line.match(/^\d+\.\s+(.*)$/);
+    if (olMatch) {
+      closeParagraph();
+      if (inUl) {
+        html.push('</ul>');
+        inUl = false;
+      }
+      if (!inOl) {
+        html.push('<ol>');
+        inOl = true;
+      }
+      html.push('<li>' + applyInline(olMatch[1]) + '</li>');
+      return;
+    }
+
+    const ulMatch = line.match(/^[-*]\s+(.*)$/);
+    if (ulMatch) {
+      closeParagraph();
+      if (inOl) {
+        html.push('</ol>');
+        inOl = false;
+      }
+      if (!inUl) {
+        html.push('<ul>');
+        inUl = true;
+      }
+      html.push('<li>' + applyInline(ulMatch[1]) + '</li>');
+      return;
+    }
+
+    // Default: part of a paragraph
+    paragraph = paragraph ? paragraph + ' ' + line.trim() : line.trim();
   });
-  
-  // Headers
-  html = html.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
-  
-  // Tables
-  html = html.replace(/\|[\s\S]*?\n\|[\s\S]*?\n/gm, (match) => {
-    const rows = match.split('\n').filter(r => r.trim());
-    let table = '<table><tbody>';
-    rows.forEach((row, idx) => {
-      const cells = row.split('|').filter(c => c.trim());
-      const tag = idx === 1 || row.includes('---') ? 'th' : 'td';
-      table += '<tr>';
-      cells.forEach(cell => {
-        table += '<' + tag + '>' + cell.trim() + '</' + tag + '>';
-      });
-      table += '</tr>';
-    });
-    table += '</tbody></table>';
-    return table;
-  });
-  
-  // Bold
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-  
-  // Italic
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  html = html.replace(/_(.*?)_/g, '<em>$1</em>');
-  
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  
-  // Links
-  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
-  
-  // Unordered lists
-  html = html.replace(/^\s*[\*\-] (.*?)$/gm, '<li>$1</li>');
-  
-  // Restore code blocks
-  codeBlocks.forEach((block, idx) => {
-    const lang = block.match(/```(\w+)/)?.[1] || '';
-    const code = block.replace(/```\w*\n?/, '').replace(/```/, '');
-    const replacement = '<pre><code class="language-' + lang + '">' + code + '</code></pre>';
-    html = html.replace('___CODE_BLOCK_' + idx + '___', replacement);
-  });
-  
-  // Paragraphs
-  html = html.replace(/\n\n+/g, '</p><p>');
-  html = html.replace(/^(?!<[h|p|t|u|l|b|c])/gm, '<p>');
-  html = '<p>' + html + '</p>';
-  html = html.replace(/<p>(<h|<t|<u|<b|<c|<pre)/g, '$1');
-  html = html.replace(/(<\/h|<\/t|<\/u|<\/b|<\/c|<\/pre>)<\/p>/g, '$1');
-  
-  return html;
+
+  closeParagraph();
+  closeLists();
+  closeBlockquote();
+
+  if (inCode) {
+    // Unclosed fence fallthrough
+    html.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>');
+  }
+
+  return html.join('\n');
 }
 
 // Generate SVG preview + standalone SVG export from Excalidraw JSON
@@ -153,11 +241,11 @@ function generateExcalidrawSvgPreview(data, name = 'Diagram') {
   };
 
   const fontFamilyMap = {
-    1: 'Virgil, Segoe UI, sans-serif',
-    2: 'Helvetica Neue, Arial, sans-serif',
-    3: 'Cascadia Code, SFMono-Regular, Consolas, monospace',
-    4: 'Assistant, Arial, sans-serif',
-    5: 'Inter, Helvetica Neue, Arial, sans-serif',
+    1: 'Excalifont, Virgil, Segoe UI, sans-serif',
+    2: 'Excalifont, Helvetica Neue, Arial, sans-serif',
+    3: 'Excalifont, Cascadia Code, SFMono-Regular, Consolas, monospace',
+    4: 'Excalifont, Assistant, Arial, sans-serif',
+    5: 'Excalifont, Inter, Helvetica Neue, Arial, sans-serif',
   };
 
   const getElementBounds = (element) => {
@@ -378,17 +466,29 @@ function getAllFiles(dir, fileList = []) {
 
 // Get all markdown and excalidraw files
 const allFiles = getAllFiles('.');
-const markdownFiles = allFiles.filter(f => 
-  f.endsWith('.md') && 
-  !f.includes('node_modules') && 
-  !f.includes('.github') &&
-  f !== './README.md'
-).sort();
+const isExcludedTopLevel = (filePath) => {
+  const relativeDir = path.relative('.', path.dirname(filePath));
+  const top = relativeDir.split(path.sep)[0];
+  return relativeDir === '' || relativeDir === '.' || top === 'Books';
+};
 
-const excalidrawFiles = allFiles.filter(f => 
-  f.endsWith('.excalidraw') && 
-  !f.includes('node_modules')
-).sort();
+const markdownFiles = allFiles
+  .filter(f =>
+    f.endsWith('.md') &&
+    !f.includes('node_modules') &&
+    !f.includes('.github') &&
+    f !== './README.md' &&
+    !isExcludedTopLevel(f)
+  )
+  .sort();
+
+const excalidrawFiles = allFiles
+  .filter(f =>
+    f.endsWith('.excalidraw') &&
+    !f.includes('node_modules') &&
+    !isExcludedTopLevel(f)
+  )
+  .sort();
 
 // Organize files by folder
 function getFilesByFolder() {
@@ -597,6 +697,25 @@ ul {
 
 li {
   margin-bottom: 0.5rem;
+}
+
+ol {
+  margin-left: 2rem;
+  margin-bottom: 1rem;
+}
+
+blockquote {
+  border-left: 4px solid #667eea;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #444;
+  background: #f7f7ff;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #e0e0e0;
+  margin: 2rem 0;
 }
 
 .content-page {

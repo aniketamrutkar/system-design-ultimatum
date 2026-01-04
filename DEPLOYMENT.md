@@ -10,11 +10,40 @@ This repository is configured to automatically deploy to GitHub Pages whenever y
    - Automatically deploys to GitHub Pages
 
 2. **Build Script** (`build-site.js`)
-   - Generates an `index.html` file in the `docs/` folder
-   - Indexes all markdown notes and excalidraw diagrams
-   - Creates a beautiful, responsive website
+   - Generates individual HTML pages for each markdown file and diagram
+   - Creates a navigation sidebar with all files organized by folder
+   - Renders markdown as readable HTML (no GitHub redirect)
+   - Displays excalidraw diagrams as JSON data viewers
+   - Creates a beautiful, fully-functional website accessible entirely on GitHub Pages
 
-## 🚀 How to Use
+## � Site Features
+
+### Navigation Sidebar
+- Fixed sidebar with organized folder structure
+- Quick access to all markdown files and diagrams
+- Responsive design - sidebar adapts on mobile
+- Home button to return to main page
+
+### Markdown Files
+- All `.md` files converted to readable HTML pages
+- Preserves formatting: headings, bold, italic, links, code blocks, tables
+- Syntax highlighting for code blocks
+- No redirect to GitHub - everything renders on the site
+
+### Excalidraw Diagrams
+- Each diagram gets its own page
+- Shows diagram metadata and structure
+- JSON preview of diagram data
+- Link to Excalidraw editor for interactive viewing/editing
+- Direct preview without leaving the site
+
+### Search & Navigation
+- Use browser search (Ctrl+F / Cmd+F) to find topics
+- Folder-based organization in sidebar
+- Breadcrumb-style navigation via sidebar
+- Consistent header on all pages
+
+## �🚀 How to Use
 
 ### Initial Setup (One-time)
 
@@ -111,21 +140,24 @@ Check the Actions tab for error messages. Common issues:
 
 ## 📊 What Gets Deployed?
 
-✅ All files in `Notes/` directory (`.md` files)
-✅ All `.excalidraw` diagrams
-✅ Links to GitHub for direct access
-✅ Auto-generated `index.html`
+✅ All markdown files (`.md`) - converted to readable HTML pages
+✅ All excalidraw diagrams - displayed as JSON with metadata
+✅ Navigation sidebar with folder organization
+✅ Auto-generated `index.html` and individual pages for each file
+✅ Responsive design for desktop and mobile
+✅ No external redirects or GitHub dependencies
 
-❌ Raw Excalidraw files (not embedded, but linked to GitHub for viewing)
 ❌ Node modules
 ❌ Build artifacts
+❌ Raw source files (only processed HTML deployed)
 
-## 🔗 Links in Generated Site
+## 🔗 Site Structure
 
-The generated website provides:
-- **View on GitHub** links for each markdown file (displays content in GitHub)
-- **Open in GitHub** links for each diagram (opens in GitHub's viewer)
-- Direct access to view/edit all files
+The generated website is completely self-contained:
+- **index.html** - Home page with overview and quick links
+- **Individual HTML files** - One for each markdown and diagram file
+- **Navigation sidebar** - Organized by folder with quick access to all content
+- **No external dependencies** - Everything renders from the generated HTML
 
 ## 📝 Adding New Files
 

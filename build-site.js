@@ -9,6 +9,77 @@ if (!fs.existsSync(docsDir)) {
   fs.mkdirSync(docsDir, { recursive: true });
 }
 
+// Simple markdown to HTML converter
+function markdownToHtml(markdown) {
+  let html = markdown;
+  
+  // Escape HTML
+  html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  // Code blocks (before other replacements)
+  const codeBlocks = [];
+  html = html.replace(/```[\s\S]*?```/gm, (match) => {
+    codeBlocks.push(match);
+    return '___CODE_BLOCK_' + (codeBlocks.length - 1) + '___';
+  });
+  
+  // Headers
+  html = html.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+  
+  // Tables
+  html = html.replace(/\|[\s\S]*?\n\|[\s\S]*?\n/gm, (match) => {
+    const rows = match.split('\n').filter(r => r.trim());
+    let table = '<table><tbody>';
+    rows.forEach((row, idx) => {
+      const cells = row.split('|').filter(c => c.trim());
+      const tag = idx === 1 || row.includes('---') ? 'th' : 'td';
+      table += '<tr>';
+      cells.forEach(cell => {
+        table += '<' + tag + '>' + cell.trim() + '</' + tag + '>';
+      });
+      table += '</tr>';
+    });
+    table += '</tbody></table>';
+    return table;
+  });
+  
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+  
+  // Italic
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+  
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Links
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+  
+  // Unordered lists
+  html = html.replace(/^\s*[\*\-] (.*?)$/gm, '<li>$1</li>');
+  
+  // Restore code blocks
+  codeBlocks.forEach((block, idx) => {
+    const lang = block.match(/```(\w+)/)?.[1] || '';
+    const code = block.replace(/```\w*\n?/, '').replace(/```/, '');
+    const replacement = '<pre><code class="language-' + lang + '">' + code + '</code></pre>';
+    html = html.replace('___CODE_BLOCK_' + idx + '___', replacement);
+  });
+  
+  // Paragraphs
+  html = html.replace(/\n\n+/g, '</p><p>');
+  html = html.replace(/^(?!<[h|p|t|u|l|b|c])/gm, '<p>');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p>(<h|<t|<u|<b|<c|<pre)/g, '$1');
+  html = html.replace(/(<\/h|<\/t|<\/u|<\/b|<\/c|<\/pre>)<\/p>/g, '$1');
+  
+  return html;
+}
+
 // Helper function to recursively get all files
 function getAllFiles(dir, fileList = []) {
   const files = fs.readdirSync(dir);
@@ -17,9 +88,8 @@ function getAllFiles(dir, fileList = []) {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
 
-    // Skip hidden directories and node_modules
     if (stat.isDirectory()) {
-      if (!file.startsWith('.') && file !== 'node_modules') {
+      if (!file.startsWith('.') && file !== 'node_modules' && file !== 'docs') {
         getAllFiles(filePath, fileList);
       }
     } else {
@@ -44,328 +114,461 @@ const excalidrawFiles = allFiles.filter(f =>
   !f.includes('node_modules')
 ).sort();
 
-// Read main README
-const mainReadme = fs.readFileSync('./README.md', 'utf8');
+// Organize files by folder
+function getFilesByFolder() {
+  const folders = {};
+  
+  markdownFiles.forEach(f => {
+    const dir = path.dirname(f).replace(/^\.\//, '');
+    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [] };
+    folders[dir].markdown.push(f);
+  });
+  
+  excalidrawFiles.forEach(f => {
+    const dir = path.dirname(f).replace(/^\.\//, '');
+    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [] };
+    folders[dir].excalidraw.push(f);
+  });
+  
+  return folders;
+}
 
-// Generate HTML
-const htmlContent = `<!DOCTYPE html>
+const filesByFolder = getFilesByFolder();
+
+// Generate CSS
+const globalStyles = `
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f5f5;
+  display: flex;
+}
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 280px;
+  height: 100vh;
+  background: white;
+  border-right: 1px solid #e0e0e0;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.nav-header {
+  padding: 1.5rem 1rem;
+  border-bottom: 2px solid #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.nav-header a {
+  color: white;
+  text-decoration: none;
+  font-size: 1.2rem;
+  font-weight: 600;
+  display: block;
+}
+
+.nav-header a:hover {
+  opacity: 0.9;
+}
+
+.nav-content {
+  padding: 1rem 0;
+}
+
+.nav-folder {
+  margin-bottom: 0.5rem;
+}
+
+.nav-folder-title {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #667eea;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nav-item {
+  display: block;
+  padding: 0.5rem 1.5rem;
+  color: #555;
+  text-decoration: none;
+  font-size: 0.95rem;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-item:hover {
+  background: #f5f5f5;
+  color: #667eea;
+  border-left-color: #667eea;
+}
+
+.main-content {
+  margin-left: 280px;
+  flex: 1;
+  min-height: 100vh;
+  background: white;
+}
+
+header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+header p {
+  font-size: 1rem;
+  opacity: 0.95;
+}
+
+.container {
+  max-width: 900px;
+  padding: 2rem;
+}
+
+h1, h2, h3, h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #333;
+}
+
+h1 { font-size: 2rem; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; color: #667eea; }
+h3 { font-size: 1.2rem; }
+
+p {
+  margin-bottom: 1rem;
+  line-height: 1.8;
+  color: #555;
+}
+
+a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code {
+  background: #f5f5f5;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+pre {
+  background: #2d2d2d;
+  color: #f8f8f2;
+  padding: 1rem;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  border: 1px solid #ddd;
+}
+
+table th, table td {
+  border: 1px solid #ddd;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+}
+
+table tr:nth-child(even) {
+  background: #fafafa;
+}
+
+ul {
+  margin-left: 2rem;
+  margin-bottom: 1rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+.content-page {
+  background: white;
+}
+
+.diagram-container {
+  background: #f9f9f9;
+  padding: 2rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  border: 1px solid #e0e0e0;
+}
+
+.diagram-content {
+  background: white;
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 600px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #666;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+footer {
+  background: #333;
+  color: white;
+  text-align: center;
+  padding: 2rem;
+  margin-top: 3rem;
+}
+
+@media (max-width: 768px) {
+  body {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .nav-content {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .nav-folder {
+    flex: 1 1 200px;
+    margin-right: 1rem;
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+}
+`;
+
+// Generate navigation HTML
+function generateNav() {
+  const folders = Object.keys(filesByFolder).sort();
+  let nav = '<nav class="sidebar"><div class="nav-header"><a href="index.html">🏠 Home</a></div><div class="nav-content">';
+  
+  folders.forEach(folder => {
+    const folderName = folder || 'Root';
+    nav += '<div class="nav-folder"><div class="nav-folder-title">' + folderName + '</div>';
+    
+    const { markdown, excalidraw } = filesByFolder[folder];
+    
+    markdown.forEach(f => {
+      const name = path.basename(f, '.md');
+      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
+      nav += '<a href="' + htmlFile + '" class="nav-item">📄 ' + name + '</a>';
+    });
+    
+    excalidraw.forEach(f => {
+      const name = path.basename(f, '.excalidraw');
+      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
+      nav += '<a href="' + htmlFile + '" class="nav-item">📊 ' + name + '</a>';
+    });
+    
+    nav += '</div>';
+  });
+  
+  nav += '</div></nav>';
+  return nav;
+}
+
+// Generate base page template
+function generatePageTemplate(title, content) {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Design Ultimatum</title>
+    <title>${title} - System Design Ultimatum</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f5f5f5;
-        }
-
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 3rem 1rem;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        header p {
-            font-size: 1.1rem;
-            opacity: 0.95;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        .info-box {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .info-box h2 {
-            color: #667eea;
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-        }
-
-        .info-box p {
-            margin-bottom: 0.5rem;
-            color: #555;
-        }
-
-        .info-box a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .info-box a:hover {
-            text-decoration: underline;
-        }
-
-        .info-box ul {
-            margin-left: 2rem;
-            margin-top: 1rem;
-        }
-
-        .info-box li {
-            margin-bottom: 0.5rem;
-            color: #555;
-        }
-
-        .section {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .section h2 {
-            color: #667eea;
-            margin-bottom: 1.5rem;
-            font-size: 1.8rem;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 0.5rem;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .card {
-            background: #f9f9f9;
-            border-left: 4px solid #667eea;
-            padding: 1.5rem;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .card a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .card a:hover {
-            text-decoration: underline;
-        }
-
-        .card-title {
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .card-meta {
-            font-size: 0.85rem;
-            color: #999;
-            margin-top: 1rem;
-        }
-
-        footer {
-            background: #333;
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            margin-top: 3rem;
-        }
-
-        footer a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        footer a:hover {
-            text-decoration: underline;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background: #667eea;
-            color: white;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .emoji {
-            font-size: 1.2em;
-            margin-right: 0.5rem;
-        }
-
-        @media (max-width: 768px) {
-            header h1 {
-                font-size: 2rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
+${globalStyles}
     </style>
 </head>
 <body>
-    <header>
-        <h1>📚 System Design Ultimatum</h1>
-        <p>A curated collection of system design diagrams and patterns</p>
-    </header>
-
-    <div class="container">
-        <div class="info-box">
-            <h2>🎯 Welcome</h2>
-            <p>
-                This is an ultimate resource for system design interviews and learning.
-                It contains a comprehensive collection of system-design diagrams in Excalidraw format,
-                along with detailed notes on patterns, architectures, and best practices.
-            </p>
-            <p style="margin-top: 1rem;">
-                <strong>📖 Source:</strong> <a href="https://github.com/Prakash-sa/system-design-ultimatum" target="_blank">GitHub Repository</a>
-            </p>
-            <p style="margin-top: 0.5rem;">
-                <strong>🔧 Tools:</strong> Install the Excalidraw extension in VS Code to open and edit .excalidraw files directly.
-            </p>
+${generateNav()}
+    <div class="main-content">
+        <header>
+            <h1>${title}</h1>
+        </header>
+        <div class="container content-page">
+${content}
         </div>
-
-        <div class="section">
-            <h2><span class="emoji">📖</span>Study Notes & References</h2>
-            <div class="grid">
-${markdownFiles.map(file => {
-  const relativePath = file.replace(/^\.\//, '');
-  const filename = path.basename(file);
-  const displayName = filename.replace('.md', '').replace(/-/g, ' ');
-  const folder = path.dirname(relativePath);
-  
-  return `                <div class="card">
-                    <div class="card-title">${displayName}</div>
-                    <div class="card-meta">
-                        📁 ${folder}
-                    </div>
-                    <a href="https://github.com/Prakash-sa/system-design-ultimatum/blob/main/${relativePath}" target="_blank">
-                        View on GitHub →
-                    </a>
-                </div>`;
-}).join('\n')}
-            </div>
-        </div>
-
-        <div class="section">
-            <h2><span class="emoji">📊</span>System Design Diagrams</h2>
-            <div class="grid">
-${excalidrawFiles.map(file => {
-  const relativePath = file.replace(/^\.\//, '');
-  const filename = path.basename(file, '.excalidraw');
-  const folder = path.dirname(relativePath);
-  const emoji = getEmojiForFolder(folder);
-  
-  return `                <div class="card">
-                    <div class="card-title">${emoji} ${filename}</div>
-                    <div class="card-meta">
-                        📁 ${folder}
-                    </div>
-                    <a href="https://github.com/Prakash-sa/system-design-ultimatum/blob/main/${relativePath}" target="_blank">
-                        Open in GitHub →
-                    </a>
-                </div>`;
-}).join('\n')}
-            </div>
-        </div>
-
-        <div class="info-box">
-            <h2>🚀 Getting Started</h2>
-            <ul>
-                <li><strong>Quick References:</strong> Check the study notes for foundational concepts</li>
-                <li><strong>System Designs:</strong> Browse the diagrams organized by category</li>
-                <li><strong>Interview Prep:</strong> Study the Q&A sections in each document</li>
-                <li><strong>Local Setup:</strong> Clone the repo and open files in Excalidraw</li>
-            </ul>
-        </div>
-
-        <div class="info-box">
-            <h2>📚 Resources</h2>
-            <ul>
-                <li><a href="https://www.youtube.com/@jordanhasnolife5163" target="_blank">Jordan Has No Life's YouTube channel</a></li>
-                <li>Alex Xu's System Design Interview book</li>
-                <li><a href="https://www.youtube.com/@SDFC" target="_blank">System Design Fight Club</a></li>
-                <li><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/introduction" target="_blank">Hello Interview notes</a></li>
-                <li><a href="https://www.youtube.com/@ByteMonk" target="_blank">ByteMonk</a></li>
-            </ul>
-        </div>
+        <footer>
+            <p>System Design Ultimatum</p>
+            <p style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.8;">Last updated: ${new Date().toLocaleDateString()}</p>
+        </footer>
     </div>
-
-    <footer>
-        <p>System Design Ultimatum | <a href="https://github.com/Prakash-sa/system-design-ultimatum" target="_blank">GitHub</a></p>
-        <p style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.8;">Last updated: ${new Date().toLocaleDateString()}</p>
-    </footer>
 </body>
 </html>`;
-
-function getEmojiForFolder(folder) {
-  const emojiMap = {
-    '1. Foundational(Introductory) Design': '🧩',
-    '2. Content Delivery & Media Systems': '🌐',
-    '3. Social & Communication Systems': '💬',
-    '4. Search, Discovery & Recommendation': '🕸️',
-    '5. Storage, Data, and Compute Infrastructure': '☁️',
-    '6. Scalability & Reliability Systems': '⚙️',
-    '7. Analytics, Streaming, and Data Pipelines': '🧠',
-    '8. Security, Identity, and Access Systems': '🔒',
-    '9. DevOps-Cloud-SaaS Infrastructure': '🧰',
-    '10. Hybrid or AI-Augmented Systems': '🧮',
-    '11. Deployment Strategies': '☁️',
-    '12. AI Design Patterns': '🤖',
-    'Notes': '📝'
-  };
-  
-  for (const [key, emoji] of Object.entries(emojiMap)) {
-    if (folder.includes(key)) {
-      return emoji;
-    }
-  }
-  return '📄';
 }
 
-// Write index.html
-fs.writeFileSync(path.join(docsDir, 'index.html'), htmlContent);
+// Generate markdown files
+markdownFiles.forEach(filePath => {
+  const filename = path.basename(filePath, '.md');
+  const directory = path.dirname(filePath).replace(/^\.\//, '');
+  const htmlFileName = filePath.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
+  
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const htmlContent = markdownToHtml(content);
+    const fullHtml = generatePageTemplate(filename, htmlContent);
+    
+    fs.writeFileSync(path.join(docsDir, htmlFileName), fullHtml);
+    console.log('✓ Generated: ' + htmlFileName);
+  } catch (err) {
+    console.log('✗ Error generating ' + filePath + ': ' + err.message);
+  }
+});
 
-// Copy CSS and assets if needed
+// Generate excalidraw files
+excalidrawFiles.forEach(filePath => {
+  const filename = path.basename(filePath, '.excalidraw');
+  const htmlFileName = filePath.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
+  
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const data = JSON.parse(content);
+    
+    // Extract basic info
+    let diagramInfo = '<div class="diagram-container">';
+    diagramInfo += '<h2>📊 Diagram: ' + filename + '</h2>';
+    diagramInfo += '<p><strong>File:</strong> ' + filePath + '</p>';
+    
+    if (data.metadata) {
+      diagramInfo += '<p><strong>Elements:</strong> ' + (data.elements ? data.elements.length : 0) + '</p>';
+    }
+    
+    diagramInfo += '<div style="margin-top: 1.5rem;">';
+    diagramInfo += '<h3>Diagram Structure (JSON)</h3>';
+    diagramInfo += '<div class="diagram-content">' + JSON.stringify(data, null, 2) + '</div>';
+    diagramInfo += '</div>';
+    diagramInfo += '</div>';
+    diagramInfo += '<p style="margin-top: 1rem;"><em>Note: To view and edit this diagram interactively, please visit the <a href="https://excalidraw.com" target="_blank">Excalidraw editor</a> or open the file in VS Code with the Excalidraw extension.</em></p>';
+    
+    const fullHtml = generatePageTemplate(filename, diagramInfo);
+    
+    fs.writeFileSync(path.join(docsDir, htmlFileName), fullHtml);
+    console.log('✓ Generated: ' + htmlFileName);
+  } catch (err) {
+    console.log('✗ Error generating ' + filePath + ': ' + err.message);
+  }
+});
+
+// Generate index page
+const indexContent = `
+<h2>Welcome to System Design Ultimatum</h2>
+<p>A comprehensive collection of system design diagrams, notes, and best practices.</p>
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: #f0f4ff; border-radius: 8px; border-left: 4px solid #667eea;">
+  <h3 style="margin-top: 0;">📚 Getting Started</h3>
+  <ul>
+    <li>Browse the navigation menu on the left to explore study notes and diagrams</li>
+    <li>Click on any file to view its content directly</li>
+    <li>Markdown files are rendered as readable HTML pages</li>
+    <li>Excalidraw diagrams are displayed as structured data with JSON preview</li>
+  </ul>
+</div>
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: #f9f9f9; border-radius: 8px;">
+  <h3>📊 Content Overview</h3>
+  <p><strong>Study Notes:</strong> ${markdownFiles.length} files</p>
+  <p><strong>Diagrams:</strong> ${excalidrawFiles.length} files</p>
+  <p><strong>Folders:</strong> ${Object.keys(filesByFolder).length}</p>
+</div>
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: #f9f9f9; border-radius: 8px;">
+  <h3>🔍 Quick Links by Category</h3>
+  ${Object.keys(filesByFolder).sort().map(folder => {
+    const { markdown, excalidraw } = filesByFolder[folder];
+    const folderName = folder || 'Root';
+    let html = '<div style="margin-bottom: 1.5rem;"><strong>' + folderName + '</strong><br/>';
+    
+    markdown.forEach(f => {
+      const name = path.basename(f, '.md');
+      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.md', '.html');
+      html += '<a href="' + htmlFile + '">📄 ' + name + '</a><br/>';
+    });
+    
+    excalidraw.forEach(f => {
+      const name = path.basename(f, '.excalidraw');
+      const htmlFile = f.replace(/^\.\//, '').replace(/\//g, '_').replace('.excalidraw', '.html');
+      html += '<a href="' + htmlFile + '">📊 ' + name + '</a><br/>';
+    });
+    
+    html += '</div>';
+    return html;
+  }).join('')}
+</div>
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: #fff9e6; border-radius: 8px; border-left: 4px solid #ffc107;">
+  <h3 style="margin-top: 0;">💡 Tips</h3>
+  <ul>
+    <li>Use the search function (Ctrl/Cmd+F) to find topics across all pages</li>
+    <li>Diagrams show their structure as JSON - use the Excalidraw editor or VS Code extension for visual editing</li>
+    <li>All content is automatically organized by folder</li>
+    <li>Pages update automatically when changes are pushed to the repository</li>
+  </ul>
+</div>
+`;
+
+const indexHtml = generatePageTemplate('System Design Ultimatum', indexContent);
+fs.writeFileSync(path.join(docsDir, 'index.html'), indexHtml);
+console.log('✓ Generated: index.html');
+
+// Create .nojekyll
 fs.writeFileSync(path.join(docsDir, '.nojekyll'), '');
 
-console.log('✅ Site generated successfully!');
-console.log('📁 Output: ./docs/index.html');
-console.log('📊 Files indexed: ' + markdownFiles.length + ' markdown files, ' + excalidrawFiles.length + ' diagrams');
+console.log('\n✅ Site generated successfully!');
+console.log('📁 Output: ./docs/');
+console.log('📊 Total files: ' + (markdownFiles.length + excalidrawFiles.length + 1));

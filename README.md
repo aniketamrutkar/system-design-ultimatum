@@ -6,6 +6,7 @@ A curated collection of system-design diagrams in Excalidraw format. These diagr
 
 [https://Prakash-sa.github.io/system-design-ultimatum/](https://Prakash-sa.github.io/system-design-ultimatum/)
 
+- This site is published via GitHub Pages.
 - Built automatically from `main` by GitHub Actions
 - Every markdown + Excalidraw file gets its own HTML page with sidebar navigation
 - Diagrams also ship with downloadable SVG previews generated from the Excalidraw source

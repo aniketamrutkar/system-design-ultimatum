@@ -23,6 +23,9 @@
 
 ## Architecture Evolution
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Stage 1: Monolith (startup)
 - Single codebase
@@ -41,11 +44,16 @@ Stage 3: Microservices
 - Operational complexity
 ```
 
+</details>
+
 ---
 
 ## Monolith Architecture
 
 **Structure**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User API ── Business Logic ── Database
 │           │
@@ -54,6 +62,8 @@ User API ── Business Logic ── Database
 ├─ Orders   └─ Payment service
 └─ Payments
 ```
+
+</details>
 
 **Pros:**
 - Simple to deploy (1 binary)
@@ -78,6 +88,9 @@ User API ── Business Logic ── Database
 ## Microservices Architecture
 
 **Structure**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Load Balancer
     ↓
@@ -92,6 +105,8 @@ Each service:
 - Own deployment
 - Own scaling
 ```
+
+</details>
 
 **Pros:**
 - Independent scaling
@@ -164,6 +179,9 @@ Remaining monolith handles: Orders, Products, Recommendations
 - If no → Stay hybrid (keep some as monolith)
 
 **Why phased?**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Don't rewrite everything at once (Amazon failed this way)
 
@@ -174,7 +192,12 @@ Better approach:
 - Keep ability to rollback
 ```
 
+</details>
+
 **Cost analysis**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Monolith maintenance: $1M/year
 Microservices infra: $500K/year (better scaling)
@@ -185,6 +208,8 @@ Benefit: Can deploy 100x faster, scale independently
 Worth it if: Development bottleneck > ops cost
 ```
 
+</details>
+
 ---
 
 ### Q2: How do you handle data consistency across microservices?
@@ -193,6 +218,9 @@ Worth it if: Development bottleneck > ops cost
 **Three approaches** (tradeoffs):
 
 **1. Synchronous (Strong consistency)**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Order service → synchronously calls → Payment service
              → synchronously calls → Inventory service
@@ -203,7 +231,12 @@ Pros: Strong consistency
 Cons: Coupling, cascading failures, complex
 ```
 
+</details>
+
 **2. Eventual consistency (Async)** ← Recommended
+<details>
+<summary>Click to view code</summary>
+
 ```
 Order service publishes "order.created"
   ↓
@@ -220,7 +253,12 @@ If payment fails:
 Takes seconds to converge, but eventually consistent
 ```
 
+</details>
+
 **3. Saga pattern** (distributed transaction)
+<details>
+<summary>Click to view code</summary>
+
 ```
 Order service:
   1. Create order (PENDING)
@@ -239,6 +277,8 @@ Choreography saga:
                        → Each publishes own events
 ```
 
+</details>
+
 **Best practice**: **Async eventual consistency**
 - Loosely coupled
 - Resilient (services can be down)
@@ -246,6 +286,9 @@ Choreography saga:
 - More operational complexity (need monitoring)
 
 **Example**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Order service
 def create_order(user_id, items):
@@ -277,12 +320,17 @@ def handle_payment_succeeded(event):
     queue.publish("order.inventory_updated", {"order_id": order_id})
 ```
 
+</details>
+
 ---
 
 ### Q3: Design Netflix microservices. How many services?
 
 **Answer:**
 **Netflix-like architecture**:
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 API Gateway (routes requests)
@@ -311,6 +359,8 @@ API Gateway (routes requests)
        └─ User behavior, metrics
 ```
 
+</details>
+
 **Services**: ~15-20 (Netflix actual: 700+)
 
 **Why so many?**
@@ -337,6 +387,9 @@ API Gateway (routes requests)
 **Answer:**
 **Depends on deployment frequency**:
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Scenario 1: Deploy once per month
 - Monolith: 1 deploy × 2 hours = 2 hours downtime/month
@@ -357,7 +410,12 @@ Scenario 3: Deploy independently (ideal)
 - Microservices MUCH BETTER
 ```
 
+</details>
+
 **Real cost**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Microservices operational overhead:
 - 15 services × 3 engineers per service = 45 engineers
@@ -377,6 +435,8 @@ If: Operational simplicity matters → Monolith
 Netflix answer: Time to market >> ops cost
 We'll take the $5M/year to deploy 100x faster
 ```
+
+</details>
 
 **Recommendation**: Stick with monolith until:
 1. Deployment is bottleneck (more than weekly)

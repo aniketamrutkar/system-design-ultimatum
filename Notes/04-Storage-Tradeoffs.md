@@ -58,6 +58,9 @@
 - Resize on-demand: AWS Lambda resizes for thumbnails
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User uploads photo → S3 bucket (original)
                   ↓
@@ -73,7 +76,12 @@ CloudFront CDN caches all variants
 User requests photo → CloudFront (99% cache hit) → S3 on miss
 ```
 
+</details>
+
 **Cost analysis**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 1B photos × 2MB avg = 2 exabytes
 S3: $0.023/GB = $46M/year
@@ -82,6 +90,8 @@ Block storage: $0.10/GB = $200M/year  # 4x more expensive
 
 Savings: $154M/year by using Object storage
 ```
+
+</details>
 
 **Why not Block storage?**
 - Cost: 4x more expensive
@@ -110,6 +120,9 @@ Savings: $154M/year by using Object storage
 - Still limited to instance size ceiling
 
 **Recommendation**: Combination approach
+<details>
+<summary>Click to view code</summary>
+
 ```
 Immediate: Switch to larger instance (gains 3-6 months)
           ↓
@@ -118,6 +131,8 @@ Medium-term: Implement sharding (scales indefinitely)
 Long-term: Move to managed service (RDS, Cloud SQL)
           which handles scaling automatically
 ```
+
+</details>
 
 ---
 
@@ -140,6 +155,9 @@ Long-term: Move to managed service (RDS, Cloud SQL)
    - Fast writes needed
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User uploads file → 
   1. Store metadata in PostgreSQL
@@ -157,12 +175,17 @@ User deletes file →
   Keep S3 object (can restore)
 ```
 
+</details>
+
 **Why this mix?**
 - PostgreSQL: Metadata is small, frequently queried
 - S3: Files can be huge, accessed less frequently
 - EBS: Sync logs need fast writes
 
 **Cost breakdown**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 100GB user × 1M users = 100PB storage
 S3: $0.023/GB × 100PB = $2.3M/month
@@ -170,4 +193,6 @@ S3: $0.023/GB × 100PB = $2.3M/month
 + Bandwidth: $1M/month (CDN)
 = $3.8M/month (much cheaper than Block storage for all)
 ```
+
+</details>
 

@@ -6,6 +6,9 @@ The original **Tradeoffs.md** file has been reorganized into 8 focused markdown 
 
 ## File Structure
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Notes/
 ├── Tradeoffs.md                     # Master index (reference this first)
@@ -18,6 +21,8 @@ Notes/
 ├── 07-Data-Processing.md            # Batch vs Stream, Lambda vs Kappa
 └── 08-Architecture-Patterns.md      # Monolith vs Microservices
 ```
+
+</details>
 
 ## What's New in Each File
 
@@ -163,6 +168,9 @@ Notes/
 ## How to Navigate
 
 ### Quick Links (From Master Index)
+<details>
+<summary>Click to view code (markdown)</summary>
+
 ```markdown
 [Database Tradeoffs](./01-Database-Tradeoffs.md)
 [Caching Strategies](./02-Caching-Strategies.md)
@@ -173,6 +181,8 @@ Notes/
 [Data Processing](./07-Data-Processing.md)
 [Architecture Patterns](./08-Architecture-Patterns.md)
 ```
+
+</details>
 
 ### Search Tips
 - **Search for company name**: "Netflix", "Uber", "Stripe" to find relevant examples

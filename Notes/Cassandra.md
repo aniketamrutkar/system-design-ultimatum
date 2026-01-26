@@ -25,6 +25,9 @@
 
 ## Cassandra Architecture Overview
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Client (via CQL driver)
        ↓
@@ -39,6 +42,8 @@ Cassandra Cluster
        ↓
    [SSTable (commit log + memtable)]
 ```
+
+</details>
 
 **Key layers:**
 - **Cluster**: Collection of nodes sharing same cluster name
@@ -58,6 +63,9 @@ Cassandra Cluster
 **Problem**: How to distribute data across nodes?
 
 **Solution**: Consistent hashing with token ring
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Token Ring (0 to 2^63-1):
@@ -80,12 +88,17 @@ Key "charlie" → Hash → Token 350
   Belongs to: Node 4 (300-400)
 ```
 
+</details>
+
 **Benefits:**
 - Adding/removing nodes = minimal rebalancing
 - Load balanced: Each node owns ~1/N of token space
 - Replication: RF=3 means data on 3 consecutive nodes
 
 **Replication placement:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Replication Factor = 3
@@ -96,11 +109,16 @@ Key "user:123" → Token 150
   Replica 2 (Node 3): Token 300-400
 ```
 
+</details>
+
 ---
 
 ### 2. Keyspaces and Tables
 
 **Keyspace**: Schema definition (similar to database)
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE KEYSPACE user_keyspace
@@ -112,7 +130,12 @@ WITH replication = {
 AND durable_writes = true;
 ```
 
+</details>
+
 **Table**: Data structure (similar to table)
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE TABLE users (
@@ -124,11 +147,16 @@ CREATE TABLE users (
 );
 ```
 
+</details>
+
 ---
 
 ### 3. Data Model: Primary Key
 
 **Simple primary key** (single column):
+<details>
+<summary>Click to view code (cql)</summary>
+
 ```cql
 PRIMARY KEY (user_id)
   → Partition key: user_id
@@ -137,7 +165,12 @@ PRIMARY KEY (user_id)
 // All data with same user_id on same partition
 ```
 
+</details>
+
 **Composite primary key** (partition key + clustering key):
+<details>
+<summary>Click to view code (cql)</summary>
+
 ```cql
 CREATE TABLE user_activity (
   user_id UUID,
@@ -150,7 +183,12 @@ CREATE TABLE user_activity (
 WHERE user_id = ? AND timestamp >= ? AND timestamp < ?
 ```
 
+</details>
+
 **How it's stored:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Partition key (user_id): Determines node
@@ -167,6 +205,8 @@ Data on node:
     └─ timestamp=2024-01-05 10:05:15 → "purchase"
 ```
 
+</details>
+
 **Advantages:**
 - Range queries: Get activity between timestamps efficiently
 - Sorted results: Clustering key order preserved
@@ -177,6 +217,9 @@ Data on node:
 ### 4. Write Path
 
 **Write operation flow:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Client sends INSERT/UPDATE
@@ -192,7 +235,12 @@ Client sends INSERT/UPDATE
 5. Compaction merges SSTables
 ```
 
+</details>
+
 **Write acknowledgment flow:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Client sends write with consistency_level = QUORUM
@@ -208,11 +256,16 @@ Consistency achieved:
   Trade-off: Eventual consistency
 ```
 
+</details>
+
 ---
 
 ### 5. Read Path
 
 **Read operation flow:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Client sends SELECT with consistency_level = QUORUM
@@ -228,7 +281,12 @@ Read consistency guarantees:
   ALL: Slowest but consistent (all RF nodes)
 ```
 
+</details>
+
 **Read repair:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Scenario: Write to replica A succeeds, B is slow
@@ -246,6 +304,8 @@ Read repair:
   Returns A's value
 ```
 
+</details>
+
 ---
 
 ## Consistency & Availability Trade-offs
@@ -261,6 +321,9 @@ Read repair:
 
 **Write consistency example** (RF=3):
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Consistency ONE:
   Write to node A → Return success
@@ -275,7 +338,12 @@ Consistency ALL:
   Risk: 1 node down = write fails (low availability)
 ```
 
+</details>
+
 **Hybrid consistency** (write QUORUM, read ONE):
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Write QUORUM:
@@ -287,11 +355,16 @@ Read ONE:
   Mitigation: Read repair fixes stale data in background
 ```
 
+</details>
+
 ---
 
 ## Replication & Distribution
 
 ### Replication Factor (RF)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 RF=1: No replication (data loss on node failure)
@@ -305,7 +378,12 @@ Multi-DC: Distribute replicas across DCs
   eu-west: RF=1
 ```
 
+</details>
+
 ### Multi-Datacenter Replication
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE KEYSPACE events
@@ -316,7 +394,12 @@ WITH replication = {
 };
 ```
 
+</details>
+
 **Data flow:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Write in US-East:
@@ -334,6 +417,8 @@ Trade-off:
   - Cross-DC bandwidth usage
 ```
 
+</details>
+
 ---
 
 ## Compaction Strategy
@@ -341,6 +426,9 @@ Trade-off:
 **Problem**: Many writes create many SSTables (slow reads)
 
 **Solution**: Compaction merges SSTables
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Initial state (4 SSTables):
@@ -361,6 +449,8 @@ After compaction:
   → Single SSTable (fast)
 ```
 
+</details>
+
 **Compaction strategies:**
 
 | Strategy | Use Case | Trade-off |
@@ -374,6 +464,9 @@ After compaction:
 ## Performance Optimization
 
 ### Write Optimization
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 -- Batch writes for throughput
@@ -391,7 +484,12 @@ commitlog_sync = batch
 commitlog_sync_batch_window_in_ms = 10
 ```
 
+</details>
+
 ### Read Optimization
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 -- Use secondary indexes for filtering
@@ -409,7 +507,12 @@ SELECT * FROM users WHERE user_id = ? LIMIT 100;
 SELECT * FROM users WHERE user_id = ? USING CACHE;
 ```
 
+</details>
+
 ### Hardware Configuration
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Memory allocation
@@ -431,6 +534,8 @@ concurrent_reads: 32
 concurrent_writes: 32
 ```
 
+</details>
+
 ---
 
 ## Scalability & High Availability
@@ -438,27 +543,45 @@ concurrent_writes: 32
 ### Cluster Sizing
 
 **Small cluster** (3-5 nodes):
+<details>
+<summary>Click to view code</summary>
+
 ```
 Handles: 100K-1M ops/sec
 Per node: SSD 500GB, 16GB RAM
 Use case: Development, testing
 ```
 
+</details>
+
 **Medium cluster** (6-20 nodes):
+<details>
+<summary>Click to view code</summary>
+
 ```
 Handles: 1M-10M ops/sec
 Per node: SSD 2TB, 32GB RAM
 Use case: Production, single DC
 ```
 
+</details>
+
 **Large cluster** (20+ nodes):
+<details>
+<summary>Click to view code</summary>
+
 ```
 Handles: 10M+ ops/sec
 Per node: SSD 4TB+, 64GB RAM
 Use case: High-scale, multi-DC
 ```
 
+</details>
+
 ### High Availability Strategy
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Single node failure:
@@ -476,7 +599,12 @@ Entire DC failure:
   ✗ Possible write losses (async replication)
 ```
 
+</details>
+
 ### Repair Mechanism
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Repair ensures replicas are consistent:
@@ -495,11 +623,16 @@ Schedule:
   Run during low-traffic window
 ```
 
+</details>
+
 ---
 
 ## Use Cases
 
 ### 1. Time-Series Data (Metrics, Logs)
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE TABLE metrics (
@@ -520,7 +653,12 @@ WHERE metric_name = 'cpu'
   AND timestamp >= ? AND timestamp < ?;
 ```
 
+</details>
+
 ### 2. User Profiles & Activity
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE TABLE users (
@@ -543,7 +681,12 @@ SELECT * FROM user_activity
 WHERE user_id = ? AND timestamp >= ? AND timestamp < ?;
 ```
 
+</details>
+
 ### 3. Message Queue (Kafka-like)
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE TABLE messages (
@@ -565,7 +708,12 @@ WHERE topic = 'events' AND partition = 0
 LIMIT 1000;
 ```
 
+</details>
+
 ### 4. Real-time Analytics
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE TABLE events (
@@ -584,6 +732,8 @@ WHERE event_type = 'purchase' AND day = '2024-01-05'
 GROUP BY hour;
 ```
 
+</details>
+
 ---
 
 ## Interview Questions & Answers
@@ -597,6 +747,9 @@ GROUP BY hour;
 - 99.99% uptime
 
 **Solution:**
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE KEYSPACE analytics 
@@ -626,7 +779,12 @@ CREATE TABLE event_counts (
 );
 ```
 
+</details>
+
 **Write path:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # High-throughput insert
@@ -656,7 +814,12 @@ for event in events_stream:
   ], consistency_level=ConsistencyLevel.QUORUM)
 ```
 
+</details>
+
 **Read path (queries):**
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 -- Count events in last hour
@@ -673,7 +836,12 @@ GROUP BY product_id
 LIMIT 10;
 ```
 
+</details>
+
 **Cluster setup:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 3 nodes per DC × 2 DCs = 6 nodes
@@ -686,6 +854,8 @@ Throughput: 1M events/sec ÷ 6 nodes = 167K/sec per node
 (Cassandra handles 100K+/sec per node)
 ```
 
+</details>
+
 ---
 
 ### Q2: Node fails. How to recover without data loss?
@@ -693,6 +863,9 @@ Throughput: 1M events/sec ÷ 6 nodes = 167K/sec per node
 **Answer:**
 
 **Failure scenarios with RF=3:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Scenario 1: 1 node fails
@@ -711,7 +884,12 @@ Scenario 3: Node recovers after being down
   3. Repair fills in missing data
 ```
 
+</details>
+
 **Recovery process:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # 1. Node comes back online
@@ -727,7 +905,12 @@ nodetool netstats
 nodetool ring
 ```
 
+</details>
+
 **Hint system** (prevents write loss):
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Write to A, B (C is down):
@@ -744,6 +927,8 @@ Trade-off:
   - Mitigation: Enable hint window (replay within N hours)
 ```
 
+</details>
+
 **Key takeaway**: "With RF=3, lose 1 node = no impact. Lose 2+ nodes = possible data loss. Always run `nodetool repair` weekly."
 
 ---
@@ -755,6 +940,9 @@ Trade-off:
 **Challenge**: Cassandra is eventually consistent by default
 
 **Solution: Hybrid consistency**
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 -- Use QUORUM consistency on writes
@@ -771,7 +959,12 @@ USING CONSISTENCY QUORUM;
 --   Write to 2 nodes + read from 2 nodes = strong consistency
 ```
 
+</details>
+
 **Trade-offs:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 QUORUM consistency:
@@ -787,7 +980,12 @@ Availability impact:
     RF=5, need 3 alive: Can lose 2 nodes
 ```
 
+</details>
+
 **Read-before-write pattern:**
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 -- For balance updates (prevent race conditions)
@@ -804,7 +1002,12 @@ WHERE account_id = ?
 IF balance = ?;  -- Only update if balance unchanged
 ```
 
+</details>
+
 **Lightweight transactions (LWT):**
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 -- Atomic compare-and-set
@@ -818,6 +1021,8 @@ IF balance = 1000;  -- Conditional
 // 3. Atomic within cluster
 ```
 
+</details>
+
 **Key takeaway**: "Use QUORUM consistency + lightweight transactions for strong consistency guarantees, but accept higher latency."
 
 ---
@@ -827,6 +1032,9 @@ IF balance = 1000;  -- Conditional
 **Answer:**
 
 **Diagnosis checklist:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # 1. Check cluster health
@@ -852,6 +1060,8 @@ SELECT * FROM system_traces.sessions
 WHERE session_id = ?;
 ```
 
+</details>
+
 **Common causes and solutions:**
 
 | Problem | Cause | Fix |
@@ -864,6 +1074,9 @@ WHERE session_id = ?;
 | **Hot partition** | Single key receiving all traffic | Use partition sharding (add dimension) |
 
 **Hot partition mitigation:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Problem: User 'celebrity' has 1M followers
@@ -891,6 +1104,8 @@ After (sharded):
   // Writes distribute across 10 partitions
 ```
 
+</details>
+
 ---
 
 ### Q5: Design a distributed cache (like Redis) with Cassandra durability
@@ -898,6 +1113,9 @@ After (sharded):
 **Answer:**
 
 **Architecture:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Cache layer + Cassandra durability:
@@ -913,7 +1131,12 @@ Read flow:
         → Memcached (populate cache)
 ```
 
+</details>
+
 **Implementation:**
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 CREATE TABLE cache (
@@ -934,7 +1157,12 @@ WHERE cache_key = ?
 USING CONSISTENCY ONE;
 ```
 
+</details>
+
 **Cache invalidation strategy:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Write-through cache
@@ -959,7 +1187,12 @@ def update_user(user_id, data):
     memcached.delete(f"user:{user_id}")
 ```
 
+</details>
+
 **Durability guarantees:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Write QUORUM + async Cassandra write:
@@ -971,6 +1204,8 @@ If Memcached fails:
   Cassandra still has data
   Repopulate Memcached on read (cache miss)
 ```
+
+</details>
 
 ---
 
@@ -1030,6 +1265,9 @@ If Memcached fails:
 
 ### Multi-Datacenter Failover
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Primary DC (US-East): 3 nodes, RF=3
 Secondary DC (EU-West): 2 nodes
@@ -1046,7 +1284,12 @@ Solution: Use RF=5, distribute replicas
   → Lose entire DC, data survives
 ```
 
+</details>
+
 ### Backup and Recovery
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # Snapshot (consistent backup)
@@ -1061,6 +1304,8 @@ aws s3 cp snapshot.tar.gz s3://cassandra-backups/
 # 2. Run repair to sync
 nodetool repair -pr user_keyspace
 ```
+
+</details>
 
 ---
 

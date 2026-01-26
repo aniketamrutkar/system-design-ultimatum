@@ -67,6 +67,9 @@
 
 **Core concept**: Split work across cluster, process in-memory for speed
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Traditional Hadoop (MapReduce):
   Read disk → Process → Write disk → Read disk → Process → Write disk
@@ -76,6 +79,8 @@ Spark:
   Read disk → Process (in-memory) → Process → Process → Write disk
   Fast because: intermediate results stay in memory
 ```
+
+</details>
 
 ### Architecture
 
@@ -103,6 +108,9 @@ Spark:
 
 ### Spark Job Execution
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 1. Create RDD/DataFrame
 2. Apply transformations (lazy - not executed yet)
@@ -114,7 +122,12 @@ Spark:
 6. Results collected back to driver
 ```
 
+</details>
+
 **Example**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from pyspark.sql import SparkSession
 
@@ -139,12 +152,17 @@ df_grouped.show()  # Only here does actual computation happen
 # +-------+-----+
 ```
 
+</details>
+
 ### Key Concepts
 
 **1. Partitions**
 - Data split across cluster
 - Each executor processes one partition
 - More partitions = more parallelism
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Default: auto-partitioned based on data size
@@ -158,9 +176,14 @@ df_repartitioned.show()
 print(df.rdd.getNumPartitions())  # Output: 32
 ```
 
+</details>
+
 **2. Shuffle**
 - Moving data between executors (expensive!)
 - Happens on: groupBy, join, distinct
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # This causes shuffle (expensive)
@@ -170,7 +193,12 @@ df.groupBy('country').count()
 # Minimize shuffles in real jobs
 ```
 
+</details>
+
 **3. Wide vs Narrow Transformations**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Narrow: One partition output depends on one input partition
 - map, filter, select
@@ -182,7 +210,12 @@ Wide: One partition output depends on multiple input partitions
 - Expensive!
 ```
 
+</details>
+
 **Example**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Narrow (fast)
 df.filter(df['age'] > 25)  # Each partition filters independently
@@ -191,9 +224,14 @@ df.filter(df['age'] > 25)  # Each partition filters independently
 df.groupBy('country').count()  # Data from all partitions must move
 ```
 
+</details>
+
 ### Performance Tuning
 
 **1. Partition size**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Too few partitions: underutilization
 df.repartition(2)  # Only 2 executors working, others idle
@@ -205,7 +243,12 @@ df.repartition(10000)  # Task creation overhead > benefit
 # For 100GB file: 100GB / 128MB = ~800 partitions
 ```
 
+</details>
+
 **2. Memory management**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Driver memory: holds results
 spark = SparkSession.builder \
@@ -220,7 +263,12 @@ spark.conf.set("spark.executor.memory", "16g")
 # Too little: OOM errors
 ```
 
+</details>
+
 **3. Cache hot data**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Without cache:
 df.groupBy('id').count().show()  # Recompute from source
@@ -232,7 +280,12 @@ df.groupBy('id').count().show()  # Compute once, cache
 df.groupBy('id').sum('amount').show()  # Use cached version (fast!)
 ```
 
+</details>
+
 **4. Broadcast variables**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Scenario: Small lookup table needed on all executors
 lookup = {"US": "United States", "UK": "United Kingdom"}
@@ -248,9 +301,14 @@ def enrich_country(code):
 df.withColumn("country_name", enrich_country(df['country_code']))
 ```
 
+</details>
+
 ### Common Patterns
 
 **1. ETL Pipeline**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Extract
 df = spark.read.parquet("s3://bucket/data/*.parquet")
@@ -264,7 +322,12 @@ df_clean = df_clean.withColumn('amount_usd', df['amount'] * 1.1)
 df_clean.write.mode("overwrite").parquet("s3://bucket/output/")
 ```
 
+</details>
+
 **2. Streaming (micro-batches)**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from pyspark.sql.functions import col, window
 
@@ -290,7 +353,12 @@ query = windowed.writeStream \
 query.awaitTermination()
 ```
 
+</details>
+
 **3. Join operations**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Broadcast join (small table + large table)
 users = spark.read.csv("users.csv")  # 1GB
@@ -306,6 +374,8 @@ result = events.join(broadcast(users), "user_id")
 users2 = spark.read.csv("users2.csv")  # 50GB
 result = events.join(users2, "user_id")  # Shuffle happens
 ```
+
+</details>
 
 ### Spark vs Hadoop Comparison
 
@@ -327,6 +397,9 @@ result = events.join(users2, "user_id")  # Shuffle happens
 **Definition**: Unified stream processing framework that handles both streams and batches with low latency and exactly-once semantics.
 
 **Key difference from Spark Streaming**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Spark Streaming (micro-batches):
   Events arrive → Batch 1 (0-1s) → Process → Results
@@ -339,7 +412,12 @@ Flink (true streaming):
   Minimum latency: 1-10ms (event at a time)
 ```
 
+</details>
+
 ### Architecture
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Source Operators (Kafka, Files, Sockets)
@@ -349,6 +427,8 @@ DataStream API (transformations)
 Sink Operators (HDFS, Kafka, DB)
 ```
 
+</details>
+
 **Execution Model**: Directed Acyclic Graph (DAG)
 - Each node is an operator
 - Each edge is a data flow
@@ -357,6 +437,9 @@ Sink Operators (HDFS, Kafka, DB)
 ### DataStream API
 
 **Basic Structure**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from pyspark.streaming import StreamingContext
 from pyspark.sql import SparkSession
@@ -378,11 +461,16 @@ processed.add_sink(KafkaSink(...))
 env.execute("Job Name")
 ```
 
+</details>
+
 ### Key Concepts
 
 **1. Windowing**
 - Divide infinite stream into finite buckets
 - Process each window separately
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 from flink.datastream.window import TumblingEventTimeWindows
@@ -406,9 +494,14 @@ windowed = stream.window(SlidingEventTimeWindows.of(
 windowed = stream.window(SessionWindow(Time.minutes(5)))
 ```
 
+</details>
+
 **2. State Management**
 - Remember information across events
 - Example: Running total, max in window
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 from flink.datastream.state import MapState, AggregateFunction
@@ -432,9 +525,14 @@ stream.keyBy(lambda x: x['user_id']) \
       .aggregate(CountingFunction())
 ```
 
+</details>
+
 **3. Exactly-Once Semantics**
 - Guarantee: Each event processed exactly once
 - No duplicates, no loss
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Without exactly-once:
@@ -452,7 +550,12 @@ With exactly-once:
   No duplicates, no loss
 ```
 
+</details>
+
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 env = StreamExecutionEnvironment.get_execution_environment()
 
@@ -465,9 +568,14 @@ env.get_checkpoint_config() \
 stream.add_sink(IdempotentKafkaSink(...))
 ```
 
+</details>
+
 ### Common Patterns
 
 **1. Real-time Fraud Detection**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 class FraudDetectionFunction(KeyedProcessFunction):
     def open(self, runtime_context):
@@ -492,7 +600,12 @@ stream.keyBy(lambda x: x['user_id']) \
       .process(FraudDetectionFunction())
 ```
 
+</details>
+
 **2. Aggregation with Session Windows**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Example: User session analytics
 # Session ends after 5 minutes of inactivity
@@ -507,7 +620,12 @@ stream.keyBy(lambda x: x['user_id']) \
       })
 ```
 
+</details>
+
 **3. Stream-to-Batch Join**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Stream: User clicks
 # Batch: Product catalog (side input)
@@ -528,6 +646,8 @@ class EnrichedClicksFunction(CoFlatMapFunction):
 clicks.connect(catalog) \
       .flat_map(EnrichedClicksFunction())
 ```
+
+</details>
 
 ### Flink vs Spark Streaming
 
@@ -561,6 +681,9 @@ clicks.connect(catalog) \
 ### Flink Deployment
 
 **Standalone Mode**:
+<details>
+<summary>Click to view code (bash)</summary>
+
 ```bash
 # Start cluster
 ./bin/start-cluster.sh
@@ -572,7 +695,12 @@ clicks.connect(catalog) \
 http://localhost:8081 (web UI)
 ```
 
+</details>
+
 **Kubernetes**:
+<details>
+<summary>Click to view code (yaml)</summary>
+
 ```yaml
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
@@ -589,9 +717,14 @@ spec:
   entrypoint: com.example.FraudDetectionJob
 ```
 
+</details>
+
 ---
 
 ### Spark vs Flink: Decision Matrix
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Need real-time analytics? 
@@ -616,6 +749,8 @@ Team expertise?
 ├─ Kafka → Kafka Streams or Flink ✓
 └─ New → Start with Spark, migrate if needed
 ```
+
+</details>
 
 ### Real-World Examples
 
@@ -674,6 +809,9 @@ Team expertise?
 **Best for:** Complex batch ETL pipelines, dependencies between 100+ tasks, long-running workflows
 
 **Example:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from datetime import datetime, timedelta
 from airflow import DAG
@@ -744,6 +882,8 @@ dq_check = BashOperator(
 extract >> transform >> load >> dq_check
 ```
 
+</details>
+
 ---
 
 #### Prefect
@@ -764,6 +904,9 @@ extract >> transform >> load >> dq_check
 **Best for:** Modern teams, experimental workflows, preference for UX, cloud-native deployments
 
 **Example:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from prefect import flow, task
 from prefect.tasks.bash import bash_shell
@@ -798,6 +941,8 @@ if __name__ == "__main__":
     etl_pipeline()
 ```
 
+</details>
+
 ---
 
 #### Dagster
@@ -817,6 +962,9 @@ if __name__ == "__main__":
 **Best for:** Data engineering teams, asset-oriented pipelines, testing-first culture
 
 **Example:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from dagster import job, op, In, Out
 
@@ -841,6 +989,8 @@ if __name__ == "__main__":
     etl_job.execute_in_process()
 ```
 
+</details>
+
 ---
 
 #### AWS Step Functions
@@ -860,6 +1010,9 @@ if __name__ == "__main__":
 **Best for:** AWS-only shops, simple to medium workflows, low operational overhead needed
 
 **Example (State Machine JSON):**
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "Comment": "ETL pipeline",
@@ -897,6 +1050,8 @@ if __name__ == "__main__":
 }
 ```
 
+</details>
+
 ---
 
 #### Luigi (Spotify)
@@ -917,6 +1072,9 @@ if __name__ == "__main__":
 **Best for:** Quick prototyping, simple one-off jobs, local development
 
 **Example:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 import luigi
 import requests
@@ -957,9 +1115,14 @@ if __name__ == '__main__':
     luigi.build([LoadData()], local_scheduler=True)
 ```
 
+</details>
+
 ---
 
 ### Decision Tree: Which Orchestrator to Use?
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 START
@@ -978,11 +1141,16 @@ START
 │  ├─ NO → Airflow ✓
 ```
 
+</details>
+
 ### Comparison: Real Example (Data Pipeline)
 
 **Scenario**: ETL pipeline runs daily, 20 tasks, dependencies, needs monitoring
 
 **Option 1: Airflow**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Setup: 2 weeks (MetaDB, Scheduler, config)
 Code: 150 lines Python
@@ -992,7 +1160,12 @@ Cost: Infrastructure + personnel
 Scalability: Handles 1000+ tasks
 ```
 
+</details>
+
 **Option 2: Prefect**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Setup: 2 days (sign up, deploy)
 Code: 100 lines Python (simpler)
@@ -1002,7 +1175,12 @@ Cost: Lower (no infrastructure)
 Scalability: 500+ tasks
 ```
 
+</details>
+
 **Option 3: AWS Step Functions**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Setup: 1 day
 Code: 200 lines JSON
@@ -1012,7 +1190,12 @@ Cost: $0.25 per 1M executions
 Scalability: 1000+ concurrent
 ```
 
+</details>
+
 **Option 4: Luigi**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Setup: Hours
 Code: 50 lines Python
@@ -1021,6 +1204,8 @@ Operations: Manual
 Cost: Minimal
 Scalability: 100 tasks max
 ```
+
+</details>
 
 ---
 
@@ -1061,12 +1246,17 @@ Scalability: 100 tasks max
 
 ### Lambda Architecture (Batch + Stream Hybrid)
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Raw data → Speed layer (stream)  → Real-time results
         → Batch layer (batch)    → Batch results
         ↓
     Serving layer (merge results)
 ```
+
+</details>
 
 **Pros:**
 - Real-time results (stream) + accurate (batch)
@@ -1086,11 +1276,16 @@ Raw data → Speed layer (stream)  → Real-time results
 
 ### Kappa Architecture (Stream Only)
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Raw data → Stream processing → Results
 
 Late data → Re-stream from data lake → Re-process
 ```
+
+</details>
 
 **Pros:**
 - Single pipeline (simpler)
@@ -1120,6 +1315,9 @@ Late data → Re-stream from data lake → Re-process
 - User's transaction in progress
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Transaction → Kafka topic
            ↓
@@ -1136,7 +1334,12 @@ Transaction → Kafka topic
     If < 0.5 → Allow
 ```
 
+</details>
+
 **Why stream, not batch?**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Batch (hourly):
   9:00 AM: Transaction happens (fraud)
@@ -1149,7 +1352,12 @@ Stream (real-time):
   Blocked instantly
 ```
 
+</details>
+
 **Implementation** (Apache Flink):
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 env = StreamExecutionEnvironment.get_execution_environment()
 
@@ -1162,6 +1370,8 @@ fraud_scores = transactions.map(calculate_fraud_score)
 env.execute("Fraud Detection")
 ```
 
+</details>
+
 ---
 
 ### Q2: Design a daily analytics pipeline. Batch or stream?
@@ -1173,6 +1383,9 @@ env.execute("Fraud Detection")
 - Accuracy more important than speed
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Day 1: 9 PM
   All events for Day 1 accumulated in data lake
@@ -1189,7 +1402,12 @@ Day 2: 12 AM
   Analytics team reviews
 ```
 
+</details>
+
 **Why batch, not stream?**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Stream (real-time):
 - Process 1M events/sec continuously
@@ -1202,7 +1420,12 @@ Batch (12 hours at night):
 - Simpler to debug (re-run if error)
 ```
 
+</details>
+
 **Cost analysis**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Stream: 1000 instances × $0.10/hour × 24 hours = $2,400/day
 Batch: 1000 instances × $0.10/hour × 12 hours = $1,200/day
@@ -1211,12 +1434,17 @@ Savings: $1,200/day or $400K/year
 Plus: Simpler to maintain, easier to correct errors
 ```
 
+</details>
+
 ---
 
 ### Q3: Design an e-commerce recommendation system. Lambda or Kappa?
 
 **Answer:**
 **Lambda architecture** (hybrid):
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Real-time layer (stream):
@@ -1234,12 +1462,17 @@ Serving layer:
   - Pick best recommendations
 ```
 
+</details>
+
 **Why Lambda?**
 - Speed: Real-time recommendations on every click
 - Accuracy: Batch training improves models daily
 - Feedback: Batch learns from yesterday's recommendations
 
 **Example**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User browsing electronics → Stream processor
     "User browsing laptops"
@@ -1251,7 +1484,12 @@ User browsing electronics → Stream processor
     Next day: Model improves (recommendation better)
 ```
 
+</details>
+
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Stream layer
 def real_time_recommend(user_id, product_id):
@@ -1277,6 +1515,8 @@ def get_recommendations(user_id, product_id):
     # Or: merge with batch ML scores if needed
 ```
 
+</details>
+
 ---
 
 ### Q4: Your batch job takes 6 hours. Users need reports in 1 hour. What now?
@@ -1285,6 +1525,9 @@ def get_recommendations(user_id, product_id):
 **Three options**:
 
 **Option 1: Incremental batch** (fastest fix)
+<details>
+<summary>Click to view code</summary>
+
 ```
 Old: Process all 1TB at 9 PM (6 hours)
 New: 
@@ -1296,7 +1539,12 @@ New:
 Result: Reports every 2 hours (not 6)
 ```
 
+</details>
+
 **Option 2: Approximate batch** (speed + slight accuracy loss)
+<details>
+<summary>Click to view code</summary>
+
 ```
 New: Process 50% sample of data (3 hours)
 Result: ~95% accuracy in 3 hours
@@ -1304,7 +1552,12 @@ Result: ~95% accuracy in 3 hours
 Better than 6 hours of full accuracy
 ```
 
+</details>
+
 **Option 3: Streaming** (best but complex)
+<details>
+<summary>Click to view code</summary>
+
 ```
 Move to stream processing
 Real-time aggregation
@@ -1313,12 +1566,17 @@ Reports always current
 Complexity: Need to rewrite pipeline
 ```
 
+</details>
+
 **Recommendation**: Start with **Option 1** (incremental)
 - Minimum code changes
 - Faster results
 - Proven approach
 
 **Code example (incremental)**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 def batch_job():
     last_checkpoint = redis.get("batch:checkpoint") or "2024-01-01"
@@ -1341,12 +1599,17 @@ def batch_job():
     # Next run: start from here (50GB instead of 1TB)
 ```
 
+</details>
+
 ---
 
 ### Q5: Design a real-time data warehouse for 1M events/sec.
 
 **Answer:**
 **Streaming + Columnar storage**:
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Events → Kafka (buffering)
@@ -1366,7 +1629,12 @@ User queries
   "Revenue by device type today"
 ```
 
+</details>
+
 **Why columnar?**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Row-oriented (traditional DB):
 Row 1: user_id, device, country, revenue, timestamp
@@ -1384,7 +1652,12 @@ Query: "Sum revenue by country"
 → 10x faster
 ```
 
+</details>
+
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 1M events/sec → Kafka → Flink stream job (aggregation)
                               ↓
@@ -1395,7 +1668,12 @@ Query: "Sum revenue by country"
                         Analytics queries (drill down by any dimension)
 ```
 
+</details>
+
 **Cost comparison**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Traditional: 1M events/sec → PostgreSQL
 Cost: Expensive (row-oriented not suited for this)
@@ -1405,4 +1683,6 @@ Cost: 1/10th (columnar compression + efficient scans)
 
 Result: Real-time analytics at scale, affordable
 ```
+
+</details>
 

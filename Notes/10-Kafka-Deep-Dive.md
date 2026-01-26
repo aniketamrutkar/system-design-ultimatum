@@ -22,6 +22,9 @@
 
 ## Kafka Architecture Overview
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Producers → [Brokers (1,2,3...)] ← Consumers
               ↓
@@ -29,6 +32,8 @@ Producers → [Brokers (1,2,3...)] ← Consumers
               ↓
        Metadata: ZooKeeper/KRaft
 ```
+
+</details>
 
 **Key layers:**
 - **Producers**: Publish events to topics
@@ -46,6 +51,9 @@ Producers → [Brokers (1,2,3...)] ← Consumers
 
 **Topic**: A stream/channel of events (like a table in a database)
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Topic: user-events
 
@@ -53,6 +61,8 @@ Partition 0:  [event1] → [event2] → [event3] → [event4]
 Partition 1:  [event5] → [event6] → [event7]
 Partition 2:  [event8] → [event9]
 ```
+
+</details>
 
 **Why partitions?**
 - Parallelism: Multiple consumers can read different partitions simultaneously
@@ -63,6 +73,9 @@ Partition 2:  [event8] → [event9]
 - **Round-robin**: Distribute across partitions evenly
 - **By key**: Events with same key go to same partition (ordering guaranteed)
 
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Example: User ID as key
 producer.send(
@@ -71,6 +84,8 @@ producer.send(
     key='user123'  # All user123 events go to same partition
 )
 ```
+
+</details>
 
 ---
 
@@ -84,6 +99,9 @@ Each broker:
 - Replicates data to other brokers
 
 **Broker ID**: 0, 1, 2, N (unique identifier)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Broker 0:
@@ -102,11 +120,16 @@ Broker 2:
   - Topic B Partition 0 (replica)
 ```
 
+</details>
+
 ---
 
 ### 3. Replication
 
 **Replication Factor**: Number of copies of partition data
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Topic: user-events
@@ -122,10 +145,15 @@ If Broker 0 dies:
   Writes/reads continue on Broker 1
 ```
 
+</details>
+
 **In-Sync Replicas (ISR):**
 - Replicas that are caught up with leader
 - Producer waits for ISR acknowledgment (before Kafka confirms)
 - If ISR < min.insync.replicas → Producer fails
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Producer settings for durability
@@ -137,11 +165,16 @@ producer = KafkaProducer(
 )
 ```
 
+</details>
+
 ---
 
 ### 4. Offsets and Partitions
 
 **Offset**: Position of message in partition (0, 1, 2, 3...)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Partition 0:
@@ -151,6 +184,8 @@ Offset 2: {'user_id': 789, 'action': 'logout'}
          ↑
       Consumer reads from here
 ```
+
+</details>
 
 **Consumer offset tracking:**
 - Kafka stores consumer group's current offset
@@ -162,6 +197,9 @@ Offset 2: {'user_id': 789, 'action': 'logout'}
 ### 5. Consumer Groups
 
 **Consumer Group**: Set of consumers reading same topic together
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Topic: user-events (4 partitions)
@@ -176,7 +214,12 @@ Each partition read by exactly ONE consumer in group
 Multiple consumers = parallel processing
 ```
 
+</details>
+
 **Rebalancing**: When consumer joins/leaves group
+<details>
+<summary>Click to view code</summary>
+
 ```
 Initial: 2 consumers for 4 partitions
   Consumer 1: Partitions 0, 1
@@ -189,11 +232,16 @@ New consumer joins:
   Consumer 3: Partitions (empty or reassigned)
 ```
 
+</details>
+
 ---
 
 ## Producers (Deep Dive)
 
 ### Producer Flow
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Producer Code:
@@ -218,6 +266,8 @@ Broker acknowledges (acks setting)
 Callback invoked (success or error)
 ```
 
+</details>
+
 ### Producer Acknowledgments (acks)
 
 | Setting | Behavior | Durability | Speed |
@@ -225,6 +275,9 @@ Callback invoked (success or error)
 | **acks=0** | No wait for ack | Fire-and-forget; data loss possible | Fastest |
 | **acks=1** | Wait for leader ack | Leader acknowledged, replicas copying | Medium |
 | **acks=all** | Wait for ISR ack | All replicas acknowledged | Slowest |
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Fire-and-forget (low latency, potential loss)
@@ -248,9 +301,14 @@ producer = KafkaProducer(
 )
 ```
 
+</details>
+
 ### Batching and Performance
 
 **Batching parameters:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 producer = KafkaProducer(
     batch_size=16384,      # Send when 16KB accumulated (or linger_ms)
@@ -259,7 +317,12 @@ producer = KafkaProducer(
 )
 ```
 
+</details>
+
 **Tradeoff:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 batch_size=100B, linger_ms=0:
   - Send every message immediately
@@ -273,9 +336,14 @@ batch_size=1MB, linger_ms=100:
   - Compression: 10:1 ratio (90% smaller)
 ```
 
+</details>
+
 ### Idempotent Producer
 
 **Problem**: Network timeout causes duplicate sends
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Producer sends message (offset 100)
@@ -286,7 +354,12 @@ Producer sends message (offset 100)
   → Duplicate in topic!
 ```
 
+</details>
+
 **Solution**: Enable idempotence
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 producer = KafkaProducer(
@@ -300,11 +373,16 @@ producer = KafkaProducer(
 # Broker deduplicates automatically
 ```
 
+</details>
+
 ---
 
 ## Consumers (Deep Dive)
 
 ### Consumer Flow
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Consumer Code:
@@ -323,9 +401,14 @@ commitSync() or commitAsync() stores offset
 Coordinator tracks offset in __consumer_offsets topic
 ```
 
+</details>
+
 ### Offset Management
 
 **Automatic offset commit** (default):
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 consumer = KafkaConsumer(
     'user-events',
@@ -340,7 +423,12 @@ for message in consumer:
     # Offset auto-committed (5s later)
 ```
 
+</details>
+
 **Manual offset commit** (safer):
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 consumer = KafkaConsumer(
     'user-events',
@@ -357,9 +445,14 @@ for message in consumer:
         # Don't commit; retry from same offset
 ```
 
+</details>
+
 ### Consumer Lag
 
 **Lag**: How far behind the consumer is
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Topic: user-events
@@ -375,7 +468,12 @@ High lag → Consumer slow or broken
 Zero lag → Consumer caught up (real-time)
 ```
 
+</details>
+
 **Monitoring lag:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from kafka.metrics import Metrics
 
@@ -387,6 +485,8 @@ for partition, offset_data in consumer.committed().items():
     print(f"Partition {partition}: lag={lag}")
 ```
 
+</details>
+
 ### Rebalancing
 
 **When does rebalancing happen?**
@@ -396,6 +496,9 @@ for partition, offset_data in consumer.committed().items():
 4. Consumer calls leave_group()
 
 **Rebalancing process:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 1. Stop consuming (all consumers pause)
 2. Coordinator selects new partition assignment
@@ -408,7 +511,12 @@ Impact:
 - Data processed twice or missed (care needed)
 ```
 
+</details>
+
 **Minimize rebalancing:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 consumer = KafkaConsumer(
     group_id='analytics-group',
@@ -418,11 +526,16 @@ consumer = KafkaConsumer(
 )
 ```
 
+</details>
+
 ---
 
 ## Zookeeper vs KRaft (Controller)
 
 ### Zookeeper (Traditional)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Zookeeper Cluster:
@@ -442,12 +555,17 @@ Zookeeper stores:
   - Consumer offsets (old versions)
 ```
 
+</details>
+
 **Issues:**
 - Extra system to manage (operational overhead)
 - Metadata changes take time (eventually consistent)
 - Not scalable for millions of partitions
 
 ### KRaft (Kafka Raft Consensus, Kafka 3.3+)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Kafka Brokers (with embedded controller):
@@ -459,6 +577,8 @@ No external Zookeeper needed
 Metadata stored in __cluster_metadata partition
 ```
 
+</details>
+
 **Benefits:**
 - Simpler deployment (one system)
 - Faster metadata updates
@@ -469,6 +589,9 @@ Metadata stored in __cluster_metadata partition
 ## Configuration Tuning
 
 ### Producer Performance
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Throughput optimization
@@ -484,7 +607,12 @@ retries=3                           # Retry on failure
 enable.idempotence=true             # Prevent duplicates
 ```
 
+</details>
+
 ### Consumer Performance
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Throughput
@@ -498,7 +626,12 @@ heartbeat.interval.ms=10000         # Send heartbeat every 10s
 max.poll.interval.ms=300000         # Must poll within 5 min
 ```
 
+</details>
+
 ### Broker Configuration
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Replication
@@ -513,11 +646,16 @@ socket.send.buffer.bytes=102400     # 100KB send buffer
 socket.receive.buffer.bytes=102400  # 100KB receive buffer
 ```
 
+</details>
+
 ---
 
 ## Use Cases
 
 ### 1. Activity/Event Logging
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Web servers → Kafka → Data warehouse
@@ -534,7 +672,12 @@ Benefits:
   - Replay events for debugging
 ```
 
+</details>
+
 ### 2. Metrics Collection
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Servers → Prometheus → Kafka → Time-series DB
@@ -551,7 +694,12 @@ Benefits:
   - Historical data in data lake
 ```
 
+</details>
+
 ### 3. Real-time Analytics
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 User events → Kafka → Stream processor (Flink) → Results DB
@@ -568,7 +716,12 @@ Benefits:
   - Exactly-once semantics
 ```
 
+</details>
+
 ### 4. ETL Pipelines
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Databases → Kafka Connect → Kafka → Data warehouse
@@ -580,7 +733,12 @@ Benefits:
   - Connector ecosystem
 ```
 
+</details>
+
 ### 5. Microservices Communication
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Service A → Kafka → Service B
@@ -593,11 +751,16 @@ Benefits:
   - Temporal decoupling
 ```
 
+</details>
+
 ---
 
 ## Performance Benchmarks
 
 ### Throughput
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Single broker, 3 replicas:
@@ -608,7 +771,12 @@ Cluster (10 brokers):
   1-10 million messages/sec depending on configuration
 ```
 
+</details>
+
 ### Latency
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 End-to-end latency (producer → consumer):
@@ -620,7 +788,12 @@ With compression and batching:
   Average: 10-50ms for high throughput
 ```
 
+</details>
+
 ### Storage
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1 billion messages (1KB each):
@@ -631,11 +804,16 @@ Retention (keeping 7 days):
   100K msg/sec: 8.64 billion/day → Need 100GB/day × 7 = 700GB
 ```
 
+</details>
+
 ---
 
 ## Monitoring Kafka
 
 ### Key Metrics to Monitor
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Producer:
@@ -656,7 +834,12 @@ Broker:
   - OfflinePartitionsCount (broker failures)
 ```
 
+</details>
+
 ### Using JMX Monitoring
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Enable JMX on Kafka
@@ -668,6 +851,8 @@ export KAFKA_JVM_PERFORMANCE_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+Dis
 # - JConsole
 # - Grafana dashboards
 ```
+
+</details>
 
 ---
 
@@ -685,6 +870,9 @@ export KAFKA_JVM_PERFORMANCE_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:+Dis
 
 **Topic Design:**
 
+<details>
+<summary>Click to view code (properties)</summary>
+
 ```properties
 Topic: rides
   Partitions: 100
@@ -698,6 +886,8 @@ Topic: surge-pricing
   Retention: 1 hour
   Partition Key: city_id
 ```
+
+</details>
 
 **Consumer Groups:**
 
@@ -725,6 +915,9 @@ Topic: surge-pricing
 
 **Common mistakes & fixes:**
 
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # ❌ WRONG: Fire-and-forget, error silently lost
 producer.send('my-topic', 'message')
@@ -745,7 +938,12 @@ if len(message) > broker.max_message_bytes:
     message = compress(message)  # or split
 ```
 
+</details>
+
 **Quick diagnosis commands:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # Verify broker is running
@@ -759,6 +957,8 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
   --group my-group --describe
 ```
 
+</details>
+
 ---
 
 ### Q3: Consumer crashes. Avoid message loss or duplicates?
@@ -766,6 +966,9 @@ kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
 **Challenge**: Exactly-once semantics (not at-least-once or at-most-once)
 
 **Solution: Manual offset commits with error handling**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 consumer = KafkaConsumer(
@@ -789,7 +992,12 @@ for message in consumer:
         continue
 ```
 
+</details>
+
 **Behavior on crash:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 State 1: Process message at offset 100
@@ -808,9 +1016,14 @@ On Restart:
 Result: No message loss, possibly duplicate output
 ```
 
+</details>
+
 **Advanced: Kafka transactions (Kafka 0.11+)**
 
 For zero duplicates with exactly-once semantics:
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 producer = KafkaProducer(
@@ -835,6 +1048,8 @@ for message in consumer:
         # All-or-nothing: both succeed or both fail
 ```
 
+</details>
+
 Crash scenarios with transactions:
 - Crash before commit → rolled back, re-process on restart
 - Crash after commit → already processed, skip on restart
@@ -847,6 +1062,9 @@ Crash scenarios with transactions:
 
 **Scale analysis:**
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 10M events/sec × 86,400 sec/day = 864 billion events/day
 × 7 day retention = 6 trillion events stored
@@ -855,7 +1073,12 @@ Crash scenarios with transactions:
 With compression (10:1): 600TB/week (reasonable)
 ```
 
+</details>
+
 **Architecture:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Producers (Web servers, mobile apps):
@@ -877,7 +1100,12 @@ Consumers:
   └─ Storage (S3): 1 consumer group
 ```
 
+</details>
+
 **High availability strategy:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1. Replication (3x):
@@ -903,7 +1131,12 @@ Consumers:
    - Replicas ensure no downtime
 ```
 
+</details>
+
 **Configuration:**
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Broker
@@ -925,7 +1158,12 @@ log.retention.days=7
 compression.type=snappy
 ```
 
+</details>
+
 **Expected performance:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Throughput:
@@ -942,6 +1180,8 @@ Availability:
   With 3x replication: Achievable
 ```
 
+</details>
+
 ---
 
 ### Q5: How would you implement exactly-once delivery in a payment processing pipeline?
@@ -949,6 +1189,9 @@ Availability:
 **Answer:**
 
 **Challenge**: Payment must be processed exactly once (not 0 or 2 times)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Scenario: Customer pays $100
@@ -967,7 +1210,12 @@ Exactly-once (good):
   - No duplicates
 ```
 
+</details>
+
 **Solution: Kafka + Idempotent Consumer + Database**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 from kafka import KafkaConsumer
@@ -1047,7 +1295,12 @@ for message in consumer:
         continue
 ```
 
+</details>
+
 **Why this works:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Scenario 1: Consumer crashes after charge but before commit
@@ -1072,7 +1325,12 @@ Scenario 3: Duplicate message from producer retry
   - Returns same result (idempotent)
 ```
 
+</details>
+
 **Database schema:**
+
+<details>
+<summary>Click to view code (sql)</summary>
 
 ```sql
 CREATE TABLE payments (
@@ -1097,6 +1355,8 @@ CREATE TABLE payment_logs (
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+</details>
 
 ## Kafka Patterns & Best Practices
 
@@ -1198,6 +1458,9 @@ Command side (writes) and Query side (reads) separated with Kafka as backbone
 
 ### Quick Reference: 30-Second Answers
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Single-region:
   "Regional outage = Kafka down. Without buffering, 
@@ -1215,6 +1478,8 @@ General:
   "Pair Kafka failover with database DR. Replication alone 
    isn't enough—clients must auto-failover."
 ```
+
+</details>
 
 ---
 

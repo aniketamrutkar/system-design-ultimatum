@@ -23,6 +23,9 @@
 ### Concept
 Quad Tree is a recursive spatial partitioning structure that divides 2D space into four quadrants.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
              World (max_points=4)
             /        |         \       \
@@ -31,9 +34,14 @@ Quad Tree is a recursive spatial partitioning structure that divides 2D space in
        NW   NE   NW   NE    NW   NE  NW   NE
 ```
 
+</details>
+
 ### How It Works
 
 **Insertion Algorithm:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 class QuadNode:
     def __init__(self, boundary, max_points=4):
@@ -96,7 +104,12 @@ class QuadNode:
         self.divided = True
 ```
 
+</details>
+
 **Query Example (Radius Search):**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Find all drivers within 1km of rider
 quad_tree = build_quad_tree(all_drivers)
@@ -105,6 +118,8 @@ nearby_drivers = quad_tree.query_radius(
     radius=1.0  # 1km
 )
 ```
+
+</details>
 
 ### Pros
 - ✅ O(log n) average query time
@@ -121,6 +136,9 @@ nearby_drivers = quad_tree.query_radius(
 - ❌ Not suitable for very large datasets (GB+)
 
 ### Real-World Example: Uber Driver Matching
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class UberDriverMatcher:
@@ -164,6 +182,8 @@ nearby = matcher.find_nearby_drivers(
 )
 ```
 
+</details>
+
 ### When to Use
 - **Real-time location services** (Uber, Lyft)
 - **Game engines** (collision detection)
@@ -177,6 +197,9 @@ nearby = matcher.find_nearby_drivers(
 
 ### Concept
 Geohash converts lat/lng to a string by recursively dividing the world into grids.
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 World (8 parts):        Each part (4 parts):
@@ -193,9 +216,14 @@ World (8 parts):        Each part (4 parts):
   y    -> finest detail
 ```
 
+</details>
+
 ### How It Works
 
 **Encoding Algorithm:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 import base32
 
@@ -278,7 +306,12 @@ def decode_geohash(geohash):
     return lat, lng
 ```
 
+</details>
+
 **Radius Search Using Geohash:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from itertools import product
 
@@ -338,6 +371,8 @@ def find_nearby_with_geohash(lat, lng, radius_km=2):
     return results
 ```
 
+</details>
+
 ### Geohash Precision Table
 
 | Precision | Error | Use Case |
@@ -366,6 +401,9 @@ def find_nearby_with_geohash(lat, lng, radius_km=2):
 - ❌ Border issues (point on boundary of grids)
 
 ### Real-World Example: Uber Pool Matching
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class GeoHashPool:
@@ -426,6 +464,8 @@ pool.add_rider('R2', 40.7150, -74.0055)
 matches = pool.find_pool_matches(40.7140, -74.0065, pool_size=4)
 ```
 
+</details>
+
 ### When to Use
 - **Mobile apps** (location caching)
 - **Distributed systems** (partition by geohash)
@@ -439,6 +479,9 @@ matches = pool.find_pool_matches(40.7140, -74.0065, pool_size=4)
 
 ### Concept
 PostGIS adds native spatial data types and functions to PostgreSQL using R-tree indexes.
+
+<details>
+<summary>Click to view code (sql)</summary>
 
 ```sql
 -- Create table with spatial column
@@ -454,9 +497,14 @@ CREATE INDEX idx_drivers_location ON drivers
 USING GIST (location);
 ```
 
+</details>
+
 ### How It Works
 
 **R-tree Index Structure:**
+<details>
+<summary>Click to view code</summary>
+
 ```
                     Root (bounds entire space)
                    /          |          \
@@ -470,7 +518,12 @@ Each leaf contains:
 - MBR (Minimum Bounding Rectangle)
 ```
 
+</details>
+
 **Real-Time Driver Location Updates:**
+<details>
+<summary>Click to view code (sql)</summary>
+
 ```sql
 -- Update driver location
 UPDATE drivers 
@@ -490,7 +543,12 @@ ORDER BY distance
 LIMIT 5;
 ```
 
+</details>
+
 **Radius Search with PostGIS:**
+<details>
+<summary>Click to view code (sql)</summary>
+
 ```sql
 -- Find all drivers within 2km (using haversine formula)
 SELECT 
@@ -510,7 +568,12 @@ ORDER BY distance_km
 LIMIT 10;
 ```
 
+</details>
+
 **Complex Spatial Queries:**
+<details>
+<summary>Click to view code (sql)</summary>
+
 ```sql
 -- Find drivers within polygon (e.g., Manhattan boundaries)
 SELECT id, name
@@ -537,7 +600,12 @@ GROUP BY zone_id
 ORDER BY driver_count DESC;
 ```
 
+</details>
+
 **Python Integration:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
@@ -606,6 +674,8 @@ for driver in nearby:
     print(f"{driver['name']}: {driver['distance_km']:.2f}km away")
 ```
 
+</details>
+
 ### Spatial Index Types
 
 | Index Type | Use Case | Speed |
@@ -646,6 +716,9 @@ for driver in nearby:
 ### Concept
 Elasticsearch is a search engine with built-in geospatial indexing, great for combining full-text search with location.
 
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 // Elasticsearch mapping
 {
@@ -660,9 +733,14 @@ Elasticsearch is a search engine with built-in geospatial indexing, great for co
 }
 ```
 
+</details>
+
 ### How It Works
 
 **Indexing:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from elasticsearch import Elasticsearch
 
@@ -716,7 +794,12 @@ es.index(
 )
 ```
 
+</details>
+
 **Radius Search:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Find drivers within 2km
 search_result = es.search(
@@ -765,7 +848,12 @@ for hit in search_result['hits']['hits']:
     print(f"{driver['name']}: {distance:.2f}km away, Rating: {driver['rating']}")
 ```
 
+</details>
+
 **Combined Geo + Text Search:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Find "premium" drivers (rating > 4.5) within 3km with keyword match
 search_result = es.search(
@@ -815,7 +903,12 @@ search_result = es.search(
 )
 ```
 
+</details>
+
 **Aggregations (Analytics):**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Get driver distribution by zones
 search_result = es.search(
@@ -847,6 +940,8 @@ for bucket in search_result['aggregations']['drivers_by_zone']['buckets']:
     print(f"  Drivers: {bucket['doc_count']}")
     print(f"  Avg Rating: {bucket['avg_rating']['value']:.2f}")
 ```
+
+</details>
 
 ### Geo Query Types
 
@@ -886,6 +981,9 @@ for bucket in search_result['aggregations']['drivers_by_zone']['buckets']:
 ## Comparison: Head-to-Head
 
 ### Accuracy
+<details>
+<summary>Click to view code</summary>
+
 ```
 PostGIS      ████████████████████ (Perfect - WGS84)
 Elasticsearch ██████████░░░░░░░░░░ (Very Good)
@@ -893,7 +991,12 @@ Quad Tree    ██████████░░░░░░░░░░ (Depen
 Geohash      ████████░░░░░░░░░░░░ (Good, limited precision)
 ```
 
+</details>
+
 ### Query Speed
+<details>
+<summary>Click to view code</summary>
+
 ```
 Quad Tree    ████████████████░░░░ (O(log n), in-memory)
 Geohash      ████████████████░░░░ (O(1), + distance filter)
@@ -901,7 +1004,12 @@ Elasticsearch ██████████░░░░░░░░░░ (Fast
 PostGIS      ██████████░░░░░░░░░░ (Very fast, disk I/O)
 ```
 
+</details>
+
 ### Scalability
+<details>
+<summary>Click to view code</summary>
+
 ```
 Elasticsearch ████████████████░░░░ (Horizontal)
 PostGIS      ███████░░░░░░░░░░░░░ (Sharding needed)
@@ -909,7 +1017,12 @@ Geohash      ████████████████░░░░ (Parti
 Quad Tree    ███░░░░░░░░░░░░░░░░░ (Single machine)
 ```
 
+</details>
+
 ### Implementation Complexity
+<details>
+<summary>Click to view code</summary>
+
 ```
 Geohash      ████░░░░░░░░░░░░░░░░ (Very simple)
 Elasticsearch ██████░░░░░░░░░░░░░░ (Moderate)
@@ -917,13 +1030,20 @@ PostGIS      ████████░░░░░░░░░░░░ (Moder
 Quad Tree    ████████████░░░░░░░░ (Complex)
 ```
 
+</details>
+
 ### Cost (Infrastructure)
+<details>
+<summary>Click to view code</summary>
+
 ```
 Quad Tree    ██░░░░░░░░░░░░░░░░░░ (Single box)
 Geohash      ███░░░░░░░░░░░░░░░░░ (Minimal overhead)
 PostGIS      ███████░░░░░░░░░░░░░ (PostgreSQL license)
 Elasticsearch ██████████░░░░░░░░░░ (Cluster + memory)
 ```
+
+</details>
 
 ---
 
@@ -958,6 +1078,9 @@ Elasticsearch ██████████░░░░░░░░░░ (Clus
 ## Hybrid Approaches
 
 ### Uber's Architecture (Estimated)
+<details>
+<summary>Click to view code</summary>
+
 ```
 Mobile App
     ↓
@@ -970,7 +1093,12 @@ Quad Tree (in-memory for real-time)
 PostgreSQL + PostGIS (persistent storage)
 ```
 
+</details>
+
 ### Netflix: Recommendations
+<details>
+<summary>Click to view code</summary>
+
 ```
 User Location (Geohash)
     ↓
@@ -979,7 +1107,12 @@ Elasticsearch (Search by genre + location)
 Custom ML model (Personalized recommendations)
 ```
 
+</details>
+
 ### Google Maps
+<details>
+<summary>Click to view code</summary>
+
 ```
 User Query (Full-text)
     ↓
@@ -990,9 +1123,14 @@ PostGIS (Route optimization)
 Quad Tree (Visualization tiles)
 ```
 
+</details>
+
 ---
 
 ## Performance Benchmarks
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Scenario: Find 100 drivers within 2km of location
@@ -1003,6 +1141,8 @@ Geohash:          80ms  (including distance filter)
 PostGIS:         150ms  (network + query)
 Elasticsearch:   200ms  (distributed, added overhead)
 ```
+
+</details>
 
 ## Summary Table: Feature Capabilities
 

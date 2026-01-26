@@ -78,6 +78,9 @@
 | **Point-to-Point (Queue)** | One producer → One consumer | Payment processing → Single payment processor handles each payment |
 
 **Pub/Sub architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Order service publishes "order.created" event
                             ↓
@@ -90,7 +93,12 @@ Order service publishes "order.created" event
 Each subscriber processes independently
 ```
 
+</details>
+
 **Queue architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Pending tasks → Message Queue
               ↓
@@ -102,6 +110,8 @@ Each task processed by exactly one worker
 If worker fails, queue re-delivers to another worker
 ```
 
+</details>
+
 ---
 
 ## Interview Questions & Answers
@@ -110,6 +120,9 @@ If worker fails, queue re-delivers to another worker
 
 **Answer:**
 **Hybrid approach** (most critical):
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 User clicks "Pay" → 
@@ -126,11 +139,16 @@ User clicks "Pay" →
          - Send receipt SMS
 ```
 
+</details>
+
 **Why hybrid?**
 - **Sync (payment)**: User needs immediate feedback
 - **Async (notifications)**: Email/SMS don't need to block user
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Payment request (sync) → Stripe API → DB update
                          ↓
@@ -141,6 +159,8 @@ Payment request (sync) → Stripe API → DB update
             [Email, SMS, Analytics, Audit log]
             (process in background)
 ```
+
+</details>
 
 **Why not pure async?**
 - User can't see if payment succeeded
@@ -156,6 +176,9 @@ Payment request (sync) → Stripe API → DB update
 - Multiple subscribers (each gets notified differently)
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User tweets → Tweet service publishes "tweet.created"
                             ↓
@@ -170,12 +193,17 @@ Each subscriber processes independently
 If notification service crashes, tweet still indexed and cached
 ```
 
+</details>
+
 **Why Pub/Sub, not Queue?**
 - Queue = 1 consumer per task
 - Pub/Sub = N consumers per event
 - Saves duplicating "send notification, update timeline, index tweet" logic
 
 **Scale consideration**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Influencer tweets → 50M followers
 1 event → 50M notifications needed
@@ -190,6 +218,8 @@ With Queue:
 - Inefficient
 ```
 
+</details>
+
 ---
 
 ### Q3: Your API has spiky traffic (100→10,000 req/sec). Sync or async?
@@ -200,6 +230,9 @@ With Queue:
 - Workers process at steady rate
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Normal load (100 req/sec):
   Request → Process (sync)
@@ -223,12 +256,17 @@ Without queue:
   Users get 500 errors
 ```
 
+</details>
+
 **Key benefits**:
 1. **Prevents crashes**: Queue absorbs spikes
 2. **Graceful degradation**: Slower processing, but all requests handled
 3. **Predictable latency**: Workers at steady state
 
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 @app.post("/process")
 def process_job(data):
@@ -246,6 +284,8 @@ def worker():
         db.process(json.loads(job))
         # Can scale workers independently
 ```
+
+</details>
 
 ---
 
@@ -270,6 +310,9 @@ def worker():
 
 **Scaling comparison**:
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 WebSocket (1 million concurrent):
 - Each connection = TCP socket + memory state
@@ -287,12 +330,19 @@ Long Polling (1 million concurrent):
 - Better for CDN/simple infrastructure
 ```
 
+</details>
+
 **Hybrid approach** (recommended):
+<details>
+<summary>Click to view code</summary>
+
 ```
 - WebSocket for active users (actively using app)
 - Long Polling fallback for inactive (load reduction)
 - Or: SSE as middle ground (stateless, server-push only)
 ```
+
+</details>
 
 ---
 
@@ -300,6 +350,9 @@ Long Polling (1 million concurrent):
 
 **Answer:**
 **Exponential backoff with Dead Letter Queue (DLQ)**:
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Task fails
@@ -316,7 +369,12 @@ If still fails (max retries):
 Move to DLQ (manual investigation)
 ```
 
+</details>
+
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -344,6 +402,8 @@ def dlq_processor():
     for order_id in dlq.get_all("failed_payments"):
         admin_alert(f"Payment failed for order {order_id}")
 ```
+
+</details>
 
 **Why exponential backoff?**
 - 1st retry at 1s: Service might be temporarily down

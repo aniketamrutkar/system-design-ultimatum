@@ -58,12 +58,17 @@
 - Browser-based clients or mobile clients that benefit from HTTP standards
 
 **Example:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 GET /api/users/123  → { id, name, email, createdAt, posts: [...] }  # Over-fetch
 GET /api/users/123/posts  → Returns all post fields  # Under-fetch
 
 # With REST, you either get all fields or need multiple endpoints
 ```
+
+</details>
 
 ---
 
@@ -95,6 +100,9 @@ GET /api/users/123/posts  → Returns all post fields  # Under-fetch
 - Organizations with polyglot microservices (language-agnostic)
 
 **Example:**
+<details>
+<summary>Click to view code (protobuf)</summary>
+
 ```protobuf
 // Proto definition
 service UserService {
@@ -105,6 +113,8 @@ service UserService {
 
 // Result: Type-safe, compact, multiplexed over HTTP/2
 ```
+
+</details>
 
 ---
 
@@ -137,6 +147,9 @@ service UserService {
 - Reduce bandwidth for mobile apps
 
 **Example:**
+<details>
+<summary>Click to view code (graphql)</summary>
+
 ```graphql
 # Client requests only needed fields
 query {
@@ -156,6 +169,8 @@ query {
 # Fetches nested data in single request; only returns what's asked for
 # No over-fetching unnecessary fields
 ```
+
+</details>
 
 ---
 
@@ -206,6 +221,9 @@ query {
 - High-frequency, low-latency requirements
 
 **Example:**
+<details>
+<summary>Click to view code (javascript)</summary>
+
 ```javascript
 // Client
 const ws = new WebSocket('wss://api.example.com/ws');
@@ -221,6 +239,8 @@ ws.onmessage = (event) => {
   updateGameState(message);
 };
 ```
+
+</details>
 
 ---
 
@@ -254,6 +274,9 @@ ws.onmessage = (event) => {
 - Scenarios where client rarely needs to send data
 
 **Example:**
+<details>
+<summary>Click to view code (javascript)</summary>
+
 ```javascript
 // Client
 const eventSource = new EventSource('/api/live/scores');
@@ -287,6 +310,8 @@ app.get('/api/live/scores', (req, res) => {
   req.on('close', () => clearInterval(interval));
 });
 ```
+
+</details>
 
 ---
 
@@ -323,6 +348,9 @@ app.get('/api/live/scores', (req, res) => {
 - Any modern application (just use WebSockets/SSE)
 
 **Example:**
+<details>
+<summary>Click to view code (javascript)</summary>
+
 ```javascript
 // Client: Poll every 5 seconds
 function longPoll() {
@@ -371,7 +399,12 @@ app.get('/api/messages', (req, res) => {
 });
 ```
 
+</details>
+
 **Bandwidth comparison** (1000 users, 5-second polling):
+<details>
+<summary>Click to view code</summary>
+
 ```
 Long Polling:
 - 1000 users × 200 requests/hour = 200K requests/hour
@@ -383,6 +416,8 @@ WebSocket/SSE:
 - Only sends when data available = 10MB/hour (events only)
 - Result: 10x less bandwidth, 1000x fewer requests
 ```
+
+</details>
 
 ---
 
@@ -424,6 +459,9 @@ WebSocket/SSE:
    - External event notifications
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User → REST login → Get auth token
 User → WebSocket connect → Join chat room
@@ -431,6 +469,8 @@ Chat message → WebSocket broadcast → All users in room
 
 External system → Webhook POST → Slack notification
 ```
+
+</details>
 
 ---
 
@@ -444,6 +484,9 @@ External system → Webhook POST → Slack notification
 - **GraphQL**: API Gateway, multiple client needs
 
 **Recommendation**: **Hybrid approach**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Client (Web/Mobile) → REST Gateway → Converts to gRPC internally
 
@@ -454,7 +497,12 @@ Benefits:
 - Best of both worlds
 ```
 
+</details>
+
 **Example**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 GET /api/users/123 (REST)
   ↓
@@ -466,6 +514,8 @@ GetUserPosts(user_id=123) (gRPC to post-service)
   ↓
 Combine responses → Return REST response
 ```
+
+</details>
 
 ---
 
@@ -482,6 +532,9 @@ Combine responses → Return REST response
 - 100K WebSocket connections need complex infrastructure
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Event stream (Kafka) → Event broadcaster → SSE server (multiple instances)
                                          ↓
@@ -495,6 +548,8 @@ Each SSE connection:
 - No server state
 - Load balancer can distribute freely
 ```
+
+</details>
 
 ---
 
@@ -520,7 +575,10 @@ Each SSE connection:
        friends { name, avatar }
      }
    }  # One request, multiple data types
-   ```
+   <details>
+<summary>Click to view code</summary>
+
+```
 
 3. **Network efficiency**: Critical on 4G/LTE
 
@@ -530,11 +588,17 @@ Each SSE connection:
 
 **Mitigation**:
 ```
+
+</details>
+
 Set limits:
 - Max depth: 5 levels
 - Max fields per query: 100
 - Timeout: 30 seconds
 - Query cost analysis (expensive queries rejected)
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 ---
@@ -545,6 +609,9 @@ Set limits:
 **Architecture**:
 
 ```
+
+</details>
+
 1. Notification source → Message queue (Kafka)
                       ↓
 2. Event processor → Millions of notifications/sec
@@ -554,6 +621,9 @@ Set limits:
    - Email → Email service
    - In-app WebSocket → Real-time updates
    - SSE → Server-sent events
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 **For 10M users**:
@@ -562,7 +632,11 @@ Set limits:
 - Use Redis Pub/Sub for fan-out
 
 **Implementation**:
-```python
+```
+
+</details>
+
+python
 # Notification triggered
 def send_notification(user_id, message):
     queue.push("notifications", {"user_id": user_id, "msg": message})

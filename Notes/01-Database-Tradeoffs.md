@@ -320,6 +320,9 @@
 - Payments and transactions → heavily normalized (ACID required)
 
 **Practical implementation**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Normalized tables:
 - users (id, email, password_hash, created_at)
@@ -330,6 +333,8 @@ On profile update:
 2. Sync background job to update cache in Redis
 3. Read heavy calls hit cache/denormalized data
 ```
+
+</details>
 
 **Tradeoff**: Trade storage for speed; profile denormalization costs 10% more storage but saves thousands of joins.
 
@@ -354,6 +359,9 @@ On profile update:
    - Use for heatmaps, density-based features
 
 **Query flow for "restaurants near me"**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User location (40.7128, -74.0060) within 5km
 
@@ -363,6 +371,8 @@ User location (40.7128, -74.0060) within 5km
 4. Elasticsearch queries PostgreSQL + PostGIS for complex boundaries
 5. Store result in Redis with 1-hour TTL
 ```
+
+</details>
 
 This hybrid design balances **speed** (Redis), **power** (PostGIS), and **scale** (Elasticsearch).
 

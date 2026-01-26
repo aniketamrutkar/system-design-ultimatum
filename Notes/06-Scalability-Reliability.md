@@ -16,6 +16,9 @@ Quick estimation techniques for system design interviews. These are rough estima
 
 ### Latency Numbers Every Programmer Should Know
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 L1 cache reference:                     0.5 ns
 Branch mispredict:                      5 ns
@@ -32,11 +35,16 @@ Read 1MB sequentially from disk:  20,000,000 ns (20 ms)
 Send packet CA → Netherlands:    150,000,000 ns (150 ms)
 ```
 
+</details>
+
 **Rule of thumb**: Disk is ~40x slower than memory, network is ~150-200x slower than memory
 
 ### Common QPS (Queries Per Second) Calculations
 
 **Given**: X million users, Y% daily active, Z requests per user per day
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Formula: (X million × Y% × Z requests) / (86,400 seconds/day)
@@ -50,9 +58,14 @@ Peak traffic rule: Multiply by 3-5x (peak is 3-5x average)
 = 57,870 × 5 = ~290,000 QPS peak
 ```
 
+</details>
+
 ### Data Volume Calculations
 
 **Given**: X million users, Y data per user, Z days retention
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Formula: X million × Y × Z = total storage
@@ -67,9 +80,14 @@ But need redundancy:
 - Total: ~150TB
 ```
 
+</details>
+
 ### Database Sizing
 
 **Single MySQL server capacity**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Memory: 64GB
 Max connections: 10,000
@@ -81,7 +99,12 @@ Throughput:
 Before hitting CPU/memory limits, disk I/O becomes bottleneck
 ```
 
+</details>
+
 **When to shard**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Data size: > 1TB → Consider sharding
 QPS: > 10,000 → Consider sharding
@@ -90,9 +113,14 @@ Connections: > 5,000 → Consider sharding
 Sharding key: User ID, geographic region, or hash
 ```
 
+</details>
+
 ### Server Capacity Planning
 
 **Single web server (8 core, 32GB RAM)**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Memory per connection: ~1MB
 Max connections: 32,000
@@ -103,7 +131,12 @@ QPS capacity:
 - CPU-bound: ~5,000 QPS
 ```
 
+</details>
+
 **Number of servers needed**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Formula: Peak QPS / QPS per server
 
@@ -114,7 +147,12 @@ With redundancy (rolling updates, failures):
 = 30 × 1.3 = 39 servers (30% buffer)
 ```
 
+</details>
+
 ### Load Balancer Sizing
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Modern LB (AWS ALB):
@@ -128,9 +166,14 @@ For multi-region HA:
 = 10 LBs × 2 regions = 20 LBs total
 ```
 
+</details>
+
 ### Cache Sizing
 
 **Rule**: Cache hit rate ~90% means 10x reduction in database load
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Example without cache:
@@ -144,7 +187,12 @@ With cache (90% hit rate):
 - Balanced!
 ```
 
+</details>
+
 **Cache memory needed**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Formula: (QPS × avg_object_size × TTL) / hit_rate
 
@@ -157,9 +205,14 @@ Practical: Use distributed cache (Redis) across 10 servers
 = 40GB per Redis instance (reasonable)
 ```
 
+</details>
+
 ### Bandwidth Calculation
 
 **Given**: Peak QPS, average response size
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Formula: Peak QPS × Avg response size
@@ -174,7 +227,12 @@ Bandwidth needed:
 Rule of thumb: Provision 2-3x peak bandwidth for headroom
 ```
 
+</details>
+
 ### Video Streaming Bandwidth
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Netflix scenario: 100M users, 50% watching simultaneously
@@ -190,7 +248,12 @@ Solution: CDN + regional caching
 - Backbone: 250 Tbps × 15% = 37.5 Tbps (still huge, but manageable)
 ```
 
+</details>
+
 ### Example: Design Instagram Feed for 100M DAU
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1. Calculate QPS:
@@ -217,9 +280,14 @@ Solution: CDN + regional caching
    - Need 100 Gbps backbone
 ```
 
+</details>
+
 ### Back-of-Envelope Checklist
 
 When estimating, ask:
+<details>
+<summary>Click to view code</summary>
+
 ```
 ✓ How many users? (total, DAU, peak concurrent)
 ✓ Request rate? (QPS average, QPS peak)
@@ -237,6 +305,8 @@ Then size:
 4. Bandwidth needed
 5. Storage needed
 ```
+
+</details>
 
 ---
 
@@ -318,6 +388,9 @@ Then size:
 4. On failure, read again and retry or back off.
 
 **Pseudo-code (increment counter):**
+<details>
+<summary>Click to view code</summary>
+
 ```
 do {
   cur = load(addr)                    // Read current
@@ -325,9 +398,14 @@ do {
 } while (!CAS(addr, cur, next))       // Retry if someone changed it
 ```
 
+</details>
+
 ### Real-World Examples
 
 **1. Atomic Counter (Page View Tracking)**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Without CAS (using lock):
 lock(counter_lock)
@@ -344,7 +422,12 @@ do {
 // Contention is handled by retries, not waiting
 ```
 
+</details>
+
 **2. Versioned Update (Optimistic Locking)**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Scenario: Multiple threads updating a user record version
 // Thread A: Read user version=3, wants to update
@@ -361,7 +444,12 @@ do {
 // This ensures: "Only commit if nobody else changed this"
 ```
 
+</details>
+
 **3. Lock-Free Stack Pop**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Stack: head → [A] → [B] → [C]
 // Thread wants to pop A
@@ -375,7 +463,12 @@ do {
 // CAS fails, loop retries with new head
 ```
 
+</details>
+
 **4. Thread-Safe State Machine**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // States: IDLE (0), RUNNING (1), STOPPED (2)
 enum State { IDLE = 0, RUNNING = 1, STOPPED = 2 }
@@ -389,9 +482,14 @@ do {
 // Guarantees: Only one thread successfully transitions to RUNNING
 ```
 
+</details>
+
 ### CAS vs Locks: Performance Comparison
 
 **Under Low Contention (few threads):**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Operation       | Lock Time  | CAS Time   | Winner
 ----------------|------------|------------|--------
@@ -399,7 +497,12 @@ Increment       | 50 ns      | 5 ns       | CAS (10x faster)
 Read + Update   | 80 ns      | 10 ns      | CAS (8x faster)
 ```
 
+</details>
+
 **Under High Contention (many threads):**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Threads | Lock QPS    | CAS QPS     | Winner
 --------|-------------|-------------|--------
@@ -409,6 +512,8 @@ Threads | Lock QPS    | CAS QPS     | Winner
 64      | 10,000      | 500,000     | CAS (now degrading)
 256     | 2,000       | 50,000      | CAS (with backoff)
 ```
+
+</details>
 
 **Why CAS wins even under contention:**
 - Locks: Threads block, OS scheduler overhead increases
@@ -436,6 +541,9 @@ Threads | Lock QPS    | CAS QPS     | Winner
 ### The ABA Problem and Solutions
 
 **What is it:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Thread 1: reads value = A
          (context switch)
@@ -445,7 +553,12 @@ Thread 1: CAS(addr, A, new_value)  ✓ Succeeds!
          But the A now is different from the original A!
 ```
 
+</details>
+
 **Example - Stack pop with ABA:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Stack: [A] → [B]
 // Thread 1 tries to pop A
@@ -456,9 +569,14 @@ next = head.next             // next = [B]
 CAS(&stack, head, next)      // ✓ Succeeds, but now pointing to invalid [A]!
 ```
 
+</details>
+
 **Solutions:**
 
 1. **Add version counter (most common):**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Store: (value, version)
 // CAS(addr, (expected_val, expected_ver), (new_val, new_ver+1))
@@ -470,7 +588,12 @@ do {
 // Version changes guarantee uniqueness
 ```
 
+</details>
+
 2. **Use generation numbers:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 struct VersionedRef {
   void* ptr;           // The actual pointer
@@ -479,23 +602,38 @@ struct VersionedRef {
 // CAS on entire struct ensures ABA safety
 ```
 
+</details>
+
 3. **Hazard pointers (advanced):**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Thread marks pointer as "in-use"
 // Other threads cannot recycle it
 // Slower but fully ABA-safe
 ```
 
+</details>
+
 ### Practical Considerations
 
 **CPU Support:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 x86/x64:        CAS, CMPXCHG (single & double-wide)
 ARM:            LDREX, STREX (LL/SC - Load-Link/Store-Conditional)
 Modern CPUs:    Compare-And-Swap, Load-Acquire, Store-Release (memory barriers)
 ```
 
+</details>
+
 **Language Support:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Java:           java.util.concurrent.atomic.AtomicInteger.compareAndSet()
 C++:            std::atomic::compare_exchange_strong()
@@ -504,7 +642,12 @@ Rust:           std::sync::atomic::AtomicUsize::compare_exchange()
 Python:         multiprocessing.Value (limited); usually use locks
 ```
 
+</details>
+
 **When Contention Gets Too High - Add Backoff:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 // Exponential backoff
 uint32_t attempts = 0;
@@ -518,7 +661,12 @@ do {
 } while (CAS failed)
 ```
 
+</details>
+
 **Alternatives to CAS:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Pattern                          | Trade-off
 ---------------------------------|------------------------------------------
@@ -529,6 +677,8 @@ Partitioned atomic variables      | Best for counters, split work across threads
 Lock-free queues                  | Complex, but scale well
 Eventual consistency              | Highest throughput, but weaker guarantees
 ```
+
+</details>
 
 ---
 
@@ -574,6 +724,9 @@ Eventual consistency              | Highest throughput, but weaker guarantees
 
 ### SLO Target Hierarchy
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Enterprise customers: 99.99% uptime (52 minutes/year downtime)
   ↓
@@ -586,7 +739,12 @@ Why tiered?
 - Premium tier → higher cost → justifies more ops investment
 ```
 
+</details>
+
 **Cost vs reliability**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 99% uptime: 1 failure/100 requests (cheap infra)
 99.9% uptime: 1 failure/1000 requests (replicas + monitoring)
@@ -596,11 +754,16 @@ Why tiered?
 Each 9 costs ~3-5x more than the previous level
 ```
 
+</details>
+
 ---
 
 ### Error Budget Concept
 
 **Error budget** = Allowed downtime in a period to still meet SLO
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 SLO: 99.9% uptime per month
@@ -612,7 +775,12 @@ If already used 30 minutes, only 13.8 minutes remaining
 → Must be extra cautious (no canary → full rollout)
 ```
 
+</details>
+
 **Managing error budget**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Example implementation
 error_budget_remaining = calculate_budget_remaining()
@@ -631,7 +799,12 @@ else:
     no_new_features()
 ```
 
+</details>
+
 **Incident impact on budget**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Incident: User auth service down for 10 minutes
 Impact: 10,000 failed requests / 1,000,000 total = 1% error rate
@@ -643,11 +816,16 @@ Error budget burn:
 Result: Error budget depleted for rest of month
 ```
 
+</details>
+
 ---
 
 ### SLO Design Best Practices
 
 **1. Make SLOs realistic**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Bad SLO: 99.99% on single-region system (impossible)
 Good SLO: 99% on standard tier, 99.9% on premium
@@ -656,7 +834,12 @@ Reality: Systems with single points of failure max out at ~99%
 Multi-region systems can reach 99.99%
 ```
 
+</details>
+
 **2. Balance multiple metrics**
+<details>
+<summary>Click to view code</summary>
+
 ```
 # Don't just optimize uptime
 SLO for Netflix:
@@ -668,7 +851,12 @@ Optimizing only uptime can hurt latency
 (always return cached/stale data = 100% uptime but bad UX)
 ```
 
+</details>
+
 **3. Set SLOs lower than infrastructure capability**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Infrastructure: 99.99% availability
 SLO: 99.9% availability (leave 0.09% buffer)
@@ -679,7 +867,12 @@ Why buffer?
 - Monitoring false positives
 ```
 
+</details>
+
 **4. Monitor SLI trends, not just thresholds**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Alert when:
   - P95 latency exceeds 500ms (threshold breach)
@@ -688,11 +881,16 @@ Alert when:
 Second alert catches degradation before total failure
 ```
 
+</details>
+
 ---
 
 ### SLA Examples
 
 **Google Cloud SLA**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Compute Engine:
   - 99.95% availability
@@ -706,7 +904,12 @@ If SLO breached, still might make SLA
 Extra buffer for one-time incidents
 ```
 
+</details>
+
 **AWS SLA**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 EC2:
   - 99.99% availability SLA
@@ -718,13 +921,20 @@ If one instance fails:
   - Other instances unaffected
 ```
 
+</details>
+
 **Stripe SLA (payment processing)**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 - 99.99% uptime required (financial services)
 - <50ms latency for payment processing
 - Incident response: <15 minutes
 - Requires multi-region active-active setup
 ```
+
+</details>
 
 ---
 
@@ -741,6 +951,9 @@ If one instance fails:
 ---
 
 ### Monitoring & Alerting for SLOs
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Example: Monitor SLO burn rate
@@ -763,9 +976,14 @@ def check_slo_burn():
         log("Normal SLO burn rate")
 ```
 
+</details>
+
 ---
 
 ## Circuit Breaker Pattern
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Normal state:
@@ -780,6 +998,8 @@ Request → Circuit Breaker (HALF-OPEN) → Try service A
          Success → Close circuit (back to normal)
          Failure → Open circuit again
 ```
+
+</details>
 
 **Benefits:**
 - Fail fast: Don't waste time on failing services
@@ -814,11 +1034,16 @@ Request → Circuit Breaker (HALF-OPEN) → Try service A
 - Application-level complexity
 
 **Recommended path**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Month 1-3: Optimize queries + vertical scale (buy time)
 Month 3-6: Implement sharding (parallel effort)
 Month 6+: Run sharded system (replaces single DB)
 ```
+
+</details>
 
 ---
 
@@ -850,6 +1075,9 @@ Month 6+: Run sharded system (replaces single DB)
    - Exponential backoff prevents thundering herd
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 User request → Load balancer (multi-AZ)
              ↓
@@ -865,7 +1093,12 @@ User request → Load balancer (multi-AZ)
    - Timeout/retry logic
 ```
 
+</details>
+
 **Failure scenario**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Video service crashes
   ↓
@@ -879,6 +1112,8 @@ Service recovers in 30 seconds
   ↓
 Circuit breaker closes (normal)
 ```
+
+</details>
 
 ---
 
@@ -904,6 +1139,9 @@ Circuit breaker closes (normal)
    - TTL catches missed events (safety net)
 
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Set with TTL
 redis.setex("user:123", 3600, user_data)
@@ -919,14 +1157,23 @@ def on_user_update(message):
     # Next request re-populates from DB
 ```
 
+</details>
+
 **Cache stampede mitigation**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Multiple requests for same key after expiry
 → All hit DB simultaneously
 → Database overloaded
 
 Solution: Probabilistic early expiry
-```python
+```
+
+</details>
+
+python
 def get_user(user_id):
     cached = redis.get(f"user:{user_id}")
     if cached:
@@ -943,6 +1190,9 @@ def get_user(user_id):
     user = db.get(user_id)
     redis.setex(f"user:{user_id}", 3600, user)
     return user
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 ---
@@ -953,6 +1203,9 @@ def get_user(user_id):
 **Active-Active multi-region** (required):
 
 ```
+
+</details>
+
 User requests → DNS routing (Route 53)
              ↓
       Geolocation/latency routing
@@ -968,10 +1221,16 @@ User in Virginia → Route 53 sends to US East
 If US East crashes:
   - Route 53 detects health check failure
   - All users → US West (higher latency but working)
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 **Database replication**:
 ```
+
+</details>
+
 Multi-master replication (MySQL, DynamoDB)
 Region 1 DB ←→ Region 2 DB
 
@@ -982,18 +1241,30 @@ If Region 1 fails:
   Users automatically failover to Region 2
   All data already there (already replicated)
   Zero data loss
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 **Cache/state**:
 ```
+
+</details>
+
 Don't store session state locally
 Use distributed cache: DynamoDB or Redis Cluster
   - Spans multiple regions
   - User session survives region failure
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 **Cost trade-off**:
 ```
+
+</details>
+
 Single region: $1M/month
 Multi-region: $2M/month (2x cost)
 
@@ -1002,6 +1273,9 @@ Benefit: Can survive region failure
          Region outage = $12M/hour loss
          
 2x cost is cheaper than 1 hour downtime
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 ---
@@ -1012,6 +1286,9 @@ Benefit: Can survive region failure
 **Calculation**:
 
 ```
+
+</details>
+
 Modern load balancer (AWS ALB):
 - Max 25,000 new connections per second
 - 1M concurrent connections per instance
@@ -1023,10 +1300,16 @@ But add redundancy:
 - 2 regions × 10 LBs = 20 LBs
 - Each region can lose 1 LB without impact
 - High availability
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 **LB architecture**:
 ```
+
+</details>
+
 DNS (Route 53)
     ↓
 US East: LB1, LB2, LB3, LB4, LB5 (can lose 1)
@@ -1036,10 +1319,16 @@ If LB1 fails:
   - Route 53 detects
   - Traffic → LB2-5 (4 LBs instead of 5)
   - Users unaffected
+<details>
+<summary>Click to view code</summary>
+
 ```
 
 **Connection distribution**:
 ```
+
+</details>
+
 Each connection = one TCP flow through LB
 LB tracks: source_ip, dest_ip, port
 

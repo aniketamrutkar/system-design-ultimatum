@@ -26,11 +26,16 @@
 
 ### Cache Aside (Lazy Loading) Pattern
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 GET request → Check Cache → Hit → Return
                          ↓
                        Miss → Query DB → Store in Cache → Return
 ```
+
+</details>
 
 **Pros:**
 - Simplest to implement; no special cache setup
@@ -46,6 +51,9 @@ GET request → Check Cache → Hit → Return
 **Best for:** User profiles, product pages, search results
 
 **Implementation (Redis + Python):**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 def get_user(user_id):
     # Check cache
@@ -62,14 +70,21 @@ def get_user(user_id):
     return user
 ```
 
+</details>
+
 ---
 
 ### Write-Through Pattern
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 SET request → Write to Cache → Write to DB → Return
               (synchronous)
 ```
+
+</details>
 
 **Pros:**
 - Cache always consistent with DB
@@ -84,6 +99,9 @@ SET request → Write to Cache → Write to DB → Return
 **Best for:** Inventory, pricing, financial data (consistency > latency)
 
 **Implementation (Redis + Python):**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 def update_product_price(product_id, new_price):
     # Write to cache first
@@ -95,17 +113,24 @@ def update_product_price(product_id, new_price):
     return {"status": "success"}
 ```
 
+</details>
+
 **Tradeoff**: Users wait ~10-50ms extra per write, but reads are instant.
 
 ---
 
 ### Write-Behind (Write-Back) Pattern
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 SET request → Write to Cache → Return (asynchronously write to DB)
                               ↓
                      Background job syncs to DB
 ```
+
+</details>
 
 **Pros:**
 - Extremely fast writes (cache write only)
@@ -120,6 +145,9 @@ SET request → Write to Cache → Return (asynchronously write to DB)
 **Best for:** Analytics events, logs, non-critical metrics
 
 **Implementation (Redis + async job):**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Fast write to cache
 def log_event(user_id, event_type):
@@ -137,17 +165,24 @@ def flush_events_to_db():
         redis.delete(f"events:{user_id}")
 ```
 
+</details>
+
 **Risk**: If Redis crashes before flush, events are lost. Use RDB/AOF to mitigate.
 
 ---
 
 ### Refresh-Ahead Pattern
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 User requests data → Cache always has fresh copy (proactively refreshed)
                    ↓
             Background job refreshes before expiry
 ```
+
+</details>
 
 **Pros:**
 - Zero cache miss latency (always fresh data)
@@ -162,6 +197,9 @@ User requests data → Cache always has fresh copy (proactively refreshed)
 **Best for:** Homepage, trending content, dashboards
 
 **Implementation:**
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Refresh-Ahead for trending articles
 def refresh_trending_articles():
@@ -177,34 +215,53 @@ def get_trending():
     return redis.get("trending:articles")  # Guaranteed hit
 ```
 
+</details>
+
 ---
 
 ## Cache Invalidation Strategies
 
 ### TTL-Based (Simple)
+<details>
+<summary>Click to view code</summary>
+
 ```
 SET key value EX 3600  # Expires in 1 hour
 ```
+
+</details>
+
 **Pro**: Simple, no coordination
 **Con**: Stale data for up to TTL duration
 
 ### Event-Based (Accurate)
+<details>
+<summary>Click to view code</summary>
+
 ```
 On data update:
   1. Update database
   2. Publish "user:123:updated" event
   3. Cache subscribers delete key
 ```
+
+</details>
+
 **Pro**: Instant invalidation, no stale data
 **Con**: Complex, requires pub/sub
 
 ### Hybrid (Best Practice)
+<details>
+<summary>Click to view code</summary>
+
 ```
 TTL + Event-based:
   1. Set 1-hour TTL (safety net)
   2. On write, publish invalidation event (immediate)
   3. If event missed, TTL catches it eventually
 ```
+
+</details>
 
 ---
 
@@ -219,6 +276,9 @@ TTL + Event-based:
 - Read frequency: extremely high (every ride request)
 
 **Implementation**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Surge pricing update:
   1. Algorithm calculates new price_multiplier for zone
@@ -230,6 +290,8 @@ Rider requests ride:
   1. GET surge:zone:123 → Returns 1.5x instantly (cache hit)
   2. Zero latency, always consistent with DB
 ```
+
+</details>
 
 **Why not Write-Behind?** If cache loses surge pricing, system would quote wrong prices, losing revenue.
 
@@ -244,6 +306,9 @@ Rider requests ride:
 - Simple implementation: no write coordination needed
 
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 def get_home_feed(user_id):
     cache_key = f"feed:{user_id}"
@@ -265,7 +330,12 @@ def get_home_feed(user_id):
     return feed
 ```
 
+</details>
+
 **Cache Stampede Protection**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 def get_feed_with_lock(user_id):
     cache_key = f"feed:{user_id}"
@@ -287,6 +357,8 @@ def get_feed_with_lock(user_id):
     return json.loads(feed)
 ```
 
+</details>
+
 ---
 
 ### Q3: Your system writes 1 million events/second. Which caching strategy handles this?
@@ -298,6 +370,9 @@ def get_feed_with_lock(user_id):
 - Batch efficiency: Collect 100K events, write once = 10x throughput
 
 **Architecture**:
+<details>
+<summary>Click to view code</summary>
+
 ```
 Events → Redis queue → Batch processor → PostgreSQL
   ↓
@@ -308,7 +383,12 @@ Events → Redis queue → Batch processor → PostgreSQL
   10K-100K events/batch → PostgreSQL (optimized bulk insert)
 ```
 
+</details>
+
 **Implementation**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Fast write (cache only)
 def log_event(event):
@@ -331,6 +411,8 @@ def flush_to_db():
     
     redis.delete("events:pending")
 ```
+
+</details>
 
 **Tradeoff**: If Redis crashes, lose ~100ms of events. Mitigate with RDB persistence (fsync every 100ms).
 
@@ -367,6 +449,9 @@ def flush_to_db():
    - Better: Compute on-demand or use materialized views
 
 **Example scenario**: 
+<details>
+<summary>Click to view code</summary>
+
 ```
 User updates profile name → cascades to:
 - Comment author names
@@ -377,6 +462,8 @@ User updates profile name → cascades to:
 Caching this = invalidation nightmare.
 Better: Store only in DB, compute names on-demand
 ```
+
+</details>
 
 ---
 
@@ -398,6 +485,9 @@ Better: Store only in DB, compute names on-demand
 | DB query result | Variable | Depends on data freshness requirement |
 
 **Dynamic TTL example**:
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 def get_product(product_id):
     if is_flash_sale_active():
@@ -412,6 +502,8 @@ def get_product(product_id):
         redis.setex(cache_key, ttl, json.dumps(product))
     return product
 ```
+
+</details>
 
 **Rule of thumb**:
 - If data updates hourly → TTL = 15 minutes (cache 4 stale versions)

@@ -26,6 +26,9 @@
 
 ## DynamoDB Architecture Overview
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 AWS Region (US-East-1)
   ├─ DynamoDB Partition 0
@@ -39,6 +42,8 @@ AWS Region (US-East-1)
   ├─ Region 2 (EU-West-1)
   └─ Region 3 (AP-Southeast-1)
 ```
+
+</details>
 
 **Key concepts:**
 - **Table**: Collection of items (like a database table)
@@ -55,6 +60,9 @@ AWS Region (US-East-1)
 ### 1. Tables and Items
 
 **Table**: Collection of items with defined schema (partially)
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 import boto3
@@ -76,7 +84,12 @@ table = dynamodb.create_table(
 )
 ```
 
+</details>
+
 **Item**: Single record in table
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Put item
@@ -103,11 +116,16 @@ response = table.get_item(
 )
 ```
 
+</details>
+
 ---
 
 ### 2. Primary Keys
 
 **Partition Key (HASH)**: Determines which partition stores item
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Partition key: user_id
@@ -117,7 +135,12 @@ Partition key: user_id
 - Enables equality queries fast
 ```
 
+</details>
+
 **Sort Key (RANGE)**: Enables range queries within partition
+
+<details>
+<summary>Click to view code (cql)</summary>
 
 ```cql
 KeySchema:
@@ -130,7 +153,12 @@ Query patterns:
   - user_id = 'user1' AND created_at BETWEEN ... AND ...
 ```
 
+</details>
+
 **Attribute types:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # String (S)
@@ -161,11 +189,16 @@ Query patterns:
 'scores': {100, 200, 300}
 ```
 
+</details>
+
 ---
 
 ### 3. Secondary Indexes
 
 **Global Secondary Index (GSI)**: Query on different attributes
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Create GSI on email
@@ -201,7 +234,12 @@ response = table.query(
 )
 ```
 
+</details>
+
 **Local Secondary Index (LSI)**: Range key on same partition key
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Create LSI with different sort key
@@ -234,6 +272,8 @@ response = table.query(
 )
 ```
 
+</details>
+
 **GSI vs LSI:**
 
 | Aspect | GSI | LSI |
@@ -250,6 +290,9 @@ response = table.query(
 
 **Put Item** (insert or replace):
 
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 table.put_item(
     Item={'user_id': 'user123', 'email': 'new@example.com'},
@@ -257,7 +300,12 @@ table.put_item(
 )
 ```
 
+</details>
+
 **Update Item** (modify attributes):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table.update_item(
@@ -272,7 +320,12 @@ table.update_item(
 )
 ```
 
+</details>
+
 **Delete Item**:
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table.delete_item(
@@ -281,7 +334,12 @@ table.delete_item(
 )
 ```
 
+</details>
+
 **Batch Write** (high throughput):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 with table.batch_writer(batch_size=25) as batch:
@@ -291,11 +349,16 @@ with table.batch_writer(batch_size=25) as batch:
         )
 ```
 
+</details>
+
 ---
 
 ### 5. Read Operations
 
 **Get Item** (single item, fast):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 response = table.get_item(
@@ -305,7 +368,12 @@ response = table.get_item(
 item = response.get('Item')
 ```
 
+</details>
+
 **Query** (partition key + optional sort key):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 response = table.query(
@@ -318,7 +386,12 @@ response = table.query(
 )
 ```
 
+</details>
+
 **Scan** (full table scan, slow):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 response = table.scan(
@@ -330,7 +403,12 @@ response = table.scan(
 # Avoid in production (scans entire table)
 ```
 
+</details>
+
 **Batch Get** (get multiple items):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 response = dynamodb.batch_get_item(
@@ -346,6 +424,8 @@ response = dynamodb.batch_get_item(
 )
 ```
 
+</details>
+
 ---
 
 ## Throughput and Capacity Planning
@@ -353,6 +433,9 @@ response = dynamodb.batch_get_item(
 ### Billing Modes
 
 **Provisioned Capacity** (pay for reserved capacity):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table = dynamodb.create_table(
@@ -370,7 +453,12 @@ table = dynamodb.create_table(
 # Total: ~$4.55/hour = ~$3,276/month
 ```
 
+</details>
+
 **On-Demand Capacity** (pay per request):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table = dynamodb.create_table(
@@ -386,6 +474,8 @@ table = dynamodb.create_table(
 # Cost: (100M × $0.25) + (10M × $1.25) / 1M = $25 + $12.50 = $37.50
 ```
 
+</details>
+
 **When to use:**
 
 | Mode | Best For |
@@ -396,6 +486,9 @@ table = dynamodb.create_table(
 ### Capacity Units
 
 **Read Capacity Unit (RCU)**:
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1 RCU = 1 strong consistent read/sec (4KB item)
@@ -411,7 +504,12 @@ Example:
   100 reads/sec → 300 RCU
 ```
 
+</details>
+
 **Write Capacity Unit (WCU)**:
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1 WCU = 1 write/sec (1KB item)
@@ -425,7 +523,12 @@ Example:
   100 writes/sec → 500 WCU
 ```
 
+</details>
+
 ### Capacity Estimation
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Requirement: 10K reads/sec, 1K writes/sec, 5KB items
@@ -441,11 +544,16 @@ Total: 20K RCU + 5K WCU (provisioned mode)
   Cost: (20K × $0.00013) + (5K × $0.00065) ≈ $5.63/hour
 ```
 
+</details>
+
 ---
 
 ## Consistency Models
 
 ### Strong Consistency vs Eventually Consistent
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Eventually consistent (default, faster)
@@ -463,7 +571,12 @@ response = table.get_item(
 # Reads from primary replica only
 ```
 
+</details>
+
 **Consistency model:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Write to DynamoDB:
@@ -479,11 +592,16 @@ After ~1ms:
   Both reads see new value (replication caught up)
 ```
 
+</details>
+
 ---
 
 ## Transactions
 
 **Single Item Transactions** (update with conditions):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table.update_item(
@@ -496,7 +614,12 @@ table.update_item(
 )
 ```
 
+</details>
+
 **Multi-Item Transactions** (ACID across items/tables):
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 dynamodb.transact_write_items(
@@ -535,6 +658,8 @@ dynamodb.transact_write_items(
 # All succeed or all fail (atomic)
 ```
 
+</details>
+
 ---
 
 ## Performance Optimization
@@ -542,6 +667,9 @@ dynamodb.transact_write_items(
 ### Hot Partitions
 
 **Problem**: Uneven distribution of traffic
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Partition Key: user_id
@@ -558,7 +686,12 @@ If one user is celebrity with 90K requests:
 Result: Single partition is bottleneck
 ```
 
+</details>
+
 **Solution: Write Sharding**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Before (hot partition)
@@ -591,7 +724,12 @@ for shard in range(num_shards):
     responses.extend(response['Items'])
 ```
 
+</details>
+
 ### Query Optimization
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # ❌ SLOW: Full table scan
@@ -621,7 +759,12 @@ response = table.query(
 )
 ```
 
+</details>
+
 ### Batch Operations
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # ❌ SLOW: Individual writes (sequential)
@@ -648,11 +791,16 @@ response = dynamodb.batch_get_item(
 )
 ```
 
+</details>
+
 ---
 
 ## Scalability and High Availability
 
 ### Auto-Scaling (Provisioned Mode)
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 autoscaling = boto3.client('application-autoscaling')
@@ -682,7 +830,12 @@ autoscaling.put_scaling_policy(
 )
 ```
 
+</details>
+
 ### Global Tables (Multi-Region)
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Create table in US-East
@@ -712,11 +865,16 @@ dynamodb.create_global_table(
 # - Multi-region writes (last-write-wins)
 ```
 
+</details>
+
 ---
 
 ## Use Cases
 
 ### 1. User Sessions (High Read/Write)
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table = dynamodb.create_table(
@@ -743,7 +901,12 @@ table.put_item(
 response = table.get_item(Key={'session_id': 'sess-abc123'})
 ```
 
+</details>
+
 ### 2. Real-time Analytics (Time-series)
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table = dynamodb.create_table(
@@ -776,7 +939,12 @@ response = table.query(
 )
 ```
 
+</details>
+
 ### 3. Document Store (Flexible Schema)
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 table = dynamodb.create_table(
@@ -813,6 +981,8 @@ table.put_item(
 )
 ```
 
+</details>
+
 ---
 
 ## Interview Questions & Answers
@@ -827,6 +997,9 @@ table.put_item(
 - 99.99% uptime
 
 **Solution Architecture:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Rides table (current/active rides)
@@ -878,7 +1051,12 @@ history_table = dynamodb.create_table(
 )
 ```
 
+</details>
+
 **Write path:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Update ride status (strong consistency)
@@ -904,7 +1082,12 @@ drivers_table.put_item(
 )
 ```
 
+</details>
+
 **Read path:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Get active ride
@@ -939,7 +1122,12 @@ for shard in range(100):
         locations.append(response['Items'][0])
 ```
 
+</details>
+
 **Capacity planning:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Active rides: 100K
@@ -955,6 +1143,8 @@ Writes:
 Total: ~600K WCU (on-demand pricing)
 ```
 
+</details>
+
 ---
 
 ### Q2: Hot partition bottleneck. How to scale writes?
@@ -962,6 +1152,9 @@ Total: ~600K WCU (on-demand pricing)
 **Answer:**
 
 **Diagnosis:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # Monitor write throttling
@@ -973,7 +1166,12 @@ aws cloudwatch get-metric-statistics \
   --end-time 2024-01-05T01:00:00Z
 ```
 
+</details>
+
 **Solution 1: Write Sharding**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Before (hot key)
@@ -997,7 +1195,12 @@ for shard in range(num_shards):
     results.extend(response['Items'])
 ```
 
+</details>
+
 **Solution 2: DynamoDB Accelerator (DAX)**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 from amazondax.client import AmazonDaxClient
@@ -1010,7 +1213,12 @@ table = client.Table('users')
 # Reads hit DAX cache first (100x faster)
 ```
 
+</details>
+
 **Solution 3: Multiple Tables with Sharding**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 # Instead of sharding within table
@@ -1028,6 +1236,8 @@ table.put_item(Item=item)
 # Each table has separate throughput allocation
 ```
 
+</details>
+
 **Key takeaway**: "Use write sharding for hot partitions. Distribute writes across N shards (typically 100), query all shards on read."
 
 ---
@@ -1037,6 +1247,9 @@ table.put_item(Item=item)
 **Answer:**
 
 **Problem**: Multi-item transaction needs ACID guarantees
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Scenario: Transfer money between accounts + record transaction + update ledger
@@ -1084,7 +1297,12 @@ def transfer_money(from_id, to_id, amount):
         return False
 ```
 
+</details>
+
 **DynamoDB Transactions Guarantees:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 ✓ ACID (Atomicity, Consistency, Isolation, Durability)
@@ -1100,7 +1318,12 @@ def transfer_money(from_id, to_id, amount):
   - No automatic retry on conflict
 ```
 
+</details>
+
 **Manual retry strategy:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 import time
@@ -1125,6 +1348,8 @@ def transfer_with_retry(from_id, to_id, amount, max_retries=3):
     raise Exception("Transaction failed after max retries")
 ```
 
+</details>
+
 **Key takeaway**: "DynamoDB transactions provide ACID guarantees across items. Use condition expressions to enforce business rules. Retry on conflict with exponential backoff."
 
 ---
@@ -1135,6 +1360,9 @@ def transfer_with_retry(from_id, to_id, amount, max_retries=3):
 
 **Challenge**: DynamoDB table size
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 10 billion items × 1KB average = 10TB storage
 Query latency increases with partition count
@@ -1144,7 +1372,12 @@ Single table:
   Lookup involves: hash(key) → partition → seek
 ```
 
+</details>
+
 **Solution: Table Sharding by Date**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Time-series data: partition by month
@@ -1194,7 +1427,12 @@ def query_events(event_type, start_date, end_date):
     return all_items
 ```
 
+</details>
+
 **TTL for automatic cleanup:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Automatically delete old data
@@ -1216,7 +1454,12 @@ dynamodb.update_time_to_live(
 )
 ```
 
+</details>
+
 **Archive strategy:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Hot data (current month):
@@ -1233,6 +1476,8 @@ Cold data (older):
   - Restore if needed
 ```
 
+</details>
+
 ---
 
 ### Q5: Global table has latency spike in EU. Diagnose and fix.
@@ -1240,6 +1485,9 @@ Cold data (older):
 **Answer:**
 
 **Monitoring:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 import boto3
@@ -1261,7 +1509,12 @@ response = cloudwatch.get_metric_statistics(
 )
 ```
 
+</details>
+
 **Diagnosis checklist:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1. Check replication lag
@@ -1286,9 +1539,14 @@ response = cloudwatch.get_metric_statistics(
    - Use CloudWatch dimensions to identify
 ```
 
+</details>
+
 **Solutions:**
 
 **1. Increase capacity in EU region:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # If using provisioned capacity
@@ -1304,7 +1562,12 @@ dynamodb.update_table(
 # If using on-demand, nothing needed (auto-scales)
 ```
 
+</details>
+
 **2. Add local index to reduce cross-region traffic:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Instead of global query (hits primary + replicas)
@@ -1319,7 +1582,12 @@ if not eu_cache:
     redis_cluster_eu.set(f'user:{user_id}', eu_cache, ttl=3600)
 ```
 
+</details>
+
 **3. Monitor replication lag:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # Check replication lag metric
@@ -1334,7 +1602,12 @@ aws cloudwatch get-metric-statistics \
   --statistics Maximum,Average
 ```
 
+</details>
+
 **4. Optimize write patterns:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Batch writes to reduce round trips
@@ -1348,6 +1621,8 @@ eu_table.get_item(
     ConsistentRead=False  # Eventually consistent (faster)
 )
 ```
+
+</details>
 
 **Key takeaway**: "Monitor replication lag and capacity metrics. Add caching for frequently accessed data. Use eventually consistent reads to reduce latency."
 
@@ -1402,6 +1677,9 @@ eu_table.get_item(
 
 ### Backup Options
 
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Automated backups (point-in-time recovery)
 dynamodb.update_continuous_backups(
@@ -1424,7 +1702,12 @@ dynamodb.restore_table_from_backup(
 )
 ```
 
+</details>
+
 ### Multi-Region Strategy
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Primary Region (US-East):
@@ -1443,6 +1726,8 @@ Failover:
   4. Client redirects to replica
   5. RPO: < 1 second (replication lag)
 ```
+
+</details>
 
 ---
 

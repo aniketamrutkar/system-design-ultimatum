@@ -24,6 +24,9 @@
 
 ## Elasticsearch Architecture Overview
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Clients (HTTP/TCP)
        ↓
@@ -37,6 +40,8 @@ Clients (HTTP/TCP)
        ↓
    [Lucene indexes]
 ```
+
+</details>
 
 **Key layers:**
 - **Cluster**: Collection of nodes working together
@@ -53,6 +58,9 @@ Clients (HTTP/TCP)
 ### 1. Clusters and Nodes
 
 **Cluster**: Logical grouping of one or more Elasticsearch nodes
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Production Cluster Setup:
@@ -74,7 +82,12 @@ Coordinator nodes (optional):
   - No data stored
 ```
 
+</details>
+
 **Node roles:**
+<details>
+<summary>Click to view code (yaml)</summary>
+
 ```yaml
 # Master-eligible node
 node.roles: [master, data]
@@ -86,11 +99,16 @@ node.roles: [data]
 node.roles: [ingest]
 ```
 
+</details>
+
 ---
 
 ### 2. Indices and Shards
 
 **Index**: Similar to a database table; stores documents
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Index: products
@@ -107,7 +125,12 @@ Index: products
       Size: 500MB
 ```
 
+</details>
+
 **Shard**: Partition of an index (enables parallel processing)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Why shards?
@@ -130,7 +153,12 @@ Index settings:
 }
 ```
 
+</details>
+
 **Replica**: Copy of a shard for redundancy
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Benefits:
@@ -144,11 +172,16 @@ Trade-offs:
 - Indexing latency: Must replicate to all replicas
 ```
 
+</details>
+
 ---
 
 ### 3. Documents and Mappings
 
 **Document**: JSON object indexed in Elasticsearch
+
+<details>
+<summary>Click to view code (json)</summary>
 
 ```json
 {
@@ -167,7 +200,12 @@ Trade-offs:
 }
 ```
 
+</details>
+
 **Mapping**: Schema definition for an index
+
+<details>
+<summary>Click to view code (json)</summary>
 
 ```json
 {
@@ -195,6 +233,8 @@ Trade-offs:
 }
 ```
 
+</details>
+
 **Field types:**
 
 | Type | Use Case | Searchable | Sortable |
@@ -211,6 +251,9 @@ Trade-offs:
 ### 4. Inverted Index (Core of Lucene)
 
 **Inverted Index**: Maps terms → documents (enables fast search)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Documents:
@@ -231,7 +274,12 @@ Query: "fast"
   2. Return matches instantly
 ```
 
+</details>
+
 **Analysis process** (converts text → searchable terms):
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Input: "The Quick Brown Fox"
@@ -248,11 +296,16 @@ Input: "The Quick Brown Fox"
    fox → [Doc]
 ```
 
+</details>
+
 ---
 
 ## Indexing (Writes)
 
 ### Indexing Flow
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Client:
@@ -272,7 +325,12 @@ Acknowledgment:
   Return success to client
 ```
 
+</details>
+
 ### Indexing Settings
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Bulk indexing for high throughput
@@ -291,7 +349,12 @@ from elasticsearch.helpers import bulk
 bulk(es, actions, chunk_size=500)
 ```
 
+</details>
+
 **Refresh and flush:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Refresh (every 1 second by default):
@@ -310,6 +373,8 @@ Optimization:
   - Bulk size: 5-15MB chunks for optimal performance
 ```
 
+</details>
+
 ---
 
 ## Searching (Reads)
@@ -317,6 +382,9 @@ Optimization:
 ### Query Types
 
 **Match Query** (full-text, analyzed):
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "query": {
@@ -328,7 +396,12 @@ Optimization:
 // Matches: "fast", "search", "faster", "searched" (due to analysis)
 ```
 
+</details>
+
 **Term Query** (exact match, not analyzed):
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "query": {
@@ -340,7 +413,12 @@ Optimization:
 // Exact match only
 ```
 
+</details>
+
 **Bool Query** (combine conditions):
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "query": {
@@ -360,7 +438,12 @@ Optimization:
 }
 ```
 
+</details>
+
 **Filter Context** (cached, fast):
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "query": {
@@ -375,9 +458,14 @@ Optimization:
 // Filters are cached and don't affect scoring
 ```
 
+</details>
+
 ---
 
 ### Search Execution Flow
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Query:
@@ -397,7 +485,12 @@ Query:
    - Return to client
 ```
 
+</details>
+
 **Query DSL Examples:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Python client
@@ -432,11 +525,16 @@ results = es.search(index="products", body={
 })
 ```
 
+</details>
+
 ---
 
 ## Aggregations (Analytics)
 
 **Aggregations**: Group and analyze data without searching
+
+<details>
+<summary>Click to view code (json)</summary>
 
 ```json
 {
@@ -464,6 +562,8 @@ results = es.search(index="products", body={
 }
 ```
 
+</details>
+
 **Common aggregation types:**
 
 | Aggregation | Use Case | Example |
@@ -479,6 +579,9 @@ results = es.search(index="products", body={
 ## Performance Optimization
 
 ### Indexing Optimization
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # During bulk indexing
@@ -496,7 +599,12 @@ index.number_of_replicas=2
 POST /index/_forcemerge?max_num_segments=1
 ```
 
+</details>
+
 ### Search Optimization
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Field caching for frequent filters
@@ -513,7 +621,12 @@ index.queries.cache.is_enabled=true
 indices.requests.cache.size=1%
 ```
 
+</details>
+
 ### Resource Configuration
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Memory allocation
@@ -531,6 +644,8 @@ transport.port=9300
 network.host=0.0.0.0
 ```
 
+</details>
+
 ---
 
 ## Scalability & High Availability
@@ -538,6 +653,9 @@ network.host=0.0.0.0
 ### Cluster Architecture
 
 **Small cluster** (1-10 nodes):
+<details>
+<summary>Click to view code</summary>
+
 ```
 3 Master-eligible nodes
 + 5 Data nodes
@@ -545,7 +663,12 @@ network.host=0.0.0.0
 Handles: 1-10M docs/day
 ```
 
+</details>
+
 **Medium cluster** (10-50 nodes):
+<details>
+<summary>Click to view code</summary>
+
 ```
 3-5 Master nodes
 + 20-40 Data nodes
@@ -553,7 +676,12 @@ Handles: 1-10M docs/day
 Handles: 100M-1B docs/day
 ```
 
+</details>
+
 **Large cluster** (50+ nodes):
+<details>
+<summary>Click to view code</summary>
+
 ```
 5 Master nodes (separate from data)
 + 100+ Data nodes
@@ -562,7 +690,12 @@ Handles: 100M-1B docs/day
 Handles: 1B+ docs/day
 ```
 
+</details>
+
 ### Replica Strategy
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Trade-off: Availability vs Resource Cost
@@ -586,7 +719,12 @@ Trade-off: Availability vs Resource Cost
   - Use for: Critical, high-traffic systems
 ```
 
+</details>
+
 ### Cross-Cluster Replication
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Primary Cluster (US-East):
@@ -601,11 +739,16 @@ Configuration:
 - One-way for active-passive DR
 ```
 
+</details>
+
 ---
 
 ## Configuration Tuning
 
 ### Discovery and Cluster Formation
+
+<details>
+<summary>Click to view code (properties)</summary>
 
 ```properties
 # Cluster name
@@ -622,7 +765,12 @@ discovery.zen.minimum_master_nodes=2  # (N/2 + 1)
 cluster.routing.allocation.enable=all
 ```
 
+</details>
+
 ### Index Configuration
+
+<details>
+<summary>Click to view code (json)</summary>
 
 ```json
 {
@@ -636,7 +784,12 @@ cluster.routing.allocation.enable=all
 }
 ```
 
+</details>
+
 ### Shard Size Guidelines
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Target shard size: 20-50 GB (per replica)
@@ -657,11 +810,16 @@ Too many shards:
   - Per-shard memory overhead
 ```
 
+</details>
+
 ---
 
 ## Use Cases
 
 ### 1. Full-Text Search
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 E-commerce search:
@@ -671,7 +829,12 @@ E-commerce search:
   - Search-as-you-type
 ```
 
+</details>
+
 ### 2. Logging and Metrics (ELK Stack)
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Elasticsearch + Logstash + Kibana:
@@ -686,7 +849,12 @@ Benefits:
   - Performance monitoring
 ```
 
+</details>
+
 ### 3. Analytics and BI
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Time-series analytics:
@@ -696,7 +864,12 @@ Time-series analytics:
   - Ad-hoc analysis
 ```
 
+</details>
+
 ### 4. Geospatial Search
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Map-based services:
@@ -709,6 +882,8 @@ Geo query types:
   - geo_bounding_box: Area search
   - geo_polygon: Complex boundaries
 ```
+
+</details>
 
 ---
 
@@ -723,6 +898,9 @@ Geo query types:
 - 99.99% uptime
 
 **Solution Architecture:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Cluster Setup:
@@ -747,7 +925,12 @@ Index Design:
       }
 ```
 
+</details>
+
 **Query optimization:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Faceted search with aggregations
@@ -779,7 +962,12 @@ query = {
 }
 ```
 
+</details>
+
 **Autocomplete:**
+
+<details>
+<summary>Click to view code (json)</summary>
 
 ```json
 {
@@ -820,6 +1008,8 @@ query = {
 }
 ```
 
+</details>
+
 **Performance expectations:**
 
 | Operation | Latency | Notes |
@@ -836,6 +1026,9 @@ query = {
 
 **Backup strategy:**
 
+<details>
+<summary>Click to view code (properties)</summary>
+
 ```properties
 # Snapshot repository (S3)
 PUT /_snapshot/s3-backup
@@ -851,6 +1044,8 @@ PUT /_snapshot/s3-backup
 POST /_snapshot/s3-backup/snapshot-2024-01-05?wait_for_completion=true
 ```
 
+</details>
+
 **Recovery scenarios:**
 
 | Failure | Impact | Recovery Time |
@@ -860,6 +1055,9 @@ POST /_snapshot/s3-backup/snapshot-2024-01-05?wait_for_completion=true
 | **Entire cluster down** | Data recoverable from snapshot | 30min-2hrs (restore from S3) |
 
 **Recovery procedure:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # 1. Restore cluster from backup
@@ -882,6 +1080,8 @@ PUT /products/_settings
 }
 ```
 
+</details>
+
 **Key takeaway**: "With 2+ replicas, node failure is automatic failover. For total cluster failure, restore from snapshots (RPO = 1 day if daily snapshots)."
 
 ---
@@ -891,6 +1091,9 @@ PUT /products/_settings
 **Answer:**
 
 **Diagnosis checklist:**
+
+<details>
+<summary>Click to view code (bash)</summary>
 
 ```bash
 # 1. Check cluster health
@@ -918,6 +1121,8 @@ GET /_cluster/pending_tasks
 GET /_nodes/jvm/stats
 ```
 
+</details>
+
 **Common causes and fixes:**
 
 | Problem | Cause | Fix |
@@ -936,6 +1141,9 @@ GET /_nodes/jvm/stats
 
 **Root cause analysis:**
 
+<details>
+<summary>Click to view code (bash)</summary>
+
 ```bash
 # Check index size
 GET /_cat/indices?v&h=index,store.size,docs.count
@@ -944,9 +1152,14 @@ GET /_cat/indices?v&h=index,store.size,docs.count
 docs_per_gb = docs.count / (store.size / 1GB)
 ```
 
+</details>
+
 **Optimization strategies:**
 
 1. **Compression:**
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "settings": {
@@ -955,7 +1168,12 @@ docs_per_gb = docs.count / (store.size / 1GB)
 }
 ```
 
+</details>
+
 2. **Disable unnecessary fields:**
+<details>
+<summary>Click to view code (json)</summary>
+
 ```json
 {
   "mappings": {
@@ -969,14 +1187,24 @@ docs_per_gb = docs.count / (store.size / 1GB)
 }
 ```
 
+</details>
+
 3. **Field type optimization:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 text field: 2x size of keyword field
 nested objects: High overhead
 Use keyword where full-text search not needed
 ```
 
+</details>
+
 4. **Index lifecycle management:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 Hot: Current month (full replicas, high refresh rate)
 Warm: Last 3 months (fewer replicas, lower refresh rate)
@@ -984,7 +1212,12 @@ Cold: Older data (minimal replicas, snapshot only)
 Delete: > 1 year
 ```
 
+</details>
+
 **Expected improvements:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Before optimization:
@@ -997,6 +1230,8 @@ With tiering:
   1M docs = 3GB total (hot: 1GB, warm: 1.5GB, cold: 0.5GB)
 ```
 
+</details>
+
 ---
 
 ### Q5: Designing Elasticsearch for real-time log aggregation (1M logs/sec)
@@ -1004,6 +1239,9 @@ With tiering:
 **Answer:**
 
 **Architecture:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Log Sources (servers, apps)
@@ -1015,7 +1253,12 @@ Elasticsearch Cluster (hot-warm-cold)
 Kibana (visualization)
 ```
 
+</details>
+
 **Cluster sizing:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 1M logs/sec × 1KB per log = 1GB/sec = 86TB/day
@@ -1031,7 +1274,12 @@ Hardware needed:
   - 5 coordinator nodes (distribute load)
 ```
 
+</details>
+
 **Index strategy:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Daily rolling indices:
@@ -1048,7 +1296,12 @@ Settings per day:
   - Rollover when: 50GB or 24 hours
 ```
 
+</details>
+
 **Indexing optimization:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Bulk indexing with Logstash
@@ -1063,7 +1316,12 @@ output {
 }
 ```
 
+</details>
+
 **Query optimization:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Use time-range filter (fast):
@@ -1077,6 +1335,8 @@ Use aggregations for metrics:
   Errors per service (terms aggregation)
   Response time distribution (percentiles)
 ```
+
+</details>
 
 ---
 
@@ -1137,6 +1397,9 @@ Use aggregations for metrics:
 
 ### Multi-Region Setup
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Primary Cluster (US-East)
   [Logs Index]
@@ -1150,6 +1413,8 @@ Failover process:
   3. Update application to point to EU-West
   4. RPO: Depends on replication lag (usually < 1 sec)
 ```
+
+</details>
 
 ---
 

@@ -16,6 +16,9 @@ Design patterns are proven solutions to common problems in system design. They h
 
 Separate read and write operations into different models.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Traditional (One Model):
   ┌─────────────────┐
@@ -36,6 +39,8 @@ CQRS (Separate Models):
   └──────────────┘          │ - Indexed   │
                             └─────────────┘
 ```
+
+</details>
 
 ### Pros
 - Optimize reads and writes separately
@@ -63,6 +68,9 @@ CQRS (Separate Models):
 - Team unfamiliar with event-driven systems
 
 ### Example: E-commerce Product Catalog
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 # Command Model (Write-optimized)
@@ -118,6 +126,8 @@ class ProductQueryHandler:
 event_bus.subscribe('ProductPriceUpdated', product_query.on_product_price_updated)
 ```
 
+</details>
+
 ---
 
 ## 2. Event Sourcing
@@ -125,6 +135,9 @@ event_bus.subscribe('ProductPriceUpdated', product_query.on_product_price_update
 **What is Event Sourcing?**
 
 Store all state changes as immutable events. Reconstruct state by replaying events.
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Traditional Database:
@@ -140,6 +153,8 @@ Event Sourcing:
   3. UserEmailChanged(id=1, email="john@example.com")
   (Complete history)
 ```
+
+</details>
 
 ### Pros
 - Complete audit trail (HIPAA, financial compliance)
@@ -169,6 +184,9 @@ Event Sourcing:
 - Storage is constraint (massive event volume)
 
 ### Example: Bank Account
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class BankAccount:
@@ -238,6 +256,8 @@ def get_balance_on_date(account_id, date):
     return balance
 ```
 
+</details>
+
 ---
 
 ## 3. Saga Pattern (Distributed Transactions)
@@ -245,6 +265,9 @@ def get_balance_on_date(account_id, date):
 **What is Saga?**
 
 Coordinate multi-step transactions across services without distributed locks.
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Traditional (2-phase commit):
@@ -269,9 +292,14 @@ Saga (Event-driven):
   [Confirm]          [Confirm]
 ```
 
+</details>
+
 ### Two Types of Sagas
 
 **Choreography** (services listen to events):
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 # Service A (Flight Booking)
 def book_flight(booking_id, flight):
@@ -289,7 +317,12 @@ def on_hotel_booked(event):
     event_bus.emit('PaymentProcessed', event.booking_id)
 ```
 
+</details>
+
 **Orchestration** (central coordinator):
+<details>
+<summary>Click to view code (python)</summary>
+
 ```python
 class BookingOrchestrator:
     def book_trip(self, booking_id, flight, hotel):
@@ -316,6 +349,8 @@ class BookingOrchestrator:
             self.hotel_service.cancel(booking_id)
             return 'PAYMENT_FAILED'
 ```
+
+</details>
 
 ### Pros
 - No distributed locks (more scalable)
@@ -349,6 +384,9 @@ class BookingOrchestrator:
 
 Prevent cascading failures by stopping calls to failing service.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Service A → Service B (slow)
            (timeout)
@@ -362,7 +400,12 @@ Service A → Service B (slow)
            → Circuit CLOSED (normal)
 ```
 
+</details>
+
 ### States
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 CLOSED: Normal operation
@@ -381,7 +424,12 @@ HALF-OPEN: Testing service
   If failure → OPEN (restart timeout)
 ```
 
+</details>
+
 ### Implementation
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 import time
@@ -437,6 +485,8 @@ def call_payment_service():
         return {'status': 'cached', 'amount': 100}  # Cached response
 ```
 
+</details>
+
 ### Pros
 - Prevents cascading failures
 - Fail fast (immediate error vs timeout)
@@ -461,6 +511,9 @@ def call_payment_service():
 
 Isolate resources so failure in one doesn't affect others.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Traditional (Shared resources):
   Thread pool (100 threads)
@@ -479,7 +532,12 @@ Bulkhead (Separate pools):
   Service A slow → Doesn't affect B, C
 ```
 
+</details>
+
 ### Implementation
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 from concurrent.futures import ThreadPoolExecutor
@@ -503,6 +561,8 @@ executor.call_service_a(slow_func)  # Blocks 40 threads
 executor.call_service_b(fast_func)  # Uses separate 30 threads (not affected)
 ```
 
+</details>
+
 ### Pros
 - Isolates failures
 - Predictable latency
@@ -524,6 +584,9 @@ executor.call_service_b(fast_func)  # Uses separate 30 threads (not affected)
 
 Automatically retry failed requests with increasing delays.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Attempt 1: 0ms delay
   → Fails
@@ -540,7 +603,12 @@ Attempt 4: 900ms delay
 Formula: delay = base_delay × (multiplier ^ attempt)
 ```
 
+</details>
+
 ### Implementation
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 import time
@@ -576,6 +644,8 @@ def call_api():
 retry_with_backoff(call_api)
 ```
 
+</details>
+
 ### When to Use
 - Network calls (transient failures)
 - Database connections
@@ -593,6 +663,9 @@ retry_with_backoff(call_api)
 
 Data is not immediately consistent but becomes consistent over time.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Strong Consistency (ACID):
   Write ──→ [wait] ──→ Read
@@ -608,6 +681,8 @@ Eventual Consistency:
   Read (after 1 second)
   → See updated data
 ```
+
+</details>
 
 ### Pros
 - Higher availability
@@ -637,6 +712,9 @@ Eventual Consistency:
 
 Partition data across multiple databases (range, hash, directory-based).
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Hash-based sharding:
   user_id = 123
@@ -650,6 +728,8 @@ Users:
   ├─ Shard 2 (user_id % 4 == 2)
   └─ Shard 3 (user_id % 4 == 3)
 ```
+
+</details>
 
 ### Sharding Strategies
 
@@ -688,6 +768,9 @@ Users:
 
 Check cache first; load from database if miss.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Read request:
   1. Check cache
@@ -698,7 +781,12 @@ Read request:
   4. Return to client
 ```
 
+</details>
+
 ### Implementation
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 def get_user(user_id):
@@ -717,6 +805,8 @@ def get_user(user_id):
     # Step 4: Return
     return user
 ```
+
+</details>
 
 ### Pros
 - Simple to implement
@@ -741,12 +831,17 @@ def get_user(user_id):
 
 Write to both cache and database simultaneously.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Write request:
   1. Write to cache
   2. Write to database
   3. Return to client (when both succeed)
 ```
+
+</details>
 
 ### Pros
 - Cache always up-to-date
@@ -768,6 +863,9 @@ Write request:
 
 Single application instance serves multiple customers (tenants).
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Separate Database per Tenant (Most secure):
   Tenant A DB
@@ -786,6 +884,8 @@ Shared Database, Shared Schema (most cost-efficient):
   ├─ Post table (tenant_id column)
   └─ Comment table (tenant_id column)
 ```
+
+</details>
 
 ### Isolation Levels
 
@@ -817,6 +917,9 @@ Shared Database, Shared Schema (most cost-efficient):
 
 Single entry point for all client requests.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Without API Gateway:
   Client 1 ──→ Service A
@@ -831,7 +934,12 @@ With API Gateway:
                               ──→ Service C
 ```
 
+</details>
+
 ### Responsibilities
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class APIGateway:
@@ -855,6 +963,8 @@ class APIGateway:
         # 6. Response transformation
         return self.transform_response(response)
 ```
+
+</details>
 
 ### Pros
 - Centralized authentication
@@ -880,6 +990,9 @@ class APIGateway:
 
 Gradually migrate monolith to microservices by intercepting requests.
 
+<details>
+<summary>Click to view code</summary>
+
 ```
 Phase 1: Old system operates normally
   Clients → Monolith
@@ -899,6 +1012,8 @@ Phase 4: Complete migration
                          ├─→ Service C
                          └─→ (Monolith decommissioned)
 ```
+
+</details>
 
 ### Pros
 - Low risk (rollback easy)
@@ -924,6 +1039,9 @@ Phase 4: Complete migration
 **Answer:**
 
 **Architecture:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Write Path (Commands):
@@ -951,7 +1069,12 @@ Event Processing:
     └─ Send notification (async)
 ```
 
+</details>
+
 **Implementation:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class Post:
@@ -1009,6 +1132,8 @@ event_bus.subscribe('PostCreated', feed_model.on_post_created)
 event_bus.subscribe('PostLiked', feed_model.on_post_liked)
 ```
 
+</details>
+
 **Benefits:**
 - Write path fast (just persist event)
 - Read path fast (pre-computed cache)
@@ -1028,6 +1153,9 @@ event_bus.subscribe('PostLiked', feed_model.on_post_liked)
 4. Shipping Service (creates shipment)
 
 **Orchestration approach:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class OrderSaga:
@@ -1090,6 +1218,8 @@ class OrderSaga:
             return {'status': 'FAILED', 'reason': 'Shipment creation failed'}
 ```
 
+</details>
+
 **Key points:**
 - Each service must be idempotent (safe to retry)
 - Compensating transactions must be reliable
@@ -1100,6 +1230,9 @@ class OrderSaga:
 ### Q3: Design circuit breaker for external payment gateway with fallback.
 
 **Answer:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class PaymentGatewayClient:
@@ -1172,6 +1305,8 @@ class PaymentGatewayClient:
         # Worker service processes queue asynchronously
 ```
 
+</details>
+
 ---
 
 ### Q4: Design sharding strategy for a social network with 1B users.
@@ -1184,6 +1319,9 @@ class PaymentGatewayClient:
 - Need to distribute across regions
 
 **Sharding strategy: Hash-based + Geo-replication**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class UserShardingManager:
@@ -1272,7 +1410,12 @@ class UserSearchIndex:
         )
 ```
 
+</details>
+
 **Data distribution:**
+<details>
+<summary>Click to view code</summary>
+
 ```
 1B users ÷ 256 shards = ~4M users per shard
 Each shard DB:
@@ -1285,6 +1428,8 @@ Traffic:
   ÷ 256 shards = ~40M requests/shard/day (manageable)
 ```
 
+</details>
+
 ---
 
 ### Q5: Design system migration from monolith to microservices using strangler pattern.
@@ -1292,6 +1437,9 @@ Traffic:
 **Answer:**
 
 **Phases:**
+
+<details>
+<summary>Click to view code</summary>
 
 ```
 Phase 1 (Week 1-2): Add API Gateway
@@ -1323,7 +1471,12 @@ Phase 5 (Week 13+): Decommission monolith
   Finally: Remove monolith code
 ```
 
+</details>
+
 **Implementation:**
+
+<details>
+<summary>Click to view code (python)</summary>
 
 ```python
 class APIGateway:
@@ -1377,6 +1530,8 @@ class DataSyncManager:
             if not user_service_db.exists(user.id):
                 user_service_db.create_user(user)
 ```
+
+</details>
 
 **Risk mitigation:**
 - Dual reads to compare results

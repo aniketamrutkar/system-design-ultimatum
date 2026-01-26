@@ -45,6 +45,7 @@ function markdownToHtml(markdown) {
   let inUl = false;
   let inOl = false;
   let inBlockquote = false;
+  let inDetails = false;
   let paragraph = '';
 
   const closeParagraph = () => {
@@ -78,6 +79,32 @@ function markdownToHtml(markdown) {
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const line = rawLine.trimEnd();
+
+    // Handle <details> and <summary> tags
+    if (line.trim() === '<details>' || line.trim().startsWith('<details ')) {
+      closeParagraph();
+      closeLists();
+      closeBlockquote();
+      html.push(line.trim());
+      inDetails = true;
+      continue;
+    }
+
+    if (line.trim() === '</details>') {
+      html.push(line.trim());
+      inDetails = false;
+      continue;
+    }
+
+    if (line.trim().startsWith('<summary>') || line.trim() === '<summary>') {
+      html.push(line.trim());
+      continue;
+    }
+
+    if (line.trim() === '</summary>') {
+      html.push(line.trim());
+      continue;
+    }
 
     if (line.startsWith('```')) {
       if (inCode) {

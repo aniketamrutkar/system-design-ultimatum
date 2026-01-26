@@ -623,6 +623,23 @@ function buildFolderTree() {
 
 // Generate CSS
 const globalStyles = `
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+  --slate-900: #0f172a;
+  --slate-800: #1e293b;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-200: #e2e8f0;
+  --sand-100: #f8f4ee;
+  --sand-200: #efe7db;
+  --mint-600: #0f766e;
+  --mint-500: #14b8a6;
+  --amber-500: #f59e0b;
+  --amber-200: #fde68a;
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.12);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -630,45 +647,109 @@ const globalStyles = `
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   line-height: 1.6;
-  color: #333;
-  background-color: #f5f5f5;
+  color: var(--slate-800);
+  background: radial-gradient(circle at top left, #ffffff 0%, var(--sand-100) 35%, #f1f5f9 100%);
   display: flex;
+  min-height: 100vh;
 }
 
 .sidebar {
   position: fixed;
   left: 0;
   top: 0;
-  width: 280px;
+  width: 300px;
   height: 100vh;
-  background: white;
-  border-right: 1px solid #e0e0e0;
-  overflow-y: auto;
+  background: linear-gradient(160deg, #ffffff 0%, #f2f6f8 45%, #eef4f2 100%);
+  border-right: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
   z-index: 100;
 }
 
 .nav-header {
-  padding: 1.5rem 1rem;
-  border-bottom: 2px solid #667eea;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: linear-gradient(120deg, rgba(20, 184, 166, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%);
 }
 
-.nav-header a {
-  color: white;
+.nav-brand {
+  color: var(--slate-900);
   text-decoration: none;
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+  letter-spacing: 0.2px;
   display: block;
 }
 
 .nav-header a:hover {
-  opacity: 0.9;
+  color: var(--mint-600);
+}
+
+.nav-close {
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #fff;
+  color: var(--slate-700);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: none;
+}
+
+.nav-close:hover {
+  border-color: var(--mint-500);
+  color: var(--mint-600);
+}
+
+.nav-tools {
+  padding: 0.75rem 1.25rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.nav-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  color: var(--slate-600);
+}
+
+.nav-search input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  color: var(--slate-800);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nav-search input:focus {
+  outline: none;
+  border-color: var(--mint-500);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+}
+
+.nav-scroll {
+  overflow-y: auto;
+  padding-bottom: 2rem;
 }
 
 .nav-content {
-  padding: 1rem 0;
+  padding: 0.75rem 0;
 }
 
 .nav-folder {
@@ -676,24 +757,45 @@ body {
 }
 
 .nav-folder summary {
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 1.15rem;
   font-weight: 600;
-  color: #667eea;
-  font-size: 0.9rem;
+  color: var(--mint-600);
+  font-size: 0.82rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
   cursor: pointer;
   list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.nav-folder summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-folder summary::after {
+  content: '+';
+  font-size: 0.9rem;
+  color: var(--slate-500);
+  transition: transform 0.2s ease;
+}
+
+.nav-folder[open] summary::after {
+  content: '-';
 }
 
 .nav-item {
   display: block;
-  padding: 0.5rem 1.5rem;
-  color: #555;
+  padding: 0.55rem 1.5rem;
+  color: var(--slate-700);
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   border-left: 3px solid transparent;
-  transition: all 0.2s;
+  border-radius: 10px;
+  margin: 0.1rem 0.9rem 0.1rem 0.75rem;
+  transition: all 0.2s ease;
 }
 
 .nav-folder-body {
@@ -701,28 +803,44 @@ body {
 }
 
 .nav-item:hover {
-  background: #f5f5f5;
-  color: #667eea;
-  border-left-color: #667eea;
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--slate-900);
+  border-left-color: var(--mint-500);
+}
+
+.nav-item.is-active {
+  background: rgba(245, 158, 11, 0.14);
+  border-left-color: var(--amber-500);
+  color: var(--slate-900);
+  font-weight: 600;
+}
+
+.nav-folder.is-hidden,
+.nav-item.is-hidden {
+  display: none;
 }
 
 .main-content {
-  margin-left: 280px;
+  margin-left: 300px;
   flex: 1;
   min-height: 100vh;
   background: white;
 }
 
 header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(125deg, #0f766e 0%, #14b8a6 45%, #f59e0b 120%);
   color: white;
-  padding: 2rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 2rem 2.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  position: relative;
+  overflow: hidden;
 }
 
 header h1 {
   font-size: 2rem;
   margin-bottom: 0.5rem;
+  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+  letter-spacing: 0.3px;
 }
 
 header p {
@@ -733,6 +851,69 @@ header p {
 .container {
   max-width: 900px;
   padding: 2rem;
+}
+
+.nav-toggle {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  display: none;
+  backdrop-filter: blur(6px);
+}
+
+.nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 90;
+}
+
+body.nav-open .nav-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 960px) {
+  body {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: min(90vw, 360px);
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+  }
+
+  body.nav-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .nav-close {
+    display: inline-flex;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
 }
 
 h1, h2, h3, h4 {
@@ -961,7 +1142,13 @@ function generateNav() {
 
   function renderFolder(node, depth = 0) {
     let html = '';
-    const childNames = Array.from(node.children.keys()).sort((a, b) => a.localeCompare(b));
+    const childNames = Array.from(node.children.keys()).sort((a, b) => {
+      if (depth === 0) {
+        if (a === 'Notes' && b !== 'Notes') return -1;
+        if (b === 'Notes' && a !== 'Notes') return 1;
+      }
+      return a.localeCompare(b);
+    });
 
     childNames.forEach(name => {
       const child = node.children.get(name);
@@ -1004,9 +1191,12 @@ function generateNav() {
     return html;
   }
 
-  let nav = '<nav class="sidebar"><div class="nav-header"><a href="' + safeHref('index.html') + '">🏠 System Design</a></div><div class="nav-content">';
+  let nav = '<nav class="sidebar" aria-label="Sidebar navigation">';
+  nav += '<div class="nav-header"><a class="nav-brand" href="' + safeHref('index.html') + '">🏠 System Design</a><button class="nav-close" type="button" aria-label="Close navigation">Close</button></div>';
+  nav += '<div class="nav-tools"><label class="nav-search">Browse<input id="nav-search" type="search" placeholder="Search topics" aria-label="Search navigation" autocomplete="off"></label></div>';
+  nav += '<div class="nav-scroll"><div class="nav-content">';
   nav += renderFolder(tree, 0);
-  nav += '</div></nav>';
+  nav += '</div></div></nav>';
   return nav;
 }
 
@@ -1025,8 +1215,10 @@ ${globalStyles}
 </head>
 <body>
 ${generateNav()}
+    <div class="nav-overlay" data-nav-overlay></div>
     <div class="main-content">
         <header>
+            <button class="nav-toggle" type="button" aria-label="Open navigation">Menu</button>
             <h1>${safeTitle}</h1>
         </header>
         <div class="container content-page">
@@ -1037,6 +1229,75 @@ ${content}
             <p style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.8;">Last updated: ${new Date().toLocaleDateString()}</p>
         </footer>
     </div>
+    <script>
+      (() => {
+        const navSearch = document.querySelector('#nav-search');
+        const navItems = Array.from(document.querySelectorAll('.nav-item'));
+        const folders = Array.from(document.querySelectorAll('.nav-folder'));
+        const navToggle = document.querySelector('.nav-toggle');
+        const navClose = document.querySelector('.nav-close');
+        const overlay = document.querySelector('.nav-overlay');
+
+        const setNavOpen = (open) => {
+          document.body.classList.toggle('nav-open', open);
+        };
+
+        const currentPage = window.location.pathname.split('/').pop();
+        navItems.forEach((item) => {
+          if (item.getAttribute('href') === currentPage) {
+            item.classList.add('is-active');
+            let parent = item.closest('.nav-folder');
+            while (parent) {
+              parent.open = true;
+              parent = parent.parentElement.closest('.nav-folder');
+            }
+          }
+        });
+
+        folders.forEach((folder) => {
+          if (folder.hasAttribute('open')) {
+            folder.dataset.initialOpen = 'true';
+          }
+        });
+
+        if (navSearch) {
+          navSearch.addEventListener('input', (event) => {
+            const query = event.target.value.trim().toLowerCase();
+            if (!query) {
+              navItems.forEach((item) => item.classList.remove('is-hidden'));
+              folders.forEach((folder) => {
+                folder.classList.remove('is-hidden');
+                folder.open = folder.dataset.initialOpen === 'true';
+              });
+              return;
+            }
+
+            navItems.forEach((item) => {
+              const match = item.textContent.toLowerCase().includes(query);
+              item.classList.toggle('is-hidden', !match);
+            });
+
+            folders.forEach((folder) => {
+              const hasMatch = folder.querySelector('.nav-item:not(.is-hidden)');
+              folder.classList.toggle('is-hidden', !hasMatch);
+              if (hasMatch) {
+                folder.open = true;
+              }
+            });
+          });
+        }
+
+        if (navToggle) {
+          navToggle.addEventListener('click', () => setNavOpen(true));
+        }
+        if (navClose) {
+          navClose.addEventListener('click', () => setNavOpen(false));
+        }
+        if (overlay) {
+          overlay.addEventListener('click', () => setNavOpen(false));
+        }
+      })();
+    </script>
 </body>
 </html>`;
 }

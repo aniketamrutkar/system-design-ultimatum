@@ -7,8 +7,6 @@
 **Core Principle**: Design APIs around resources, not actions
 
 **Good** (Resource-oriented):
-<details>
-<summary>Click to view code</summary>
 
 ```
 GET    /api/users                    # List users
@@ -19,11 +17,7 @@ DELETE /api/users/123                # Delete user 123
 GET    /api/users/123/posts          # Get user's posts
 ```
 
-</details>
-
 **Bad** (Action-oriented):
-<details>
-<summary>Click to view code</summary>
 
 ```
 GET    /api/getUsers
@@ -34,7 +28,6 @@ POST   /api/deleteUser
 GET    /api/getUserPosts?id=123
 ```
 
-</details>
 
 **Why Resource-Oriented:**
 - Standard HTTP methods map to CRUD
@@ -222,8 +215,6 @@ async def legacy():
 ### 3. Versioning Strategies
 
 **Option 1: URL Path (Most Common)**
-<details>
-<summary>Click to view code</summary>
 
 ```
 GET /api/v1/users
@@ -233,11 +224,8 @@ Pros: Clear, easy to route
 Cons: URL proliferation, multiple implementations
 ```
 
-</details>
 
 **Option 2: Query Parameter**
-<details>
-<summary>Click to view code</summary>
 
 ```
 GET /api/users?version=2
@@ -246,11 +234,7 @@ Pros: Single URL endpoint
 Cons: Less clear, harder to cache
 ```
 
-</details>
-
 **Option 3: Header**
-<details>
-<summary>Click to view code</summary>
 
 ```
 GET /api/users
@@ -260,11 +244,7 @@ Pros: Elegant, no URL pollution
 Cons: Complex, clients might not support
 ```
 
-</details>
-
 **Option 4: Content Negotiation**
-<details>
-<summary>Click to view code</summary>
 
 ```
 GET /api/users
@@ -273,8 +253,6 @@ Accept: application/json;version=2
 Pros: Standard HTTP
 Cons: Confusing for non-technical users
 ```
-
-</details>
 
 **Recommendation**: **Use URL path versioning** (v1, v2, v3)
 - Clear and explicit
@@ -418,16 +396,12 @@ Cons: Confusing for non-technical users
 
 **How it works**: Skip N records, take M records
 
-<details>
-<summary>Click to view code</summary>
-
 ```
 GET /api/users?offset=0&limit=20   # First 20
 GET /api/users?offset=20&limit=20  # Next 20 (skip 20, take 20)
 GET /api/users?offset=40&limit=20  # Next 20 (skip 40, take 20)
 ```
 
-</details>
 
 **Pros:**
 - Simple to implement
@@ -439,20 +413,17 @@ GET /api/users?offset=40&limit=20  # Next 20 (skip 40, take 20)
   ```sql
   SELECT * FROM users OFFSET 1000000 LIMIT 20
   -- Database must scan 1M records to skip them
-  <details>
-<summary>Click to view code</summary>
-
-```
+  ```
 
 - Data consistency issues (records can be inserted between requests)
 - Less efficient with large datasets
 
 **Implementation**:
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-python
+```python
 @app.get("/api/users")
 def list_users(offset: int = 0, limit: int = 20):
     # Validate
@@ -471,10 +442,8 @@ def list_users(offset: int = 0, limit: int = 20):
             "pages": (total + limit - 1) // limit
         }
     }
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
@@ -483,14 +452,8 @@ def list_users(offset: int = 0, limit: int = 20):
 **How it works**: Use a pointer (cursor) to mark position
 
 ```
-
-</details>
-
 GET /api/users?cursor=abc123&limit=20    # Get 20 after cursor
 GET /api/users?cursor=next_cursor&limit=20
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Cursor is typically**: Base64 encoded string like `eyJpZCI6IDEwMDB9`
@@ -508,11 +471,10 @@ GET /api/users?cursor=next_cursor&limit=20
 - Not for simple use cases
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users")
 def list_users(cursor: Optional[str] = None, limit: int = 20):
     if cursor:
@@ -545,10 +507,8 @@ def list_users(cursor: Optional[str] = None, limit: int = 20):
             "hasMore": has_more
         }
     }
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
@@ -557,14 +517,8 @@ def list_users(cursor: Optional[str] = None, limit: int = 20):
 **How it works**: Page number (1, 2, 3...) with page size
 
 ```
-
-</details>
-
 GET /api/users?page=1&pageSize=20   # First page
 GET /api/users?page=2&pageSize=20   # Second page
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Pros:**
@@ -578,11 +532,10 @@ GET /api/users?page=2&pageSize=20   # Second page
 - Data consistency issues
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users")
 def list_users(page: int = 1, pageSize: int = 20):
     offset = (page - 1) * pageSize
@@ -598,11 +551,8 @@ def list_users(page: int = 1, pageSize: int = 20):
             "totalPages": (total + pageSize - 1) // pageSize
         }
     }
-<details>
-<summary>Click to view code</summary>
-
 ```
-
+</details>
 ---
 
 ### 4. Seek-Based Pagination (High-Performance)
@@ -610,14 +560,8 @@ def list_users(page: int = 1, pageSize: int = 20):
 **How it works**: Use WHERE clause to find next batch of records
 
 ```
-
-</details>
-
 GET /api/users?seekId=1000&limit=20
 -- Gets records where id > 1000, limit 20
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Pros:**
@@ -631,11 +575,10 @@ GET /api/users?seekId=1000&limit=20
 - Requires reverse cursor for backward pagination
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users")
 def list_users(seekId: Optional[int] = None, limit: int = 20):
     if seekId:
@@ -657,10 +600,9 @@ def list_users(seekId: Optional[int] = None, limit: int = 20):
             "hasMore": has_more
         }
     }
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 ---
 
@@ -687,22 +629,15 @@ def list_users(seekId: Optional[int] = None, limit: int = 20):
 
 **Good filtering**:
 ```
-
-</details>
-
 GET /api/users?status=active&role=admin&createdAfter=2024-01-01
 GET /api/posts?authorId=123&tags=javascript,rust&minLikes=100
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users")
 def list_users(
     status: Optional[str] = None,
@@ -719,10 +654,8 @@ def list_users(
         query = query.filter(User.created_at > createdAfter)
     
     return query.all()
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
@@ -730,22 +663,15 @@ def list_users(
 
 **Query parameters for sorting**:
 ```
-
-</details>
-
 GET /api/users?sort=createdAt:desc,name:asc
 GET /api/posts?sort=-createdAt,+title        # - for desc, + for asc
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users")
 def list_users(sort: Optional[str] = None):
     query = db.query(User)
@@ -764,10 +690,8 @@ def list_users(sort: Optional[str] = None):
                 )
     
     return query.all()
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
@@ -775,22 +699,15 @@ def list_users(sort: Optional[str] = None):
 
 **Allow clients to request only needed fields**:
 ```
-
-</details>
-
 GET /api/users?fields=id,name,email
 // Returns only these fields, reduces payload
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users")
 def list_users(fields: Optional[str] = None):
     query = db.query(User)
@@ -803,21 +720,18 @@ def list_users(fields: Optional[str] = None):
             for u in users
         ]
     return users
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
 ### 4. Caching Headers
 
 **Implement HTTP caching properly**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 @app.get("/api/users/{user_id}")
 def get_user(user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
@@ -843,40 +757,31 @@ def get_user(user_id: int):
 # GET /api/users/123
 # If-None-Match: "hash123"
 # Server returns 304 (not changed) or 200 with new data
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 ---
 
 ### 5. Compression
 
 **Enable gzip compression**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 from fastapi.middleware.gzip import GZIPMiddleware
 
 app.add_middleware(GZIPMiddleware, minimum_size=1000)
 # Responses > 1KB are gzip compressed automatically
-<details>
-<summary>Click to view code</summary>
-
-```
-
-**Bandwidth reduction**:
 ```
 
 </details>
 
+**Bandwidth reduction**:
+```
 Before: 100KB JSON response
 After:  10KB gzipped (90% reduction)
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 ---
@@ -884,11 +789,10 @@ After:  10KB gzipped (90% reduction)
 ### 6. Rate Limiting
 
 **Prevent abuse**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -899,29 +803,26 @@ app.state.limiter = limiter
 @limiter.limit("100/minute")
 def list_users(request: Request):
     return db.query(User).all()
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
 ### 7. Async/Non-blocking
 
 **Use async for I/O-heavy operations**:
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-python
+```python
 @app.get("/api/users")
 async def list_users():
     users = await db.query(User).all()  # Non-blocking
     return users
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 ---
 
@@ -930,11 +831,10 @@ async def list_users():
 ### 1. Proto Definition Design
 
 **Good proto definition**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-protobuf
+```protobuf
 syntax = "proto3";
 
 package user.v1;
@@ -990,10 +890,9 @@ message DeleteUserRequest {
 }
 
 message Empty {}
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 **Key points:**
 - Start field numbering at 1
@@ -1015,11 +914,10 @@ gRPC supports 4 types of communication patterns, each optimized for different us
 **How it works**: Client sends single request, server sends single response (like REST)
 
 **Proto definition**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-protobuf
+```protobuf
 service UserService {
   rpc GetUser(GetUserRequest) returns (User);
   rpc CreateUser(CreateUserRequest) returns (User);
@@ -1034,17 +932,15 @@ message User {
   string name = 2;
   string email = 3;
 }
-<details>
-<summary>Click to view code</summary>
-
-```
-
-**Implementation (Python)**:
 ```
 
 </details>
 
-python
+**Implementation (Python)**:
+<details>
+<summary>Click to view code</summary>
+
+```python
 # Server
 class UserServicer:
     def GetUser(self, request, context):
@@ -1064,10 +960,9 @@ class UserServicer:
 stub = UserServiceStub(channel)
 response = stub.GetUser(GetUserRequest(user_id=123))
 print(f"User: {response.name}")
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 **Use cases**:
 - CRUD operations
@@ -1092,11 +987,11 @@ print(f"User: {response.name}")
 **How it works**: Client sends single request, server sends stream of responses
 
 **Proto definition**:
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-protobuf
+```protobuf
 service LogService {
   rpc StreamLogs(LogRequest) returns (stream LogEntry);
   rpc DownloadFile(FileRequest) returns (stream FileChunk);
@@ -1117,17 +1012,14 @@ message FileChunk {
   bytes data = 1;
   int32 chunk_number = 2;
 }
+```
+</details>
+
+**Implementation**:
 <details>
 <summary>Click to view code</summary>
 
-```
-
-**Implementation**:
-```
-
-</details>
-
-python
+```python
 # Server
 class LogServicer:
     def StreamLogs(self, request, context):
@@ -1179,10 +1071,8 @@ with open('downloaded_file', 'wb') as f:
     for chunk in stub.DownloadFile(FileRequest(file_id="abc123")):
         f.write(chunk.data)
         print(f"Downloaded chunk {chunk.chunk_number}")
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Use cases**:
 - **Real-time logs/monitoring**: Stream logs as they're generated
@@ -1209,11 +1099,10 @@ with open('downloaded_file', 'wb') as f:
 **How it works**: Client sends stream of requests, server sends single response
 
 **Proto definition**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-protobuf
+```protobuf
 service UploadService {
   rpc UploadFile(stream FileChunk) returns (UploadResponse);
   rpc RecordMetrics(stream Metric) returns (MetricsSummary);
@@ -1241,17 +1130,14 @@ message MetricsSummary {
   int32 total_metrics = 1;
   double average_value = 2;
 }
+```
+</details>
+
+**Implementation**:
 <details>
 <summary>Click to view code</summary>
 
-```
-
-**Implementation**:
-```
-
-</details>
-
-python
+```python
 # Server
 class UploadServicer:
     def UploadFile(self, request_iterator, context):
@@ -1326,10 +1212,8 @@ def generate_metrics():
 
 summary = stub.RecordMetrics(generate_metrics())
 print(f"Sent {summary.total_metrics} metrics, avg: {summary.average_value}")
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Use cases**:
 - **File uploads**: Upload large files in chunks
@@ -1356,11 +1240,7 @@ print(f"Sent {summary.total_metrics} metrics, avg: {summary.average_value}")
 **How it works**: Both client and server send streams of messages independently
 
 **Proto definition**:
-```
-
-</details>
-
-protobuf
+```protobuf
 service ChatService {
   rpc Chat(stream ChatMessage) returns (stream ChatMessage);
   rpc Collaborate(stream EditOperation) returns (stream EditOperation);
@@ -1379,17 +1259,14 @@ message EditOperation {
   string content = 4;
   string user_id = 5;
 }
-<details>
-<summary>Click to view code</summary>
 
 ```
 
 **Implementation**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 # Server
 class ChatServicer:
     def __init__(self):
@@ -1477,10 +1354,8 @@ thread.start()
 # Send messages
 client.send_message("Hello everyone!")
 client.send_message("How are you?")
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Use cases**:
 - **Real-time chat**: Messages flow both ways
@@ -1520,11 +1395,11 @@ client.send_message("How are you?")
 ### 3. Error Handling
 
 **Use gRPC error codes**:
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-python
+```python
 from grpc import StatusCode
 
 def get_user(request):
@@ -1543,10 +1418,8 @@ def create_user(request):
             details="Email format invalid"
         )
     return db.create(User(**request))
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **gRPC Status Codes:**
 - `OK`: Success
@@ -1571,11 +1444,11 @@ def create_user(request):
 ### 4. Interceptors (Middleware)
 
 **Authentication interceptor**:
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-python
+```python
 class AuthInterceptor(grpc.ServerInterceptor):
     def intercept_service(self, continuation, handler_call_details):
         metadata = handler_call_details.invocation_metadata
@@ -1592,21 +1465,19 @@ class AuthInterceptor(grpc.ServerInterceptor):
             )
         
         return continuation(handler_call_details)
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 ---
 
 ### 5. Performance Optimization
 
 **Connection pooling**:
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 # Server supports multiplexing by default
 # Multiple requests share one connection
 
@@ -1620,17 +1491,12 @@ stub = UserServiceStub(channel)
 # Make multiple calls on same channel
 users = stub.ListUsers(ListUsersRequest())
 user = stub.GetUser(GetUserRequest(user_id=123))
-<details>
-<summary>Click to view code</summary>
-
-```
-
-**Compression**:
 ```
 
 </details>
 
-protobuf
+**Compression**:
+```protobuf
 // In proto file
 service UserService {
   rpc GetUser(GetUserRequest) returns (User) {
@@ -1639,9 +1505,6 @@ service UserService {
     };
   }
 }
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 ---
@@ -1659,11 +1522,10 @@ service UserService {
 
 **Solution: Cursor-based pagination with seek**
 
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 from datetime import datetime
 from typing import Optional
 
@@ -1713,10 +1575,8 @@ async def get_feed(
             "hasMore": has_more
         }
     }
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Why cursor?**
 - No offset scanning (super fast)
@@ -1750,9 +1610,6 @@ async def get_feed(
 **My recommendation: Hybrid approach**
 
 ```
-
-</details>
-
 API Gateway (REST) ← Clients (web, mobile, partners)
     ↓
 Converts REST → gRPC
@@ -1762,17 +1619,13 @@ Microservices (gRPC for internal)
   ├─ Post Service
   ├─ Comment Service
   └─ Analytics Service
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Implementation example:**
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 # API Gateway: REST endpoint
 @app.get("/api/users/{user_id}")
 async def get_user(user_id: int):
@@ -1787,10 +1640,8 @@ async def get_user(user_id: int):
         "name": response.name,
         "email": response.email
     }
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Benefits:**
 - External clients use familiar REST
@@ -1810,12 +1661,10 @@ async def get_user(user_id: int):
 - Cannot serve stale data beyond threshold
 
 **Solution: Variable TTL with cache invalidation**
+<details>
+<summary>Click to view code</summary>
 
-```
-
-</details>
-
-python
+```python
 from functools import wraps
 from datetime import datetime, timedelta
 import redis
@@ -1869,18 +1718,14 @@ async def update_user(user_id: int, data: UpdateUserRequest):
     cache.delete(f"user_posts:{user_id}")
     
     return user
+```
+</details>
+
+**Advanced: Stale-while-revalidate**
 <details>
 <summary>Click to view code</summary>
 
-```
-
-**Advanced: Stale-while-revalidate**
-
-```
-
-</details>
-
-python
+```python
 @app.get("/api/users/{user_id}")
 async def get_user(user_id: int):
     cache_key = f"user:{user_id}"
@@ -1907,10 +1752,8 @@ async def revalidate_user(user_id: int):
     """Background task to refresh cache"""
     user = db.get_user(user_id)
     cache.setex(f"user:{user_id}", 3600, json.dumps(user))
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 ---
 
@@ -1921,12 +1764,10 @@ async def revalidate_user(user_id: int):
 **Challenge:** Cannot break 1000 clients at once
 
 **Solution: Semantic versioning with deprecation window**
+<details>
+<summary>Click to view code</summary>
 
-```
-
-</details>
-
-python
+```python
 from datetime import datetime
 
 # Version 1: Original API
@@ -1968,22 +1809,14 @@ async def deprecation_headers(request, call_next):
         return response
     
     return await call_next(request)
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Deprecation strategy:**
 ```
-
-</details>
-
 Month 1-6: v1 + v2, deprecation headers
 Month 7-11: v1 (limited support) + v2 (default)
 Month 12: v1 support ends, hard cutoff
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 ---
@@ -2000,11 +1833,7 @@ Month 12: v1 support ends, hard cutoff
 
 **Solution: gRPC with streaming and circuit breaker**
 
-```
-
-</details>
-
-protobuf
+```protobuf
 syntax = "proto3";
 
 package payment.v1;
@@ -2039,18 +1868,14 @@ message PaymentStatus {
 message TransactionId {
   string id = 1;
 }
-<details>
-<summary>Click to view code</summary>
 
 ```
 
 **Implementation:**
+<details>
+<summary>Click to view code</summary>
 
-```
-
-</details>
-
-python
+```python
 import grpc
 from concurrent import futures
 
@@ -2130,18 +1955,15 @@ async def serve():
     
     await server.start()
     await server.wait_for_termination()
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Client implementation with circuit breaker:**
 
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 class PaymentClient:
     def __init__(self):
         self.channel = grpc.aio.secure_channel(
@@ -2165,10 +1987,8 @@ class PaymentClient:
         except grpc.RpcError as e:
             self.circuit_breaker.record_failure()
             raise
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Key optimizations:**
 - Idempotency key prevents duplicate charges
@@ -2185,15 +2005,8 @@ class PaymentClient:
 **Answer:**
 
 **1. Unary RPC (Request-Response)**
-```
-
-</details>
-
-protobuf
+```protobuf
 rpc GetUser(GetUserRequest) returns (User);
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **When to use:**
@@ -2208,15 +2021,8 @@ rpc GetUser(GetUserRequest) returns (User);
 ---
 
 **2. Server Streaming RPC**
-```
-
-</details>
-
-protobuf
+```protobuf
 rpc StreamLogs(LogRequest) returns (stream LogEntry);
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **When to use:**
@@ -2227,11 +2033,7 @@ rpc StreamLogs(LogRequest) returns (stream LogEntry);
 - When response is too large for single message
 
 **Example use case:**
-```
-
-</details>
-
-python
+```python
 # Server
 def StreamLogs(self, request, context):
     # Stream logs as they arrive
@@ -2242,9 +2044,6 @@ def StreamLogs(self, request, context):
 # Client receives stream
 for log in stub.StreamLogs(LogRequest()):
     print(log.message)
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Advantages:**
@@ -2256,15 +2055,8 @@ for log in stub.StreamLogs(LogRequest()):
 ---
 
 **3. Client Streaming RPC**
-```
-
-</details>
-
-protobuf
+```protobuf
 rpc UploadFile(stream FileChunk) returns (UploadResponse);
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **When to use:**
@@ -2274,12 +2066,12 @@ rpc UploadFile(stream FileChunk) returns (UploadResponse);
 - Audio/video recording uploads
 - When request is too large for single message
 
+<details>
+<summary>Click to view code</summary>
+
 **Example use case:**
-```
 
-</details>
-
-python
+```python
 # Client sends stream
 def upload_file(file_path):
     def generate_chunks():
@@ -2296,10 +2088,9 @@ def UploadFile(self, request_iterator, context):
         for chunk in request_iterator:
             f.write(chunk.data)
     return UploadResponse(file_id="abc123")
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 **Advantages:**
 - Memory efficient for client
@@ -2310,15 +2101,8 @@ def UploadFile(self, request_iterator, context):
 ---
 
 **4. Bidirectional Streaming RPC**
-```
-
-</details>
-
-protobuf
+```protobuf
 rpc Chat(stream Message) returns (stream Message);
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **When to use:**
@@ -2329,12 +2113,11 @@ rpc Chat(stream Message) returns (stream Message);
 - Live trading platforms
 - When both sides need to send data concurrently
 
+<details>
+<summary>Click to view code</summary>
+
 **Example use case:**
-```
-
-</details>
-
-python
+```python
 # Server
 def Chat(self, request_iterator, context):
     # Receive and broadcast messages
@@ -2354,10 +2137,8 @@ def chat():
     responses = stub.Chat(generate_messages())
     for response in responses:
         print(f"Received: {response.text}")
-<details>
-<summary>Click to view code</summary>
-
 ```
+</details>
 
 **Advantages:**
 - True real-time communication
@@ -2394,11 +2175,7 @@ def chat():
 
 **REST approach (with WebSocket or SSE):**
 
-```
-
-</details>
-
-python
+```python
 # REST requires workaround for real-time
 # Option 1: Long polling (inefficient)
 GET /api/messages?since=timestamp
@@ -2411,8 +2188,6 @@ ws://chat.example.com/socket
 # Option 3: Server-Sent Events (one-way)
 GET /api/messages/stream
 # Only server -> client, needs separate endpoint for client -> server
-<details>
-<summary>Click to view code</summary>
 
 ```
 
@@ -2428,11 +2203,7 @@ GET /api/messages/stream
 
 **gRPC approach (native bidirectional streaming):**
 
-```
-
-</details>
-
-protobuf
+```protobuf
 service ChatService {
   rpc Chat(stream ChatMessage) returns (stream ChatMessage);
 }
@@ -2443,17 +2214,14 @@ message ChatMessage {
   string message = 3;
   int64 timestamp = 4;
 }
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Implementation:**
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-python
+```python
 # Server
 class ChatServicer:
     def __init__(self):
@@ -2501,10 +2269,9 @@ async def chat(stub, user_id, room_id):
     
     async for msg in stub.Chat(send_messages()):
         print(f"[{msg.user_id}]: {msg.message}")
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 **Benefits of gRPC:**
 - Native bidirectional streaming
@@ -2543,13 +2310,11 @@ async def chat(stub, user_id, room_id):
 **Architecture:**
 ```
 
-</details>
 
 Mobile/Desktop clients → gRPC bidirectional streaming → Chat Service
 
 Web clients → gRPC-Web (Envoy proxy) → gRPC → Chat Service
-<details>
-<summary>Click to view code</summary>
+
 
 ```
 
@@ -2564,14 +2329,10 @@ Unlike REST (new connection per request), gRPC uses **persistent HTTP/2 connecti
 
 **Problem:**
 ```
-
-</details>
-
 Client creates 1 connection → Load balancer → Server A
    All requests on this connection go to Server A
    Server B, C are idle (connection-level balancing doesn't work)
-<details>
-<summary>Click to view code</summary>
+
 
 ```
 
@@ -2585,11 +2346,11 @@ Client creates 1 connection → Load balancer → Server A
 - Client uses service discovery to find available servers
 
 **Implementation:**
-```
 
-</details>
+<details>
+<summary>Click to view code</summary>
 
-python
+```python
 import grpc
 from grpc import health
 
@@ -2623,17 +2384,12 @@ class LoadBalancingClient:
             return self.send_message(request)
 
 client = LoadBalancingClient(channels)
-<details>
-<summary>Click to view code</summary>
-
-```
-
-**Using gRPC's built-in load balancing:**
 ```
 
 </details>
 
-python
+**Using gRPC's built-in load balancing:**
+```python
 # DNS-based service discovery
 channel = grpc.insecure_channel(
     'dns:///chat-service:50051',
@@ -2644,8 +2400,6 @@ channel = grpc.insecure_channel(
 )
 
 stub = ChatServiceStub(channel)
-<details>
-<summary>Click to view code</summary>
 
 ```
 
@@ -2672,22 +2426,13 @@ stub = ChatServiceStub(channel)
 **Architecture:**
 ```
 
-</details>
-
 Client → Envoy Proxy → Server A (connection pool: 10 connections)
                      → Server B (connection pool: 10 connections)
                      → Server C (connection pool: 10 connections)
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Envoy configuration:**
-```
-
-</details>
-
-yaml
+```yaml
 static_resources:
   listeners:
   - name: grpc_listener
@@ -2732,9 +2477,6 @@ static_resources:
               socket_address:
                 address: server2
                 port_value: 50051
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Pros:**
@@ -2759,11 +2501,7 @@ static_resources:
 - mTLS, observability
 
 **Kubernetes deployment:**
-```
-
-</details>
-
-yaml
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -2791,17 +2529,10 @@ spec:
         image: chat-service:v1
         ports:
         - containerPort: 50051
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Istio virtual service:**
-```
-
-</details>
-
-yaml
+```yaml
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -2817,9 +2548,6 @@ spec:
     retries:
       attempts: 3
       perTryTimeout: 2s
-<details>
-<summary>Click to view code</summary>
-
 ```
 
 **Pros:**
@@ -2837,11 +2565,10 @@ spec:
 
 **Connection Management Best Practices:**
 
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 # 1. Connection pooling
 class ConnectionPool:
     def __init__(self, target, pool_size=10):
@@ -2888,10 +2615,9 @@ channel = grpc.insecure_channel(
         ('grpc.http2.max_pings_without_data', 0),
     ]
 )
-<details>
-<summary>Click to view code</summary>
-
 ```
+
+</details>
 
 **Recommendation:**
 - **Small systems**: Client-side load balancing
@@ -2912,11 +2638,10 @@ channel = grpc.insecure_channel(
 
 **Solution: Retry with Exponential Backoff + Circuit Breaker**
 
-```
+<details>
+<summary>Click to view code</summary>
 
-</details>
-
-python
+```python
 import grpc
 import time
 from enum import Enum
@@ -3041,18 +2766,16 @@ try:
     print(f"Success: {response}")
 except Exception as e:
     print(f"Failed after retries: {e}")
-<details>
-<summary>Click to view code</summary>
-
-```
-
-**Built-in gRPC retry (simpler):**
-
 ```
 
 </details>
 
-python
+**Built-in gRPC retry (simpler):**
+
+<details>
+<summary>Click to view code</summary>
+
+```python
 # Service config with retry policy
 service_config = {
     "methodConfig": [
@@ -3085,6 +2808,8 @@ stub = ChatServiceStub(channel)
 response = stub.SendMessage(ChatMessage(text="Hello"))
 # Retries automatically
 ```
+
+</details>
 
 **Retry Strategy Summary:**
 

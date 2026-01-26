@@ -14,9 +14,9 @@
 
 ## Authentication & Authorization
 
-### 1. Authentication Mechanisms
+### Authentication Mechanisms
 
-#### Password-Based Authentication
+#### 1. Password-Based Authentication
 
 **Best Practices:**
 
@@ -93,7 +93,7 @@ class AuthService:
 
 ---
 
-#### Multi-Factor Authentication (MFA)
+#### 2. Multi-Factor Authentication (MFA)
 
 **TOTP (Time-based One-Time Password) Implementation:**
 
@@ -171,7 +171,7 @@ print(f"Backup codes: {backup_codes}")
 
 ---
 
-### 2. Token-Based Authentication
+#### 3. Token-Based Authentication
 
 #### JWT (JSON Web Token) Implementation
 
@@ -355,7 +355,7 @@ def logout():
 
 ---
 
-### 3. Authorization (Access Control)
+### Authorization (Access Control)
 
 #### Role-Based Access Control (RBAC)
 

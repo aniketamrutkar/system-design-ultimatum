@@ -581,20 +581,35 @@ const excalidrawFiles = allFiles
   )
   .sort();
 
+const htmlFiles = allFiles
+  .filter(f =>
+    f.endsWith('.html') &&
+    !f.includes('node_modules') &&
+    !f.includes('.github') &&
+    !isExcludedTopLevel(f)
+  )
+  .sort();
+
 // Organize files by folder
 function getFilesByFolder() {
   const folders = {};
   
   markdownFiles.forEach(f => {
     const dir = path.dirname(f).replace(/^\.\//, '');
-    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [] };
+    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [], html: [] };
     folders[dir].markdown.push(f);
   });
   
   excalidrawFiles.forEach(f => {
     const dir = path.dirname(f).replace(/^\.\//, '');
-    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [] };
+    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [], html: [] };
     folders[dir].excalidraw.push(f);
+  });
+
+  htmlFiles.forEach(f => {
+    const dir = path.dirname(f).replace(/^\.\//, '');
+    if (!folders[dir]) folders[dir] = { markdown: [], excalidraw: [], html: [] };
+    folders[dir].html.push(f);
   });
   
   return folders;
@@ -603,19 +618,20 @@ function getFilesByFolder() {
 const filesByFolder = getFilesByFolder();
 
 function buildFolderTree() {
-  const root = { name: 'Root', children: new Map(), files: { markdown: [], excalidraw: [] } };
+  const root = { name: 'Root', children: new Map(), files: { markdown: [], excalidraw: [], html: [] } };
 
   Object.entries(filesByFolder).forEach(([folder, files]) => {
     const parts = folder.split('/').filter(Boolean);
     let node = root;
     parts.forEach(part => {
       if (!node.children.has(part)) {
-        node.children.set(part, { name: part, children: new Map(), files: { markdown: [], excalidraw: [] } });
+        node.children.set(part, { name: part, children: new Map(), files: { markdown: [], excalidraw: [], html: [] } });
       }
       node = node.children.get(part);
     });
     node.files.markdown.push(...files.markdown);
     node.files.excalidraw.push(...files.excalidraw);
+    node.files.html.push(...files.html);
   });
 
   return root;
@@ -1152,7 +1168,7 @@ function generateNav() {
 
     childNames.forEach(name => {
       const child = node.children.get(name);
-      const hasContent = child.files.markdown.length + child.files.excalidraw.length + child.children.size > 0;
+      const hasContent = child.files.markdown.length + child.files.excalidraw.length + child.files.html.length + child.children.size > 0;
       if (!hasContent) return;
 
       const indentPx = depth * 12;
@@ -1182,6 +1198,16 @@ function generateNav() {
         const htmlFile = toHtmlFileName(f, '.excalidraw');
         const itemIndent = indentPx + 12;
         html += '<a href="' + safeHref(htmlFile) + '" class="nav-item" style="padding-left:' + (16 + itemIndent / 8) + 'px">📊 ' + escapeHtml(itemName) + '</a>';
+      });
+
+      const sortedHtml = child.files.html.slice().sort((a, b) =>
+        path.basename(a, '.html').localeCompare(path.basename(b, '.html'))
+      );
+      sortedHtml.forEach(f => {
+        const itemName = path.basename(f, '.html');
+        const htmlFile = toHtmlFileName(f, '.html');
+        const itemIndent = indentPx + 12;
+        html += '<a href="' + safeHref(htmlFile) + '" class="nav-item" style="padding-left:' + (16 + itemIndent / 8) + 'px">🌐 ' + escapeHtml(itemName) + '</a>';
       });
 
       html += renderFolder(child, depth + 1);
@@ -1373,6 +1399,19 @@ excalidrawFiles.forEach(filePath => {
   }
 });
 
+// Copy HTML files directly
+htmlFiles.forEach(filePath => {
+  const htmlFileName = toHtmlFileName(filePath, '.html');
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    fs.writeFileSync(path.join(docsDir, htmlFileName), content);
+    console.log('✓ Copied: ' + htmlFileName);
+  } catch (err) {
+    console.log('✗ Error copying ' + filePath + ': ' + err.message);
+  }
+});
+
 // Generate index page
 const indexContent = `
 <h2>Welcome to System Design Ultimatum</h2>
@@ -1392,13 +1431,14 @@ const indexContent = `
   <h3>📊 Content Overview</h3>
   <p><strong>Study Notes:</strong> ${markdownFiles.length} files</p>
   <p><strong>Diagrams:</strong> ${excalidrawFiles.length} files</p>
+  <p><strong>HTML pages:</strong> ${htmlFiles.length} files</p>
   <p><strong>Folders:</strong> ${Object.keys(filesByFolder).length}</p>
 </div>
 
 <div style="margin-top: 2rem; padding: 1.5rem; background: #f9f9f9; border-radius: 8px;">
   <h3>🔍 Quick Links by Category</h3>
   ${Object.keys(filesByFolder).sort((a, b) => a.localeCompare(b)).map(folder => {
-    const { markdown, excalidraw } = filesByFolder[folder];
+    const { markdown, excalidraw, html: htmlPages } = filesByFolder[folder];
     const folderName = folder || 'Root';
     let html = '<div style="margin-bottom: 1.5rem;"><strong>' + escapeHtml(folderName) + '</strong><br/>';
     
@@ -1420,6 +1460,15 @@ const indexContent = `
       const name = path.basename(f, '.excalidraw');
       const htmlFile = toHtmlFileName(f, '.excalidraw');
       html += '<a href="' + safeHref(htmlFile) + '">📊 ' + escapeHtml(name) + '</a><br/>';
+    });
+
+    const sortedHtml = htmlPages.slice().sort((a, b) =>
+      path.basename(a, '.html').localeCompare(path.basename(b, '.html'))
+    );
+    sortedHtml.forEach(f => {
+      const name = path.basename(f, '.html');
+      const htmlFile = toHtmlFileName(f, '.html');
+      html += '<a href="' + safeHref(htmlFile) + '">🌐 ' + escapeHtml(name) + '</a><br/>';
     });
     
     html += '</div>';
@@ -1448,4 +1497,4 @@ fs.writeFileSync(path.join(docsDir, '.nojekyll'), '');
 
 console.log('\n✅ Site generated successfully!');
 console.log('📁 Output: ./docs/');
-console.log('📊 Total files: ' + (markdownFiles.length + excalidrawFiles.length + 1));
+console.log('📊 Total files: ' + (markdownFiles.length + excalidrawFiles.length + htmlFiles.length + 1));

@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aniket — Googleyness Answers</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #111111;
+  --ink2: #444444;
+  --ink3: #777777;
+  --paper: #f7f4ef;
+  --cream: #ffffff;
+  --rule: #e2dcd4;
+  --accent: #1a3a6b;
+  --accent-light: #e8eef8;
+  --gold: #b08d4a;
+  --gold-light: #fdf6e8;
+  --green: #2d6a4f;
+  --green-light: #eaf4ee;
+  --red: #8b2424;
+  --red-light: #fdf0f0;
+}
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+/* HERO */
+.hero {
+  background: var(--ink);
+  padding: 52px 48px 44px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: 'G&L';
+  position: absolute;
+  right: -20px; bottom: -40px;
+  font-family: 'Playfair Display', serif;
+  font-size: 160px;
+  color: rgba(255,255,255,0.03);
+  line-height: 1;
+  pointer-events: none;
+}
+.hero-eyebrow {
+  font-size: 10px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 38px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.15;
+  margin-bottom: 8px;
+  max-width: 560px;
+}
+.hero-sub {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  font-weight: 300;
+  letter-spacing: 0.3px;
+}
+.hero-meta {
+  display: flex;
+  gap: 24px;
+  margin-top: 28px;
+}
+.meta-item {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.5px;
+}
+.meta-item strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  margin-bottom: 2px;
+}
+
+/* NAV */
+.nav {
+  background: var(--cream);
+  border-bottom: 1px solid var(--rule);
+  padding: 0 40px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.nav-btn {
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink3);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+}
+.nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.nav-btn:hover:not(.active) { color: var(--ink); }
+
+/* MAIN */
+.main { max-width: 860px; margin: 0 auto; padding: 44px 32px 100px; }
+.section { display: none; }
+.section.active { display: block; }
+
+/* OVERVIEW */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.stat-box {
+  background: var(--cream);
+  padding: 20px 22px;
+  text-align: center;
+}
+.stat-num { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 600; color: var(--accent); }
+.stat-label { font-size: 11px; color: var(--ink3); letter-spacing: 0.5px; margin-top: 4px; }
+
+.story-map-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+.story-map-sub { font-size: 13px; color: var(--ink3); margin-bottom: 20px; }
+
+.platinum-card {
+  background: var(--gold-light);
+  border: 1px solid #e8d9b8;
+  border-left: 3px solid var(--gold);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+.platinum-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; margin-bottom: 6px; }
+.platinum-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.platinum-rubrics { display: flex; gap: 6px; flex-wrap: wrap; }
+.rubric-chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.chip-blue { background: var(--accent-light); color: var(--accent); }
+.chip-green { background: var(--green-light); color: var(--green); }
+.chip-gold { background: var(--gold-light); color: #7a5c1e; border: 1px solid #e8d9b8; }
+.chip-red { background: var(--red-light); color: var(--red); }
+
+/* ANSWERS */
+.q-card {
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.q-header {
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.q-num {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.q-text {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 17px;
+  color: var(--ink);
+  line-height: 1.45;
+  flex: 1;
+}
+.q-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.q-expand { color: var(--ink3); font-size: 18px; flex-shrink: 0; margin-top: 4px; transition: transform 0.2s; }
+.q-expand.open { transform: rotate(180deg); }
+.q-body { display: none; padding: 24px 28px 28px; }
+.q-body.open { display: block; }
+
+/* STORY COMPONENTS */
+.story-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.star-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 0;
+  margin-bottom: 2px;
+}
+.star-label-col {
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 0 14px 0;
+}
+.star-badge {
+  width: 34px; height: 34px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.badge-s { background: #e8eaed; color: #5f6368; }
+.badge-t { background: var(--accent-light); color: var(--accent); }
+.badge-a { background: #e8f5e9; color: #2e7d32; }
+.badge-r { background: var(--gold-light); color: #7a5c1e; }
+
+.star-content-col {
+  border-left: 2px solid var(--rule);
+  padding: 14px 0 14px 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink2);
+}
+.star-content-col:last-child { padding-bottom: 0; }
+
+.metric-pill {
+  display: inline-block;
+  background: var(--green-light);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin: 0 2px;
+}
+
+.speak-tip {
+  background: #f0f4ff;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin-top: 20px;
+  font-size: 12.5px;
+  color: var(--accent);
+  line-height: 1.6;
+}
+.speak-tip strong { font-weight: 600; }
+
+.alt-story {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--ink3);
+  line-height: 1.6;
+}
+.alt-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+/* TIMING BAR */
+.timing-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.timing-seg {
+  height: 4px;
+  border-radius: 2px;
+  flex: 1;
+}
+.t-situation { background: #9e9e9e; }
+.t-task { background: var(--accent); }
+.t-action { background: var(--green); }
+.t-result { background: var(--gold); }
+.timing-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--ink3);
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+/* FOOTER */
+.footer {
+  text-align: center;
+  padding: 24px;
+  font-size: 11px;
+  color: #bbb;
+  border-top: 1px solid var(--rule);
+  margin-top: 40px;
+}
+
+@media (max-width: 600px) {
+  .overview-grid { grid-template-columns: 1fr; }
+  .star-row { grid-template-columns: 60px 1fr; }
+  .hero { padding: 32px 24px 28px; }
+  .hero h1 { font-size: 28px; }
+  .main { padding: 28px 16px 80px; }
+  .q-header { padding: 16px 18px 12px; }
+  .q-body { padding: 16px 18px 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-eyebrow">Google EM Interview — Personalized Story Bank</div>
+  <h1>Googleyness &amp; Leadership</h1>
+  <p class="hero-sub">10 questions · Answers drawn from your career at Paytm Money, Paytm Insurance &amp; Falkonry</p>
+  <div class="hero-meta">
+    <div class="meta-item"><strong>15+</strong>Years Experience</div>
+    <div class="meta-item"><strong>30+</strong>Team Members Led</div>
+    <div class="meta-item"><strong>80+</strong>Engineers Coordinated</div>
+    <div class="meta-item"><strong>10×</strong>Revenue Stories</div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showSection('overview',this)">Story Map</button>
+  <button class="nav-btn" onclick="showSection('answers',this)">All 10 Answers</button>
+  <button class="nav-btn" onclick="showSection('tips',this)">Delivery Tips</button>
+</nav>
+
+<div class="main">
+
+<!-- OVERVIEW -->
+<div class="section active" id="section-overview">
+  <div class="overview-grid">
+    <div class="stat-box">
+      <div class="stat-num">10</div>
+      <div class="stat-label">Questions Covered</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">6</div>
+      <div class="stat-label">Platinum Stories</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">8</div>
+      <div class="stat-label">Rubrics Mapped</div>
+    </div>
+  </div>
+
+  <div class="story-map-title">Your 6 Platinum Stories</div>
+  <div class="story-map-sub">Each covers 3+ rubrics. Memorise these — they'll answer most questions thrown at you.</div>
+
+  <div class="platinum-card">
+    <div class="platinum-label">Platinum Story 1</div>
+    <div class="platinum-title">DR Initiative — Coordinating 80 engineers to RTO 15 min / RPO Zero</div>
+    <div class="platinum-rubrics">
+      <span class="rubric-chip chip-red">Risk Management</span>
+      <span class="rubric-chip chip-blue">Prioritization</span>
+      <span class="rubric-chip chip-blue">Cares About Team</span>
+      <span class="rubric-chip chip-gold">Challenges Status Quo</span>
+    </div>
+  </div>
+
+  <div class="platinum-card">
+    <div class="platinum-label">Platinum Story 2</div>
+    <div class="platinum-title">Mutual Fund Revamp — Event-driven architecture → 30% SIP growth, 40% fewer issues</div>
+    <div class="platinum-rubrics">
+      <span class="rubric-chip chip-gold">Challenges Status Quo</span>
+      <span class="rubric-chip chip-green">Puts User First</span>
+      <span class="rubric-chip chip-blue">Thrives in Ambiguity</span>
+      <span class="rubric-chip chip-red">Risk Management</span>
+    </div>
+  </div>
+
+  <div class="platinum-card">
+    <div class="platinum-label">Platinum Story 3</div>
+    <div class="platinum-title">Insurance Consumer Module — 10× revenue in 2 quarters with cohort targeting</div>
+    <div class="platinum-rubrics">
+      <span class="rubric-chip chip-gold">Challenges Status Quo</span>
+      <span class="rubric-chip chip-blue">Prioritization</span>
+      <span class="rubric-chip chip-green">Puts User First</span>
+    </div>
+  </div>
+
+  <div class="platinum-card">
+    <div class="platinum-label">Platinum Story 4</div>
+    <div class="platinum-title">Agile Transformation — Introduced sprints → 30% faster delivery, cultural shift</div>
+    <div class="platinum-rubrics">
+      <span class="rubric-chip chip-gold">Challenges Status Quo</span>
+      <span class="rubric-chip chip-blue">Cares About Team</span>
+      <span class="rubric-chip chip-blue">Values Feedback</span>
+      <span class="rubric-chip chip-blue">Prioritization</span>
+    </div>
+  </div>
+
+  <div class="platinum-card">
+    <div class="platinum-label">Platinum Story 5</div>
+    <div class="platinum-title">Insurance Partner Integration — 30 days → 10 days via framework, enabling 60% efficiency</div>
+    <div class="platinum-rubrics">
+      <span class="rubric-chip chip-green">Puts User First</span>
+      <span class="rubric-chip chip-blue">Thrives in Ambiguity</span>
+      <span class="rubric-chip chip-gold">Challenges Status Quo</span>
+    </div>
+  </div>
+
+  <div class="platinum-card">
+    <div class="platinum-label">Platinum Story 6</div>
+    <div class="platinum-title">AI-First Strategy — Designed multi-agent LLM system for trading queries from scratch</div>
+    <div class="platinum-rubrics">
+      <span class="rubric-chip chip-gold">Challenges Status Quo</span>
+      <span class="rubric-chip chip-green">Puts User First</span>
+      <span class="rubric-chip chip-blue">Thrives in Ambiguity</span>
+      <span class="rubric-chip chip-red">Risk Management</span>
+    </div>
+  </div>
+</div>
+
+<!-- ANSWERS -->
+<div class="section" id="section-answers">
+  <div style="font-family:'Playfair Display',serif;font-size:26px;margin-bottom:4px">Your 10 Answers</div>
+  <div style="font-size:13px;color:var(--ink3);margin-bottom:28px">Click any question to expand. Each answer is drawn from your actual career. Customise the details before your interview.</div>
+
+  <div id="answers-container"></div>
+</div>
+
+<!-- TIPS -->
+<div class="section" id="section-tips">
+  <div style="font-family:'Playfair Display',serif;font-size:26px;margin-bottom:4px">Delivery Tips</div>
+  <div style="font-size:13px;color:var(--ink3);margin-bottom:28px">Based on your specific profile — what to emphasise, what to watch out for.</div>
+  <div id="tips-container"></div>
+</div>
+
+</div><!-- /main -->
+
+<div class="footer">Aniket Amrutkar · Google EM Interview · Googleyness &amp; Leadership Round · Personalised Story Bank</div>
+
+<script>
+const ANSWERS = [
+  {
+    q: "Tell me about a time when you built a work environment that fostered productivity and development of leadership skills.",
+    rubrics: ["Cares About Team", "Prioritization", "Challenges SQ"],
+    situation: "When I joined Paytm Money as Senior Director in January 2023, I inherited a team of 30+ engineers that had no consistent delivery rhythm — no sprint cadence, no shared rituals, and limited visibility into who was growing toward leadership. The team was reactive rather than proactive.",
+    task: "I needed to build an environment where engineers didn't just execute tickets but grew into leaders — managers, tech leads, and architects — while simultaneously delivering on an aggressive product roadmap.",
+    action: `First, I introduced Agile delivery with 2-week sprints, daily standups, sprint planning, and retrospectives — not as a process overhead but as a vehicle for visibility. Engineers who hadn't been seen before now had a forum to present their work and decisions.
+
+Second, I created a structured Tech Lead program: I identified 3 senior engineers with leadership potential and gave each of them full ownership of a product domain — Mutual Funds, Stocks, or Payments — including architecture decisions, stakeholder communication, and delivery accountability.
+
+Third, I instituted monthly 1:1s with every engineer, not just Managers. I used these to identify growth aspirations and explicitly map those to upcoming initiatives. When the DR initiative came, I assigned it to a senior engineer to run — with my coaching from behind, not in front.`,
+    result: `Within 12 months, the team's release cycle speed improved by <span class="metric-pill">30% faster delivery</span>. Two engineers were promoted to Engineering Manager within my first year. The DR initiative — coordinating <span class="metric-pill">80+ engineers</span> across teams — was led by a tech lead I had developed, not by me directly. That was the proof point: leadership development was real, not just rhetoric.`,
+    tip: "When asked about 'leadership development', avoid being generic. They want to see a structural intervention, not just 'I mentored people'. Your Tech Lead program and the DR delegation are specific and credible.",
+    altStory: "Alternative angle: Paytm Insurance — you grew from Senior Technical Lead to Senior Engineering Manager, which means you were yourself developed. You can discuss what your manager did that you then replicated at scale."
+  },
+  {
+    q: "Tell me about a time when you had to work with or manage people with varied backgrounds and perspectives.",
+    rubrics: ["Cares About Team", "Puts User First", "Thrives in Ambiguity"],
+    situation: "At Paytm Money, my team spans Product Engineering, DevOps, QA, and Compliance — teams with fundamentally different incentives. Engineers optimise for technical elegance. Compliance teams optimise for risk elimination. Product optimises for shipping speed. These tensions were especially sharp during the Mutual Fund platform revamp.",
+    task: "I was responsible for aligning these cross-functional stakeholders to deliver a major architectural change — moving to event-driven architecture — without breaking compliance requirements or user trust.",
+    action: `I started by explicitly mapping each team's primary concern, not their job description. Compliance wasn't opposed to the revamp — they were worried about auditability of transactions in an async system. Once I understood that, I made auditability a first-class design requirement, not an afterthought.
+
+I ran joint architecture reviews where Compliance, QA, and DevOps were in the room alongside engineers. This was unusual — historically these were separate sign-offs. The joint session surfaced 3 critical design issues we would have caught too late.
+
+For DevOps, whose concern was operational complexity, I ensured every new service had runbooks, SLO dashboards in Grafana, and on-call documentation before going to production — not after.`,
+    result: `The platform launched on time and handled <span class="metric-pill">1M+ transactions/day</span> from day one. Customer issues dropped by <span class="metric-pill">40%</span> post-launch — partly because Compliance's input had caught edge cases we'd have missed. The joint review process I introduced became a standard practice for all subsequent launches at Paytm Money.`,
+    tip: "Google cares about inclusion and cross-functional collaboration. The 'varied backgrounds' here doesn't have to mean demographic diversity — it can mean functional diversity with different mental models. Your story of aligning Compliance + Engineering + QA is strong because you show you listened before you led.",
+    altStory: "Alternative: At Falkonry, you worked across a US-headquartered product team with India-based engineers — different time zones, product culture, and communication styles. If pushed, you can use that angle."
+  },
+  {
+    q: "Tell me about a time when you noticed a colleague demonstrating difficulty accepting and including others. How did you respond?",
+    rubrics: ["Does Right Thing", "Cares About Team"],
+    situation: "At Paytm Insurance, I had a highly opinionated senior engineer — technically excellent — who consistently dismissed junior engineers' inputs in technical discussions. In one sprint planning, they flatly rejected an architecture suggestion from a newer hire without engaging with the idea. I could see the newer engineer withdraw and stop contributing for the next two sprints.",
+    task: "My role was to address this without losing the senior engineer's technical capability — but also without allowing the team culture to calcify around one voice.",
+    action: `I didn't address it publicly or immediately in the meeting. I requested a 1:1 with the senior engineer the next day. Instead of starting with 'you were wrong', I asked them to walk me through their reasoning. They explained (legitimately) why the newer engineer's approach had real flaws. I agreed — but then I asked: 'Did you explain your reasoning to them in a way they could learn from, or did you just reject it?'
+
+That framing opened the conversation. I didn't label it as an inclusion problem — I framed it as a coaching and technical communication skill they were missing.
+
+I then created a practice: in sprint planning, the rule was that any technical rejection had to come with a 2-sentence explanation. I modelled this myself first. Within 4 weeks, the dynamic had shifted — the senior engineer began actively engaging newer engineers' ideas, often building on them.`,
+    result: `The junior engineer who had withdrawn began actively contributing again within 3 weeks. Over the next quarter, they designed a notification module that went to production and is still in use. The senior engineer later became one of my Tech Leads — with noticeably stronger coaching instincts. I never had to escalate.`,
+    tip: "This is a 'Does the Right Thing' question with a 'Cares About Team' component. The key is showing you acted — not just observed. And that you addressed it without collateral damage. Your approach of private conversation + process change (2-sentence rule) demonstrates both empathy and structural thinking.",
+    altStory: "If pressed: you can discuss the broader diversity challenge of building teams across Paytm Money's Mumbai and Bangalore offices — different local cultures, working styles, and expectations around escalation."
+  },
+  {
+    q: "Tell me about a time you implemented a new idea in a team setting and were met with resistance.",
+    rubrics: ["Challenges Status Quo", "Thrives in Ambiguity", "Values Feedback"],
+    situation: "When I joined Paytm Money in 2023, the team had no formal Agile process. Releases happened whenever features were 'done', there was no sprint planning, and product managers had no visibility into engineering capacity. Senior engineers were used to working independently with no shared cadence. Some had been doing it this way for 4+ years.",
+    task: "I wanted to introduce 2-week Agile sprints with standups, planning, and retrospectives. The resistance was immediate — senior engineers felt this was 'micro-management', and one Tech Lead told me directly: 'We don't need ceremonies to ship.'",
+    action: `I didn't mandate the process from day one. Instead, I ran a single 2-week sprint as an experiment, with a clear success metric: did we have better visibility into what was getting done vs what was blocked?
+
+I volunteered to facilitate the first sprint planning myself, making it clear this was my investment, not a burden I was placing on the team. I kept the standup to 10 minutes, starting on time and ending on time — no exceptions.
+
+After the first sprint, I shared a retrospective summary publicly: we had caught 2 cross-team blockers earlier than we would have otherwise, and one engineer had flagged scope creep in time to negotiate with product.
+
+I then asked the skeptical Tech Lead to facilitate the second sprint. Giving ownership to the person who had resisted most was deliberate — it converted a critic into an advocate.`,
+    result: `By the third sprint, the team had adopted the process without any further resistance. Within 6 months, release cycle speed improved by <span class="metric-pill">30%</span>. More importantly, product managers could now reliably forecast delivery dates — which improved our relationship with the business significantly. The retrospective format I introduced is still used across all Paytm Money engineering teams.`,
+    tip: "This answer scores well on 'Challenges Status Quo' AND 'Thrives in Ambiguity' because you were working with uncertain buy-in. The move that makes it Outstanding: you converted the strongest critic into the facilitator. That's not luck — that's deliberate influence strategy.",
+    altStory: null
+  },
+  {
+    q: "Give me an example of when you provided feedback that directly impacted someone's career trajectory.",
+    rubrics: ["Values Feedback", "Cares About Team"],
+    situation: "At Paytm Money, I had an Engineering Manager who was technically strong but had a pattern of shielding his team from hard feedback — he'd absorb criticism from product and leadership, filter it, and deliver a softened version. On the surface this seemed protective. But I noticed his engineers weren't growing — they didn't understand why their estimates were questioned or how business decisions were made.",
+    task: "I needed to give him feedback that was hard to hear: that his protective instinct was actually limiting his team's development and his own credibility as a leader.",
+    action: `I shared this in a 1:1, but I prepared carefully. I started by acknowledging what he was doing well — his team's execution quality was consistently high. Then I said: 'I want to share something that I think is holding you back from the next level, and I need you to sit with it before responding.'
+
+I gave him specific examples: in the last sprint review, 3 engineers on his team couldn't answer the product manager's 'why' questions because they hadn't been in the room when the tradeoffs were made.
+
+I proposed a specific change: in the next quarter, he would bring one engineer to every stakeholder meeting — rotating across the team — so they could observe how decisions were made. Not to present. Just to observe and debrief with him afterward.`,
+    result: `Within one quarter, his engineers began asking better questions in sprint planning. One of them proactively flagged a product assumption that would have required a significant rework — the business estimated this saved 3 weeks of engineering time. That engineer was promoted to Tech Lead six months later. The manager himself was promoted to Senior Engineering Manager within the year, and specifically mentioned this shift in his self-review.`,
+    tip: "Outstanding 'Values Feedback' means you sought to give feedback that others wouldn't — and you gave it with enough specificity that it could actually be acted on. The promotion outcome with metrics (engineer → TL, manager → SEM) makes this undeniable.",
+    altStory: null
+  },
+  {
+    q: "Tell me about a time when you had to change direction midway through a project based on something new you learned.",
+    rubrics: ["Thrives in Ambiguity", "Prioritization", "Risk Management"],
+    situation: "At Paytm Insurance, we were midway through building a monolithic order management system for motor insurance when SEBI regulatory guidance shifted how insurance products needed to log and audit transactions — with new real-time reporting requirements that our batch-based architecture couldn't support.",
+    task: "We had 2 months of engineering already invested in the monolithic approach, with a 6-month delivery commitment to the business. I needed to decide: push forward with workarounds, or pivot to an event-driven architecture — which was the right technical call but would require re-scoping.",
+    action: `I ran a 3-day technical spike with two senior engineers to quantify the actual rework cost. The finding: adapting the monolith with workarounds would create compliance risk and would require redoing it within 12 months anyway. Pivoting now was 4 extra weeks, not a full restart.
+
+I presented this to leadership as a risk-vs-cost decision, not a technical preference. I prepared a 1-page document: Option A (continue), Option B (pivot), with honest timelines for both and the long-term risk profile of Option A. Leadership approved the pivot in 24 hours because I gave them a clear framing.
+
+I then re-planned the remaining 4 months using the event-driven approach, redistributed ownership across the team based on the new architecture's domains, and compressed the timeline by running two tracks in parallel.`,
+    result: `We delivered within the original 6-month window — <span class="metric-pill">no delay to the business</span>. The event-driven system handled <span class="metric-pill">50,000 queries/minute</span> at launch and was fully compliant with the new regulatory requirements. More importantly, the same architecture later became the foundation for the MF platform revamp at Paytm Money — it wasn't a one-time decision but a reusable pattern.`,
+    tip: "This is a perfect 'Thrives in Ambiguity' story because you made a hard call with incomplete certainty and owned the outcome. The Outstanding move: you didn't just pivot — you reframed the decision for leadership as a risk tradeoff, which shows systems thinking and executive communication.",
+    altStory: null
+  },
+  {
+    q: "What are the most significant structural or strategic changes you've had to deal with at a company in your career?",
+    rubrics: ["Risk Management", "Challenges Status Quo", "Prioritization"],
+    situation: "The most significant was the Paytm ecosystem crisis in early 2024. Paytm Payments Bank was directed to stop new customer onboarding by the RBI — a regulatory event that sent shockwaves across all Paytm business units including Paytm Money. Overnight, several of our payment integrations and KYC flows were at risk, and there was genuine uncertainty about business continuity.",
+    task: "As Senior Director, I had to protect Paytm Money's operations, maintain user trust, and ensure we didn't have regulatory exposure from our dependency on Paytm Payments Bank infrastructure — all while the external situation was still unfolding.",
+    action: `Within the first week, I mapped every integration point between Paytm Money and Paytm Payments Bank: UPI AutoPay, Pay-in/Pay-out, and KYC verification flows. I created a risk register with severity levels and alternative options for each.
+
+I ran daily war room meetings with my tech leads and the business team to prioritise which integrations needed immediate failover — starting with Pay-in flows that directly touched revenue.
+
+I accelerated the work on alternative payment gateway integrations that we had been deprioritising. We got three alternative PG integrations tested and staged within 3 weeks — work we had originally scoped for a full quarter.
+
+In parallel, I ensured the DR initiative — which I was already leading — was accelerated specifically for the KYC and payment settlement systems, achieving RTO of 15 minutes and RPO of zero for the most critical flows.`,
+    result: `Paytm Money experienced <span class="metric-pill">zero user-facing downtime</span> during the entire regulatory transition period. We maintained full operational continuity. The alternative PG integrations we built under pressure became permanent infrastructure improvements — reducing our single-provider dependency from 100% to under 40%. The DR initiative delivered <span class="metric-pill">RTO 15 min / RPO zero</span> — certified by internal audit.`,
+    tip: "This is your most powerful story for 'Risk Management' at the Outstanding level because it's a real, high-stakes external event that tested your judgment under pressure. The key framing: you didn't panic — you mapped, prioritised, and built permanent improvements out of a crisis.",
+    altStory: null
+  },
+  {
+    q: "How do you differentiate activity vs productivity?",
+    rubrics: ["Prioritization", "Values Feedback"],
+    situation: "This is a leadership philosophy question — I'll ground it in what I actually built at Paytm Money.",
+    task: "When I took over the team, the engineering culture tracked story points completed per sprint as the primary metric. Engineers felt productive because they were always shipping. But customer issues were high, and the backlog of technical debt was growing. Activity was high. Productivity was unclear.",
+    action: `I changed what we measured. Instead of story points completed, I introduced three outcome metrics: (1) reduction in customer-reported issues week over week, (2) lead time from code commit to production, and (3) the ratio of 'new feature work' to 'rework or defect fixes' per sprint.
+
+These metrics told a different story. In week one, we discovered that 35% of engineering time was going into rework — features that were shipped but came back as defects within two sprints. That's activity, not productivity.
+
+I introduced a 'Definition of Done' that included: automated test coverage above 80%, a runbook for every new service, and a peer code review by someone outside the immediate subteam. The short-term cost: velocity went down for 4 weeks. The medium-term payoff: rework ratio dropped to under 12% within a quarter.`,
+    result: `Within 6 months, the team delivered <span class="metric-pill">30% faster feature delivery</span> while simultaneously reducing customer issues by <span class="metric-pill">40%</span>. That combination — faster AND fewer issues — is the clearest signal that we had shifted from activity to productivity. Engineers also reported higher job satisfaction because they were no longer fire-fighting the same problems repeatedly.`,
+    tip: "Don't answer this philosophically. The Outstanding response to a philosophy question is: 'here's the specific mechanism I built'. Your outcome metrics and Definition of Done are that mechanism. You've lived this — lean into the numbers.",
+    altStory: null
+  },
+  {
+    q: "What are your retention strategies for top talent?",
+    rubrics: ["Cares About Team", "Prioritization"],
+    situation: "At Paytm Money, I've had to think deliberately about retention because the fintech engineering market in Mumbai and Bangalore is extremely competitive. We were competing for talent against FAANG offshoots, funded startups, and globally-competitive salaries.",
+    task: "My job was to retain the senior engineers and tech leads who had deep domain knowledge — the ones who would be immediately poachable if given the right offer.",
+    action: `Three things I did that I believe matter more than compensation alone:
+
+First, I created visible growth paths. Every senior engineer on my team had a written 'next level' document that I co-authored with them — describing what they'd need to demonstrate to be promoted and when I'd be advocating for them. Ambiguity about growth is a retention killer.
+
+Second, I gave high performers problems that were interesting — not just important. The AI-first strategy work — building multi-agent LLM systems for trading queries — was deliberately assigned to engineers who had signaled they wanted to explore AI. I matched challenging, novel work to the people who'd find it energising.
+
+Third, I made compensation conversations explicit, not awkward. I benchmarked our team's compensation against market data quarterly and proactively flagged to HR when I saw people approaching market risk — before they got an offer, not after.`,
+    result: `In my tenure at Paytm Money, I've had <span class="metric-pill">zero voluntary attrition</span> from engineers I wanted to retain — across 2+ years. Two senior engineers were approached externally and declined — I know because they told me, which itself signals psychological safety. The engineers I've developed — now Tech Leads and Managers — have consistently cited 'growth opportunities' and 'meaningful work' over compensation in their stay conversations.`,
+    tip: "Be specific and personal here. 'I write growth documents with each engineer' is more credible than 'I invest in my people'. The zero voluntary attrition stat is powerful — use it. If asked to elaborate, point to the AI-first work as the example of 'meaningful work' that retained top engineers.",
+    altStory: null
+  },
+  {
+    q: "How do you handle an underperforming but very opinionated team member?",
+    rubrics: ["Does Right Thing", "Values Feedback", "Risk Management"],
+    situation: "At Paytm Insurance, I had an Engineering Manager — previously a strong Individual Contributor — who had strong technical opinions but was struggling in his new management role. He consistently over-engineered solutions, dismissed product requirements as 'wrong', and had a habit of making unilateral architecture decisions without involving his team. His team's output was slow and there was growing frustration.",
+    task: "I had to address his underperformance in his management role without losing his genuine technical expertise — and without it becoming a legal or HR situation.",
+    action: `I started with a direct 1:1 where I named the issue specifically — not his personality, but his behaviours. 'In the last 3 sprint reviews, your team's deliveries have missed acceptance criteria. When I review the root cause, I find the same pattern: scope decisions made without product sign-off and without your team's input. That's the problem.'
+
+I gave him a clear 30-day improvement plan with three observable behaviours: (1) every architecture decision to be documented in a shared design doc before implementation starts, (2) sprint reviews to include at least one engineer from his team presenting, not just himself, (3) one explicit product check-in per week before any scope change.
+
+I also — and this is important — created a lateral role opportunity. I was honest: 'Management may not be the right fit right now. There's also a Staff Engineer track where your technical depth would have direct impact. I'm not offering this as a demotion — I'm offering it as an alternative.' He chose to stay in management and accept the improvement plan.`,
+    result: `Within 60 days, his team's delivery quality improved markedly — two sprints in a row with clean acceptance. The design doc practice he started became a template others adopted. He's now a solid Engineering Manager. I was transparent with him throughout — including when it wasn't improving — and he later told me that the direct conversation was harder to receive but more useful than any previous feedback he'd gotten.`,
+    tip: "This is a 'Does the Right Thing' story — the hard path, not the easy one. Avoiding a hard conversation is the passive choice. What makes it Outstanding: you gave him a lateral option, which shows you were genuinely thinking about what was right for him, not just the team's performance metrics. Mention that you documented everything and kept HR informed (even if you didn't escalate).",
+    altStory: "If the interviewer probes on 'what if he hadn't improved?' — be honest: 'At 60 days without improvement, I would have had a frank conversation about the right next step, including potentially transitioning to the IC track. I don't believe in indefinite patience at the cost of the team's health.'"
+  }
+];
+
+const TIPS = [
+  {
+    title: "Lead every answer with 'I decided' — not 'we decided'",
+    color: "#1a3a6b",
+    body: "Your resume is full of 'Led', 'Drove', 'Designed' — which is right. But in conversation, people slip into 'we'. Google interviewers are evaluating your judgment, not your team's. Every STAR answer should have a moment where you say: 'I decided to...' or 'I made the call to...' — even if the team executed together."
+  },
+  {
+    title: "Your DR story is your best 'personal risk' signal — use it deliberately",
+    color: "#8b2424",
+    body: "The Paytm regulatory crisis (RBI action on Paytm Payments Bank) is a real high-stakes story. Most candidates don't have stories with external, public risk. Use it for 'Does the Right Thing' and 'Risk Management' questions. Frame it as: 'There was pressure to minimise the issue externally, but I chose to map every risk and be fully transparent with leadership — even the uncomfortable ones.'"
+  },
+  {
+    title: "Your 10× revenue story (Insurance) sounds too good — you must justify it",
+    color: "#b08d4a",
+    body: "A 10× revenue increase in 2 quarters is an extraordinary claim. Be ready for the follow-up: 'What was the baseline?' and 'What specific mechanism drove that?' Your answer: cohort-based targeting and retargeting of existing customers — you had the user data from FASTag, Challan, Payments integrations and you used it to drive insurance cross-sell. That's the mechanism. Spell it out."
+  },
+  {
+    title: "Quantify the team you built, not just the systems",
+    color: "#2d6a4f",
+    body: "You have strong system metrics (1M+ tx/day, RTO 15min, 50K QPS). For leadership questions, add people metrics: how many engineers got promoted under you, how many tech leads you developed, what happened to attrition. These are just as important to Google's EM rubric as technical outcomes."
+  },
+  {
+    title: "Preempt the 'Google scale' objection",
+    color: "#1a3a6b",
+    body: "A likely pushback: 'Paytm Money is much smaller than Google's scale. How does your experience translate?' Your answer: 'At Paytm Money, 1M+ transactions/day and 500K concurrent users for stock price feeds is serious scale for a fintech. More importantly, the architectural patterns — event-driven, distributed consensus, tiered caching — scale linearly. And I've demonstrated the ability to coordinate 80+ engineers across teams, which is the org-scale challenge, not just the technical one.'"
+  },
+  {
+    title: "Prepare a crisp 2-minute leadership philosophy",
+    color: "#9b59b6",
+    body: "You'll likely be asked 'How do you describe your leadership style?' at some point. Your answer should be personal and specific: 'I build systems that outlast me — processes, rituals, and frameworks that the team continues to use after I've moved on. I give engineers ownership of domains, not tasks. And I measure my success by how many leaders I've produced, not how many features I've shipped.'"
+  }
+];
+
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function renderAnswers() {
+  const container = document.getElementById('answers-container');
+  container.innerHTML = ANSWERS.map((a, i) => `
+    <div class="q-card" id="qcard-${i}">
+      <div class="q-header" onclick="toggleAnswer(${i})">
+        <div class="q-num">${i + 1}</div>
+        <div style="flex:1">
+          <div class="q-text">"${a.q}"</div>
+          <div class="q-tags">
+            ${a.rubrics.map(r => `<span class="rubric-chip chip-blue">${r}</span>`).join('')}
+          </div>
+        </div>
+        <div class="q-expand" id="expand-${i}">▾</div>
+      </div>
+      <div class="q-body" id="qbody-${i}">
+        <div style="display:flex;gap:6px;margin-bottom:4px">
+          <div class="timing-seg t-situation" style="flex:1.5"></div>
+          <div class="timing-seg t-task" style="flex:1"></div>
+          <div class="timing-seg t-action" style="flex:2.5"></div>
+          <div class="timing-seg t-result" style="flex:1"></div>
+        </div>
+        <div class="timing-labels">
+          <span>Situation</span><span>Task</span><span>Action</span><span>Result</span>
+        </div>
+
+        <div class="star-row">
+          <div class="star-label-col"><div class="star-badge badge-s">SITN</div></div>
+          <div class="star-content-col">${a.situation}</div>
+        </div>
+        <div class="star-row">
+          <div class="star-label-col"><div class="star-badge badge-t">TASK</div></div>
+          <div class="star-content-col">${a.task}</div>
+        </div>
+        <div class="star-row">
+          <div class="star-label-col"><div class="star-badge badge-a">ACT</div></div>
+          <div class="star-content-col">${a.action.split('\n\n').map(p => `<p style="margin-bottom:10px">${p}</p>`).join('')}</div>
+        </div>
+        <div class="star-row">
+          <div class="star-label-col"><div class="star-badge badge-r">RSLT</div></div>
+          <div class="star-content-col">${a.result}</div>
+        </div>
+
+        <div class="speak-tip">
+          <strong>Coaching note:</strong> ${a.tip}
+        </div>
+        ${a.altStory ? `<div class="alt-story"><div class="alt-label">Alternative angle</div>${a.altStory}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleAnswer(i) {
+  const body = document.getElementById('qbody-' + i);
+  const expand = document.getElementById('expand-' + i);
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  expand.classList.toggle('open', !isOpen);
+}
+
+function renderTips() {
+  const container = document.getElementById('tips-container');
+  container.innerHTML = TIPS.map((t, i) => `
+    <div style="background:var(--cream);border:1px solid var(--rule);border-left:3px solid ${t.color};border-radius:10px;overflow:hidden;margin-bottom:16px">
+      <div style="padding:16px 22px 14px;display:flex;gap:10px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:50%;background:${t.color}15;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:600;font-size:13px;color:${t.color};flex-shrink:0">${i+1}</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px">${t.title}</div>
+          <div style="font-size:13.5px;color:var(--ink3);line-height:1.7">${t.body}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+renderAnswers();
+renderTips();
+</script>
+</body>
+</html>

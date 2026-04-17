@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Googleyness & Leadership — Interview Prep</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --g-blue: #1a73e8;
+    --g-red: #ea4335;
+    --g-yellow: #fbbc04;
+    --g-green: #34a853;
+    --bg: #f8f6f1;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #e2dfd8;
+    --accent-bg: #eef4ff;
+    --outstanding-bg: #fff8e6;
+    --outstanding-border: #f9c74f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HERO */
+  .hero {
+    background: var(--text);
+    color: #fff;
+    padding: 48px 40px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(26, 115, 232, 0.15);
+  }
+  .hero-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--g-yellow);
+    margin-bottom: 12px;
+  }
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    line-height: 1.1;
+    margin-bottom: 12px;
+    max-width: 600px;
+  }
+  .hero p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.65);
+    max-width: 500px;
+    line-height: 1.6;
+  }
+  .google-dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 24px;
+  }
+  .google-dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  /* NAV */
+  .nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 0 32px;
+  }
+  .nav-btn {
+    padding: 16px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav-btn.active {
+    color: var(--g-blue);
+    border-bottom-color: var(--g-blue);
+  }
+  .nav-btn:hover:not(.active) { color: var(--text); }
+
+  /* LAYOUT */
+  .main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* SECTION */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* RUBRIC CARDS */
+  .rubric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 640px) { .rubric-grid { grid-template-columns: 1fr; } }
+
+  .rubric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .rubric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .rubric-card.selected { border-color: var(--g-blue); border-width: 2px; }
+
+  .rubric-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rubric-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .rubric-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .rubric-body { padding: 16px 20px; }
+  .rubric-level {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .level-tag {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .level-solid { background: #e8eaed; color: #5f6368; }
+  .level-outstanding { background: #fef7e0; color: #b07700; border: 1px solid #fdd663; }
+  .rubric-desc { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .outstanding-desc { font-size: 12.5px; color: #4a3a00; line-height: 1.6; font-weight: 500; }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 32px;
+    display: none;
+  }
+  .detail-panel.visible { display: block; }
+  .detail-panel h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px;
+    margin-bottom: 4px;
+  }
+  .detail-panel .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .comparison-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .comparison-box {
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .box-solid { background: #f8f9fa; border: 1px solid #e8eaed; }
+  .box-outstanding { background: var(--outstanding-bg); border: 1px solid var(--outstanding-border); }
+  .box-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .label-solid { color: var(--muted); }
+  .label-outstanding { color: #b07700; }
+
+  /* SIGNAL SECTION */
+  .signals-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 11px;
+  }
+  .signal-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .signal-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .signal-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--g-blue);
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+  .signal-dot.green { background: var(--g-green); }
+  .signal-dot.red { background: var(--g-red); }
+
+  /* STORY BUILDER */
+  .story-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .story-header {
+    background: #f8f9fa;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .story-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .story-rubrics {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .rubric-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .story-body { padding: 20px; }
+  .star-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 600px) { .star-grid { grid-template-columns: 1fr 1fr; } }
+  .star-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 12.5px;
+  }
+  .star-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--g-blue);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .star-prompt { color: var(--muted); line-height: 1.5; }
+  .star-field {
+    margin-top: 8px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 80px;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  /* QUESTIONS */
+  .question-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .question-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .question-item:hover { border-color: var(--g-blue); background: var(--accent-bg); }
+  .question-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--g-blue);
+    background: var(--accent-bg);
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .question-text {
+    font-size: 14px;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .question-rubrics {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .q-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #f1f3f4;
+    color: var(--muted);
+  }
+
+  /* MOCK */
+  .mock-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .mock-header {
+    background: var(--text);
+    color: #fff;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mock-header h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+  }
+  .mock-header .timer {
+    font-size: 24px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--g-yellow);
+  }
+  .mock-body { padding: 24px; }
+  .current-q {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    color: var(--text);
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+  }
+  .q-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  .answer-area {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 180px;
+    resize: vertical;
+    color: var(--text);
+    background: #fafaf8;
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+  .mock-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--g-blue);
+    color: #fff;
+    border-color: var(--g-blue);
+  }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-secondary { background: var(--surface); color: var(--text); }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-danger { background: #fff0ef; color: var(--g-red); border-color: #ffcdd2; }
+
+  /* SCORING */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px) { .score-grid { grid-template-columns: 1fr 1fr; } }
+  .score-item {
+    text-align: center;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 12px;
+  }
+  .score-item.sel-outstanding {
+    background: #fef7e0;
+    border-color: var(--g-yellow);
+    color: #7a5900;
+    font-weight: 600;
+  }
+  .score-item.sel-solid {
+    background: var(--accent-bg);
+    border-color: var(--g-blue);
+    color: var(--g-blue);
+    font-weight: 600;
+  }
+  .score-item.sel-developing {
+    background: #fff0ef;
+    border-color: #ffcdd2;
+    color: var(--g-red);
+    font-weight: 600;
+  }
+
+  /* TIPS BANNER */
+  .tip-banner {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tip-banner::after {
+    content: '"';
+    position: absolute;
+    right: 20px; top: -10px;
+    font-size: 120px;
+    font-family: 'DM Serif Display', serif;
+    color: rgba(255,255,255,0.05);
+    line-height: 1;
+  }
+  .tip-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--g-yellow); margin-bottom: 8px; font-weight: 600; }
+  .tip-text { font-size: 15px; line-height: 1.6; color: rgba(255,255,255,0.9); max-width: 600px; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+  .section-subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 11px;
+    color: #bbb;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-label">Google EM Interview Prep</div>
+  <h1>Googleyness &amp; Leadership</h1>
+  <p>Master the behavioral round that separates good engineers from great leaders at Google.</p>
+  <div class="google-dots">
+    <span style="background:#ea4335"></span>
+    <span style="background:#fbbc04"></span>
+    <span style="background:#34a853"></span>
+    <span style="background:#1a73e8"></span>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showSection('rubrics')">Rubrics Deep Dive</button>
+  <button class="nav-btn" onclick="showSection('stories')">Story Builder</button>
+  <button class="nav-btn" onclick="showSection('questions')">25 Questions</button>
+  <button class="nav-btn" onclick="showSection('mock')">Mock Interview</button>
+  <button class="nav-btn" onclick="showSection('outstanding')">Outstanding Tips</button>
+</nav>
+
+<div class="main">
+
+  <!-- RUBRICS SECTION -->
+  <div class="section active" id="section-rubrics">
+    <div class="tip-banner">
+      <div class="tip-label">The Key Insight</div>
+      <div class="tip-text">Outstanding candidates don't wait to be asked about tradeoffs. They anticipate concerns, volunteer risks, and connect every decision to business and org impact — before the interviewer prompts them.</div>
+    </div>
+
+    <h2 class="section-title">8 Rubric Dimensions</h2>
+    <p class="section-subtitle">Click any rubric to see exactly what Outstanding looks like — and how to signal it.</p>
+
+    <div class="rubric-grid" id="rubric-grid"></div>
+    <div class="detail-panel" id="detail-panel"></div>
+  </div>
+
+  <!-- STORIES SECTION -->
+  <div class="section" id="section-stories">
+    <h2 class="section-title">STAR Story Builder</h2>
+    <p class="section-subtitle">Build 8–10 stories that map to multiple rubrics. Each story should cover Situation, Task, Action, Result — with a measurable outcome.</p>
+
+    <div id="story-list"></div>
+    <button class="btn btn-primary" onclick="addStory()" style="margin-top:8px">+ Add New Story</button>
+  </div>
+
+  <!-- QUESTIONS SECTION -->
+  <div class="section" id="section-questions">
+    <h2 class="section-title">Question Bank</h2>
+    <p class="section-subtitle">25 real Googleyness & Leadership questions. Each tagged to rubric dimensions. Click a question to see what they're evaluating.</p>
+    <div class="question-list" id="question-list"></div>
+  </div>
+
+  <!-- MOCK SECTION -->
+  <div class="section" id="section-mock">
+    <h2 class="section-title">Mock Interview Mode</h2>
+    <p class="section-subtitle">45-minute simulation. Random questions, timer, and self-scoring against the rubric.</p>
+    <div class="mock-panel">
+      <div class="mock-header">
+        <h3>Googleyness & Leadership — 45 min</h3>
+        <div class="timer" id="timer">45:00</div>
+      </div>
+      <div class="mock-body">
+        <div id="mock-start-view">
+          <p style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6">You'll be given 5 random questions. Aim for 2–3 minutes each. Score yourself after each answer using the rubric dimensions. Ready?</p>
+          <button class="btn btn-primary" onclick="startMock()">Start Mock Interview</button>
+        </div>
+        <div id="mock-active-view" style="display:none">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Question <span id="q-counter">1</span> of 5</div>
+          <div class="current-q" id="current-question">—</div>
+          <div class="q-meta" id="q-rubric-tags"></div>
+          <textarea class="answer-area" id="answer-field" placeholder="Write your answer outline here (STAR format: Situation → Task → Action → Result with metrics)..."></textarea>
+          <div style="margin-bottom:12px">
+            <div class="signals-title" style="margin-bottom:8px">Self-score this answer:</div>
+            <div class="score-grid" id="score-grid"></div>
+          </div>
+          <div class="mock-controls">
+            <button class="btn btn-primary" onclick="nextQuestion()">Next Question →</button>
+            <button class="btn btn-secondary" onclick="skipQuestion()">Skip</button>
+            <button class="btn btn-danger" onclick="endMock()">End Session</button>
+          </div>
+        </div>
+        <div id="mock-done-view" style="display:none">
+          <h3 style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:12px">Session Complete</h3>
+          <div id="score-summary" style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.7"></div>
+          <button class="btn btn-primary" onclick="resetMock()">Start New Session</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTSTANDING TIPS -->
+  <div class="section" id="section-outstanding">
+    <h2 class="section-title">How to Hit Outstanding</h2>
+    <p class="section-subtitle">The tactical moves that take you from Solid to Outstanding in the behavioral round.</p>
+    <div id="tips-list"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Google EM Prep · Googleyness &amp; Leadership Round · 45 minutes · Phase 1 Virtual
+</div>
+
+<script>
+const RUBRICS = [
+  {
+    name: "Does the Right Thing",
+    icon: "⚖️",
+    color: "#ea4335",
+    colorBg: "#fff0ef",
+    solid: "Made ethical decisions, even when difficult.",
+    outstanding: "Followed through on ethical decisions despite significant personal risk — spoke up, took accountability, didn't look away.",
+    signals: [
+      "Called out a decision you believed was wrong, even when it was politically risky",
+      "Took personal accountability for a team failure rather than deflecting",
+      "Chose the harder-but-right path when a shortcut was available",
+      "Stood by a principle despite pressure from above or peers"
+    ],
+    avoidances: [
+      "Vague ethics stories without personal risk or stakes",
+      "Stories where you made the easy choice that happened to be ethical"
+    ],
+    sample: "Tell me about a time you made an ethical decision despite personal risk"
+  },
+  {
+    name: "Cares About the Team",
+    icon: "🤝",
+    color: "#1a73e8",
+    colorBg: "#eef4ff",
+    solid: "Assisted others without being asked. Expressed interest in coworkers as people.",
+    outstanding: "Regularly assisted others and actively helped foster team cohesion — organized team lunches, helped someone on a tight deadline, explored shared interests.",
+    signals: [
+      "Proactively unblocked a team member without being asked",
+      "Noticed someone struggling and acted before they asked for help",
+      "Created rituals or structures that strengthened team culture",
+      "Made an inclusion move that changed how someone experienced the team"
+    ],
+    avoidances: [
+      "Generic 'I'm a team player' statements",
+      "Stories where you only helped when asked"
+    ],
+    sample: "Tell me about a time you helped a colleague succeed — unprompted"
+  },
+  {
+    name: "Challenges Status Quo",
+    icon: "🚀",
+    color: "#34a853",
+    colorBg: "#e6f4ea",
+    solid: "Questioned conventional assumptions, defined original goals, expressed willingness to pursue them despite pushback.",
+    outstanding: "Set extremely ambitious goals by directly challenging assumptions. Effectively influenced change by anticipating and responding to pushback from leaders, peers, and partners.",
+    signals: [
+      "Proposed something others said was impossible or too risky",
+      "Moved fast and created a new standard the org then adopted",
+      "Persuaded upward — convinced a leader or senior stakeholder to change direction",
+      "Shipped something that redefined what your team could do"
+    ],
+    avoidances: [
+      "Stories where you challenged something trivial",
+      "Not following through on the challenge — must show impact"
+    ],
+    sample: "Tell me a time you implemented a new idea and were met with resistance"
+  },
+  {
+    name: "Puts the User First",
+    icon: "👤",
+    color: "#fbbc04",
+    colorBg: "#fef7e0",
+    solid: "Provided a customized approach that thoroughly addressed the user's needs.",
+    outstanding: "Proactively anticipated and addressed user concerns, ensuring a thorough and seamless solution — before users even knew they had the concern.",
+    signals: [
+      "Caught a user pain point that wasn't in the requirements",
+      "Pushed back on a stakeholder decision because it would harm the user",
+      "Used data or qualitative research to reframe the problem around the user",
+      "Made a tradeoff explicitly to protect user experience at some cost to internal metrics"
+    ],
+    avoidances: [
+      "Stories about internal users where external users weren't considered",
+      "User advocacy that required no real sacrifice or pushback"
+    ],
+    sample: "Tell me about a time you advocated for users against internal pressure"
+  },
+  {
+    name: "Values Feedback",
+    icon: "💬",
+    color: "#9b59b6",
+    colorBg: "#f5f0ff",
+    solid: "Engaged in constructive discussion about feedback and incorporated it where necessary.",
+    outstanding: "Sought out additional perspectives or feedback beyond what's required — ensured all users' and stakeholders' points of view were considered.",
+    signals: [
+      "Proactively sought feedback from unlikely stakeholders or edge-case users",
+      "Changed a design/decision significantly because of feedback you solicited",
+      "Created a feedback mechanism or process that didn't exist before",
+      "Shared your own feedback with someone more senior in a constructive way"
+    ],
+    avoidances: [
+      "Only giving feedback, not seeking it",
+      "Only incorporating feedback you agreed with"
+    ],
+    sample: "Give me an example of feedback that directly impacted your or a report's career"
+  },
+  {
+    name: "Thrives in Ambiguity",
+    icon: "🧭",
+    color: "#00acc1",
+    colorBg: "#e0f7fa",
+    solid: "Changed course as needed with little guidance. Made progress in a highly ambiguous situation.",
+    outstanding: "Thrives in ambiguity — excited by challenges, learns and adapts quickly. Effectively built structure from minimal specifications.",
+    signals: [
+      "Started a project where requirements were unclear or contradictory",
+      "Created alignment between teams that had conflicting goals",
+      "Made a significant decision with incomplete information and owned the outcome",
+      "Turned a poorly defined charter into a shipped product or outcome"
+    ],
+    avoidances: [
+      "Stories where ambiguity was resolved before you acted",
+      "Waiting for clarity — Outstanding candidates build clarity"
+    ],
+    sample: "Tell me about a time you had to change direction midway based on something new"
+  },
+  {
+    name: "Prioritization & Alignment",
+    icon: "🎯",
+    color: "#e67e22",
+    colorBg: "#fef3e7",
+    solid: "Translated organizational objectives into team and individual goals. Consistently prioritized tasks and determined urgency.",
+    outstanding: "Proactively helped the team have clarity of prioritization, allowed stopping lower priority work, supported both urgent and long-term priorities. Documented strategy. Influenced adjacent areas to improve alignment.",
+    signals: [
+      "Stopped work that wasn't aligned with company OKRs — and said so publicly",
+      "Created a prioritization framework your team still uses",
+      "Influenced another team's roadmap to align with yours",
+      "Made a hard call to deprioritize something leadership wanted"
+    ],
+    avoidances: [
+      "Only prioritizing within your own team's work",
+      "Alignment stories with no sacrifice or hard tradeoff"
+    ],
+    sample: "How do you differentiate activity vs productivity for your team?"
+  },
+  {
+    name: "Risk Management",
+    icon: "🛡️",
+    color: "#c0392b",
+    colorBg: "#fdedec",
+    solid: "Identified broad risk sources. Developed a high-level approach to mitigate targeted risks.",
+    outstanding: "Anticipate, assess, and manage risk across all categories. Shows awareness of how risks interrelate and practical tradeoffs in business context. Develops coherent mitigation strategy with concrete milestones. Builds flexibility to adapt as projects evolve.",
+    signals: [
+      "Flagged an operational or compliance risk before it became a problem",
+      "Built rollback plans, canary rollouts, or circuit breakers proactively",
+      "Identified an underappreciated risk that others had dismissed",
+      "Balanced team health risk against delivery pressure explicitly"
+    ],
+    avoidances: [
+      "Only identifying risk without mitigation strategy",
+      "Reactive risk management — you noticed it after it became a problem"
+    ],
+    sample: "What are the most significant structural/strategic changes you've navigated?"
+  }
+];
+
+const QUESTIONS = [
+  { q: "Tell me about a time when you built a work environment that fostered productivity and development of leadership skills.", rubrics: ["Cares About Team", "Prioritization"] },
+  { q: "Tell me about a time when you had to work with or manage people with varied backgrounds and perspectives.", rubrics: ["Cares About Team", "Puts User First"] },
+  { q: "Tell me about a time when you noticed a colleague demonstrating difficulty accepting and including others. How did you respond?", rubrics: ["Cares About Team", "Does Right Thing"] },
+  { q: "Tell me about a time you implemented a new idea in a team setting and were met with resistance.", rubrics: ["Challenges Status Quo", "Thrives in Ambiguity"] },
+  { q: "Give me an example of when you provided feedback that directly impacted someone's career trajectory.", rubrics: ["Values Feedback", "Cares About Team"] },
+  { q: "Tell me about a time when you had to change direction midway through a project based on something new you learned.", rubrics: ["Thrives in Ambiguity", "Prioritization"] },
+  { q: "What are the most significant structural or strategic changes you've had to deal with at a company in your career?", rubrics: ["Risk Management", "Challenges Status Quo"] },
+  { q: "How do you describe your leadership style?", rubrics: ["All Rubrics"] },
+  { q: "How do you differentiate activity vs productivity?", rubrics: ["Prioritization", "Values Feedback"] },
+  { q: "If asked to pivot resources to new projects, how do you handle that?", rubrics: ["Prioritization", "Risk Management"] },
+  { q: "What are your retention strategies for top talent?", rubrics: ["Cares About Team", "Prioritization"] },
+  { q: "How do you handle an underperforming but very opinionated team member?", rubrics: ["Does Right Thing", "Values Feedback"] },
+  { q: "What was your biggest challenge in managing a team vs being an IC?", rubrics: ["Challenges Status Quo", "Thrives in Ambiguity"] },
+  { q: "How do you handle project scrapping and pivoting resources into new projects?", rubrics: ["Prioritization", "Risk Management"] },
+  { q: "How do you balance design leadership, team leadership, and cross-functional relationships?", rubrics: ["Prioritization", "Cares About Team"] },
+  { q: "What is your style to create visibility of your team's work vs your own work to upper management?", rubrics: ["Prioritization", "Challenges Status Quo"] },
+  { q: "How would you approach a team member's situation with legal implications?", rubrics: ["Does Right Thing", "Risk Management"] },
+  { q: "How do you handle the extremely opinionated team member and make them align with org goals?", rubrics: ["Challenges Status Quo", "Values Feedback"] },
+  { q: "Tell me more about your current team structure and how it has evolved.", rubrics: ["Prioritization", "Cares About Team"] },
+  { q: "Imagine you are building a team from scratch. How would you ensure you're building a team that can create products for everyone?", rubrics: ["Puts User First", "Cares About Team"] },
+  { q: "What happens when a project is not heading in the right direction?", rubrics: ["Risk Management", "Does Right Thing"] },
+  { q: "How have your employers embodied a commitment to fostering a welcoming environment?", rubrics: ["Cares About Team", "Does Right Thing"] },
+  { q: "What are the benefits and challenges of a workplace with people from different backgrounds?", rubrics: ["Cares About Team", "Values Feedback"] },
+  { q: "Tell me about a time you had to make a decision with significant personal risk.", rubrics: ["Does Right Thing", "Thrives in Ambiguity"] },
+  { q: "Describe a time when you proactively identified and addressed a risk before it became a problem.", rubrics: ["Risk Management", "Puts User First"] }
+];
+
+const OUTSTANDING_TIPS = [
+  {
+    title: "Quantify every result",
+    color: "#1a73e8",
+    body: "Outstanding answers always end with a measurable outcome. Not 'the team improved' but 'team velocity went up 40% in Q2, and 2 engineers were promoted within 6 months.' Every STAR story needs a number.",
+    example: "Before: 'The team became more productive.' After: 'Delivery cycle time dropped from 3 weeks to 8 days, and NPS from internal stakeholders went from 34 to 72.'"
+  },
+  {
+    title: "Signal personal risk, not just courage",
+    color: "#ea4335",
+    body: "Solid candidates made the 'right call.' Outstanding candidates made the right call when there was real personal cost — a difficult conversation with a VP, owning a miss publicly, pushing back on a decision that your manager championed. The risk makes the story.",
+    example: "Before: 'I raised the concern in the team meeting.' After: 'I escalated it directly to the VP, knowing it would create friction with my skip. I documented my reasoning and asked for a written response.'"
+  },
+  {
+    title: "Show system-level thinking",
+    color: "#34a853",
+    body: "Google EMs are expected to see how their team's work connects to adjacent systems, org health, and long-term tech change. Weave this naturally: 'This decision also had implications for the Search team's roadmap, which is why I set up a cross-functional sync before we committed.'",
+    example: "Instead of talking about your team alone, always mention: adjacent teams affected, downstream user impact, and the long-term technical evolution."
+  },
+  {
+    title: "Show structural thinking in ambiguity",
+    color: "#9b59b6",
+    body: "Outstanding candidates don't just 'navigate ambiguity' — they build structure. They define the decision criteria, create the framework, write the doc, and drive alignment. The meta-skill is: given fog, I produce a map.",
+    example: "'I wrote a 1-pager that defined our success criteria, listed the key unknowns, and proposed a 4-week spike to resolve them. That doc became the alignment artifact for 3 teams.'"
+  },
+  {
+    title: "Lead with 'I', not 'We'",
+    color: "#e67e22",
+    body: "Interviewers are evaluating your individual contribution. You can acknowledge the team, but always be specific about your decision, your action, your impact. 'We shipped the feature' tells them nothing. 'I made the call to cut scope on X, which unblocked the team to ship 3 weeks early' is what they want.",
+    example: "Every STAR answer: start with 'I decided...', 'I noticed...', 'I pushed for...', 'I was responsible for...'"
+  },
+  {
+    title: "Map your story to multiple rubrics",
+    color: "#00acc1",
+    body: "The best stories are versatile — they demonstrate 3+ rubrics simultaneously. A story about stopping a project that wasn't delivering can show: Prioritization (stopped work), Does Right Thing (hard call), Thrives in Ambiguity (unclear criteria), Risk Management (caught early). One story, four signals.",
+    example: "Build 6 'platinum' stories that each cover 3+ rubrics. When the interviewer asks about one rubric, choose the story that also covers the one they might ask next."
+  },
+  {
+    title: "The 2-minute rule",
+    color: "#c0392b",
+    body: "Every story should be deliverable in under 2.5 minutes. Interviewers will ask 5-6 questions in 45 minutes. If your STAR takes 5 minutes, you lose follow-up time and signal you can't be concise. Practice the 'elevator version': 3 sentences max for Situation, 2 for Action, 1 for Result.",
+    example: "Template: 'At [Company], I noticed [problem]. I decided to [action] — specifically, I [3 specific steps]. The outcome was [measurable result], and [broader impact].'"
+  }
+];
+
+let selectedRubric = null;
+let stories = [];
+let storyCount = 0;
+let mockQuestions = [];
+let mockIndex = 0;
+let mockScores = [];
+let timerInterval = null;
+let timeLeft = 45 * 60;
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function renderRubrics() {
+  const grid = document.getElementById('rubric-grid');
+  grid.innerHTML = RUBRICS.map((r, i) => `
+    <div class="rubric-card" onclick="selectRubric(${i})" id="rcard-${i}">
+      <div class="rubric-header" style="background:${r.colorBg}">
+        <div class="rubric-icon" style="background:${r.color}20">${r.icon}</div>
+        <div class="rubric-name">${r.name}</div>
+      </div>
+      <div class="rubric-body">
+        <div class="rubric-level">
+          <span class="level-tag level-solid">Solid</span>
+        </div>
+        <div class="rubric-desc">${r.solid.substring(0, 80)}...</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectRubric(i) {
+  document.querySelectorAll('.rubric-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('rcard-' + i).classList.add('selected');
+  const r = RUBRICS[i];
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('visible');
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="font-size:28px">${r.icon}</div>
+      <div>
+        <h2 style="font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:2px">${r.name}</h2>
+        <span class="subtitle" style="margin:0">Tap below to see the full scoring dimension</span>
+      </div>
+    </div>
+    <div class="comparison-row">
+      <div class="comparison-box box-solid">
+        <div class="box-label label-solid">Solid</div>
+        ${r.solid}
+      </div>
+      <div class="comparison-box box-outstanding">
+        <div class="box-label label-outstanding">⭐ Outstanding</div>
+        ${r.outstanding}
+      </div>
+    </div>
+    <div style="margin-bottom:20px">
+      <div class="signals-title">Signals they're looking for</div>
+      <ul class="signal-list">
+        ${r.signals.map(s => `<li class="signal-item"><span class="signal-dot green"></span>${s}</li>`).join('')}
+      </ul>
+    </div>
+    <div style="margin-bottom:20px">
+      <div class="signals-title">What to avoid</div>
+      <ul class="signal-list">
+        ${r.avoidances.map(s => `<li class="signal-item"><span class="signal-dot red"></span>${s}</li>`).join('')}
+      </ul>
+    </div>
+    <div style="background:#f8f9fa;border-radius:10px;padding:14px 16px;font-size:13px">
+      <span style="color:var(--muted);font-weight:600;font-size:11px;letter-spacing:1px;text-transform:uppercase">Sample question:</span>
+      <div style="margin-top:6px;font-style:italic;color:var(--text)">"${r.sample}"</div>
+    </div>
+  `;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderQuestions() {
+  const list = document.getElementById('question-list');
+  list.innerHTML = QUESTIONS.map((q, i) => `
+    <div class="question-item">
+      <div class="question-num">${i + 1}</div>
+      <div style="flex:1">
+        <div class="question-text">${q.q}</div>
+        <div class="question-rubrics">
+          ${q.rubrics.map(r => `<span class="q-tag">${r}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderStories() {
+  if (stories.length === 0) {
+    document.getElementById('story-list').innerHTML = `
+      <div style="background:var(--surface);border:1px dashed var(--border);border-radius:16px;padding:32px;text-align:center;color:var(--muted);font-size:14px">
+        No stories yet. Click "Add New Story" to build your STAR story bank.
+      </div>
+    `;
+  }
+}
+
+function addStory() {
+  storyCount++;
+  const id = storyCount;
+  const rubricOptions = RUBRICS.map((r, i) =>
+    `<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" value="${i}" onchange="updateStoryRubrics(${id})"> ${r.name}
+    </label>`
+  ).join('');
+
+  const div = document.createElement('div');
+  div.className = 'story-card';
+  div.id = `story-${id}`;
+  div.innerHTML = `
+    <div class="story-header">
+      <input type="text" placeholder="Story title (e.g. 'Paytm Money — Stopped low-ROI project')" 
+        style="background:none;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;flex:1;color:var(--text);outline:none"
+        id="story-title-${id}">
+      <button onclick="document.getElementById('story-${id}').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px">×</button>
+    </div>
+    <div style="padding:12px 20px;background:#fafaf8;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Rubrics this covers:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">${rubricOptions}</div>
+    </div>
+    <div class="story-body">
+      <div class="star-grid">
+        <div class="star-box">
+          <div class="star-label">S — Situation</div>
+          <div class="star-prompt">Context, company, team state. 2–3 sentences max.</div>
+          <textarea class="star-field" placeholder="At [Company], the situation was..."></textarea>
+        </div>
+        <div class="star-box">
+          <div class="star-label">T — Task</div>
+          <div class="star-prompt">Your specific role and responsibility. What was at stake?</div>
+          <textarea class="star-field" placeholder="My responsibility was to..."></textarea>
+        </div>
+        <div class="star-box">
+          <div class="star-label">A — Action</div>
+          <div class="star-prompt">3 specific steps YOU took. Use 'I', not 'We'.</div>
+          <textarea class="star-field" placeholder="I decided to... First, I... Then I..."></textarea>
+        </div>
+        <div class="star-box">
+          <div class="star-label" style="color:var(--g-green)">R — Result</div>
+          <div class="star-prompt">Measurable outcome + broader impact. Numbers required.</div>
+          <textarea class="star-field" placeholder="The outcome was [X% improvement / N users / $M saved]..."></textarea>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('story-list').appendChild(div);
+}
+
+function renderOutstandingTips() {
+  const list = document.getElementById('tips-list');
+  list.innerHTML = OUTSTANDING_TIPS.map((t, i) => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px">
+      <div style="padding:16px 20px 14px;border-left:4px solid ${t.color};display:flex;align-items:center;gap:10px">
+        <div style="width:28px;height:28px;border-radius:50%;background:${t.color}15;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:${t.color};flex-shrink:0">${i + 1}</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text)">${t.title}</div>
+      </div>
+      <div style="padding:0 20px 16px 20px">
+        <p style="font-size:13.5px;color:var(--muted);line-height:1.7;margin-bottom:12px">${t.body}</p>
+        <div style="background:#f8f9fa;border-radius:8px;padding:12px 14px;font-size:12.5px;color:var(--text);line-height:1.6;font-style:italic">
+          ${t.example}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function startMock() {
+  const shuffled = [...QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 5);
+  mockQuestions = shuffled;
+  mockIndex = 0;
+  mockScores = [];
+  document.getElementById('mock-start-view').style.display = 'none';
+  document.getElementById('mock-active-view').style.display = 'block';
+  showMockQuestion();
+  startTimer();
+}
+
+function showMockQuestion() {
+  const q = mockQuestions[mockIndex];
+  document.getElementById('q-counter').textContent = mockIndex + 1;
+  document.getElementById('current-question').textContent = q.q;
+  document.getElementById('q-rubric-tags').innerHTML = q.rubrics.map(r =>
+    `<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#f1f3f4;color:var(--muted);margin-right:4px">${r}</span>`
+  ).join('');
+  document.getElementById('answer-field').value = '';
+  renderScoreGrid();
+}
+
+function renderScoreGrid() {
+  const grid = document.getElementById('score-grid');
+  const dims = ['Does Right Thing', 'Cares About Team', 'Challenges SQ', 'Puts User First', 'Values Feedback', 'Thrives Ambiguity', 'Prioritization', 'Risk Mgmt'];
+  grid.innerHTML = dims.map((d, i) => `
+    <div class="score-item" id="score-dim-${i}" onclick="scoreItem(${i})">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${d}</div>
+      <div style="display:flex;justify-content:center;gap:4px">
+        <span onclick="event.stopPropagation();setScore(${i},'outstanding')" style="cursor:pointer;padding:2px 5px;border-radius:4px;font-size:10px;background:#fef7e0;color:#7a5900">★★</span>
+        <span onclick="event.stopPropagation();setScore(${i},'solid')" style="cursor:pointer;padding:2px 5px;border-radius:4px;font-size:10px;background:var(--accent-bg);color:var(--g-blue)">★</span>
+        <span onclick="event.stopPropagation();setScore(${i},'developing')" style="cursor:pointer;padding:2px 5px;border-radius:4px;font-size:10px;background:#fff0ef;color:var(--g-red)">—</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setScore(dim, level) {
+  const el = document.getElementById(`score-dim-${dim}`);
+  el.className = 'score-item sel-' + level;
+}
+
+function nextQuestion() {
+  const answer = document.getElementById('answer-field').value;
+  mockScores.push({ q: mockQuestions[mockIndex].q, answer });
+  mockIndex++;
+  if (mockIndex >= 5) {
+    endMock();
+  } else {
+    showMockQuestion();
+  }
+}
+
+function skipQuestion() { nextQuestion(); }
+
+function endMock() {
+  clearInterval(timerInterval);
+  document.getElementById('mock-active-view').style.display = 'none';
+  document.getElementById('mock-done-view').style.display = 'block';
+  document.getElementById('score-summary').innerHTML = `
+    Completed ${mockScores.length} of 5 questions.<br><br>
+    Review your answers above. Look for:<br>
+    • Did every result have a specific number?<br>
+    • Did you say "I" rather than "we" for key decisions?<br>
+    • Did you cover 3+ rubric dimensions per story?<br>
+    • Was each answer under 2.5 minutes?
+  `;
+}
+
+function resetMock() {
+  clearInterval(timerInterval);
+  timeLeft = 45 * 60;
+  document.getElementById('timer').textContent = '45:00';
+  document.getElementById('mock-done-view').style.display = 'none';
+  document.getElementById('mock-start-view').style.display = 'block';
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    const m = Math.floor(timeLeft / 60);
+    const s = timeLeft % 60;
+    document.getElementById('timer').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (timeLeft <= 0) { clearInterval(timerInterval); endMock(); }
+    if (timeLeft <= 300) document.getElementById('timer').style.color = '#ea4335';
+  }, 1000);
+}
+
+renderRubrics();
+renderQuestions();
+renderStories();
+renderOutstandingTips();
+</script>
+</body>
+</html>

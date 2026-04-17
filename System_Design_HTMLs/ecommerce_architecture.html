@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-Commerce System Architecture — Amazon/Flipkart Scale</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+  :root {
+    --bg: #08080e; --bg2: #0d0d18; --bg3: #12121f; --border: #1e1e30;
+    --text: #c8c8d8; --text-dim: #666680;
+    --blue: #5b9cf5; --blue-dim: #1a2a4a;
+    --green: #4ecb8a; --green-dim: #1a3a2a;
+    --orange: #f0a050; --orange-dim: #3a2a1a;
+    --red: #f06060; --red-dim: #3a1a1a;
+    --purple: #a78bfa; --purple-dim: #2a1a4a;
+    --teal: #2dd4bf; --teal-dim: #0a2a28;
+    --coral: #fb7185; --coral-dim: #3a1020;
+    --amber: #fbbf24; --amber-dim: #3a2a00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 28px; }
+
+  /* NAV */
+  .nav { display: flex; gap: 2px; background: var(--bg2); border-radius: 10px; padding: 4px; margin-bottom: 28px; overflow-x: auto; border: 1px solid var(--border); }
+  .nav-btn { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 7px 14px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; border-radius: 7px; white-space: nowrap; transition: all 0.2s; }
+  .nav-btn:hover { color: var(--text); background: var(--bg3); }
+  .nav-btn.active { color: var(--blue); background: var(--blue-dim); }
+
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  h2 { font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--blue); margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  h3 { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #fff; margin: 22px 0 10px; }
+  p { margin-bottom: 10px; font-size: 14px; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin-bottom: 5px; font-size: 14px; }
+
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+  .card-title { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--blue); margin-bottom: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+  @media(max-width:900px){ .grid2,.grid3,.grid4 { grid-template-columns: 1fr; } }
+
+  .metric { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--green); }
+  .metric-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; margin: 2px; }
+  .tag-blue { background: var(--blue-dim); color: var(--blue); }
+  .tag-green { background: var(--green-dim); color: var(--green); }
+  .tag-orange { background: var(--orange-dim); color: var(--orange); }
+  .tag-red { background: var(--red-dim); color: var(--red); }
+  .tag-purple { background: var(--purple-dim); color: var(--purple); }
+
+  .hl { color: var(--blue); } .hlg { color: var(--green); } .hlo { color: var(--orange); } .hlr { color: var(--red); } .hlp { color: var(--purple); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0; }
+  th { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid #151525; }
+  tr:hover td { background: var(--bg3); }
+
+  pre { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 10px 0; color: var(--text); line-height: 1.8; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--bg3); padding: 2px 5px; border-radius: 3px; color: var(--green); }
+
+  .em-callout { background: var(--purple-dim); border: 1px solid #3a2a6a; border-radius: 8px; padding: 14px; margin: 10px 0; }
+  .em-callout::before { content: "EM PERSPECTIVE"; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--purple); letter-spacing: 1px; display: block; margin-bottom: 7px; }
+  .failure-callout { background: var(--red-dim); border: 1px solid #4a1a1a; border-radius: 8px; padding: 14px; margin: 10px 0; }
+  .failure-callout::before { content: "FAILURE MODE"; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--red); letter-spacing: 1px; display: block; margin-bottom: 7px; }
+  .tradeoff-callout { background: var(--orange-dim); border: 1px solid #4a3a1a; border-radius: 8px; padding: 14px; margin: 10px 0; }
+  .tradeoff-callout::before { content: "TRADEOFF"; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--orange); letter-spacing: 1px; display: block; margin-bottom: 7px; }
+
+  /* ARCHITECTURE DIAGRAM */
+  .arch-diagram { width: 100%; overflow-x: auto; }
+  .arch-layer { margin-bottom: 6px; }
+  .arch-layer-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 5px; padding-left: 2px; }
+  .arch-boxes { display: flex; gap: 6px; flex-wrap: nowrap; }
+  .arch-box { flex: 1; min-width: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 8px; cursor: pointer; transition: all 0.2s; text-align: center; }
+  .arch-box:hover { border-color: var(--blue); transform: translateY(-2px); }
+  .arch-box.blue { border-color: #1e3a6a; background: #0d1a30; }
+  .arch-box.blue:hover { border-color: var(--blue); }
+  .arch-box.teal { border-color: #0a2a28; background: #081a18; }
+  .arch-box.teal:hover { border-color: var(--teal); }
+  .arch-box.green { border-color: #0a2a1a; background: #081510; }
+  .arch-box.green:hover { border-color: var(--green); }
+  .arch-box.amber { border-color: #3a2a00; background: #201800; }
+  .arch-box.amber:hover { border-color: var(--amber); }
+  .arch-box.coral { border-color: #3a1020; background: #200810; }
+  .arch-box.coral:hover { border-color: var(--coral); }
+  .arch-box.purple { border-color: #2a1a4a; background: #160e28; }
+  .arch-box.purple:hover { border-color: var(--purple); }
+  .arch-box.gray { border-color: #2a2a40; background: #0e0e1a; }
+  .arch-box-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: #ddd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .arch-box-sub { font-size: 10px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .arch-box.blue .arch-box-name { color: var(--blue); }
+  .arch-box.teal .arch-box-name { color: var(--teal); }
+  .arch-box.green .arch-box-name { color: var(--green); }
+  .arch-box.amber .arch-box-name { color: var(--amber); }
+  .arch-box.coral .arch-box-name { color: var(--coral); }
+  .arch-box.purple .arch-box-name { color: var(--purple); }
+  .arch-arrow { text-align: center; color: var(--text-dim); padding: 3px 0; font-size: 16px; letter-spacing: 30px; }
+
+  /* deep dive detail panel */
+  #detail-panel { display: none; background: var(--bg2); border: 1px solid var(--blue); border-radius: 10px; padding: 18px; margin-top: 14px; animation: fadeIn 0.2s ease; }
+  #detail-panel.show { display: block; }
+  #detail-panel h4 { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--blue); margin-bottom: 10px; }
+
+  /* flow steps */
+  .flow-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 12px 0; overflow-x: auto; }
+  .flow-steps { display: flex; align-items: flex-start; gap: 0; min-width: max-content; }
+  .flow-step { display: flex; flex-direction: column; align-items: center; min-width: 110px; cursor: pointer; }
+  .flow-node { width: 90px; height: 54px; border: 1.5px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; text-align: center; padding: 4px; transition: all 0.2s; background: var(--bg3); color: var(--text); }
+  .flow-step:hover .flow-node, .flow-step.active .flow-node { border-color: var(--blue); background: var(--blue-dim); color: var(--blue); transform: translateY(-3px); }
+  .flow-arrow { display: flex; align-items: center; color: var(--text-dim); font-size: 16px; padding: 0 2px; margin-top: 14px; }
+  .flow-detail { margin-top: 12px; padding: 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; display: none; }
+  .flow-detail.show { display: block; }
+  .flow-detail-title { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--blue); margin-bottom: 6px; font-weight: 600; }
+
+  /* phase timeline */
+  .phase { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 12px; }
+  .phase-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .phase-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 4px; }
+  .phase-badge.p1 { background: var(--green-dim); color: var(--green); }
+  .phase-badge.p2 { background: var(--blue-dim); color: var(--blue); }
+  .phase-badge.p3 { background: var(--purple-dim); color: var(--purple); }
+  .phase-title { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #fff; }
+  .phase-duration { font-size: 12px; color: var(--text-dim); margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>E-Commerce System Design</h1>
+  <p class="subtitle">Amazon / Flipkart scale · 500M DAU · Global · Full marketplace + logistics + payments</p>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="show('overview')">Overview</button>
+    <button class="nav-btn" onclick="show('requirements')">Requirements</button>
+    <button class="nav-btn" onclick="show('architecture')">Architecture</button>
+    <button class="nav-btn" onclick="show('deepdive')">Deep Dives</button>
+    <button class="nav-btn" onclick="show('orderflow')">Order Flow</button>
+    <button class="nav-btn" onclick="show('searchflow')">Search Flow</button>
+    <button class="nav-btn" onclick="show('flashsale')">Flash Sale</button>
+    <button class="nav-btn" onclick="show('datastores')">Data Stores</button>
+    <button class="nav-btn" onclick="show('nonfunc')">Non-Functional</button>
+    <button class="nav-btn" onclick="show('tradeoffs')">Tradeoffs</button>
+    <button class="nav-btn" onclick="show('em')">EM Angle</button>
+    <button class="nav-btn" onclick="show('scalemath')">Scale Math</button>
+  </nav>
+
+  <!-- ===== OVERVIEW ===== -->
+  <div class="section active" id="sec-overview">
+    <h2>System Overview</h2>
+    <p>We are designing a <span class="hl">global-scale e-commerce super-app</span> at the level of Amazon or Flipkart — supporting <span class="hlg">500M daily active users</span> across buyers, sellers, admins, affiliates and 3rd party API partners, covering all product verticals with built-in logistics and payments.</p>
+    <p>The core engineering challenges are: <span class="hlo">search at 290K queries/sec</span>, <span class="hlo">inventory consistency under flash sales</span>, <span class="hlo">exactly-once payment processing</span>, and <span class="hlo">distributed order sagas</span> across 14 independent microservices.</p>
+    <div class="grid4" style="margin: 20px 0;">
+      <div class="metric"><div class="metric-value">500M</div><div class="metric-label">Daily Active Users</div></div>
+      <div class="metric"><div class="metric-value">1.15M/s</div><div class="metric-label">Peak Requests (10x sale)</div></div>
+      <div class="metric"><div class="metric-value">10M</div><div class="metric-label">Orders / Day</div></div>
+      <div class="metric"><div class="metric-value">500M</div><div class="metric-label">SKUs in Catalog</div></div>
+      <div class="metric"><div class="metric-value">290K/s</div><div class="metric-label">Peak Search Queries</div></div>
+      <div class="metric"><div class="metric-value">99.99%</div><div class="metric-label">Availability Target</div></div>
+      <div class="metric"><div class="metric-value">$500M</div><div class="metric-label">GMV / Day</div></div>
+      <div class="metric"><div class="metric-value">~1PB</div><div class="metric-label">Image Storage</div></div>
+    </div>
+    <h3>User types</h3>
+    <div class="grid3">
+      <div class="card"><div class="card-title">Buyers</div><p>Browse, search, cart, checkout, track, return, review. 500M DAU. Primary traffic source.</p></div>
+      <div class="card"><div class="card-title">Sellers</div><p>Onboard, list products, manage inventory, fulfill orders, view analytics dashboard.</p></div>
+      <div class="card"><div class="card-title">Admins + Affiliates + 3rd party</div><p>Platform moderation, fraud review, commission tracking, logistics partner webhooks, external catalog APIs.</p></div>
+    </div>
+    <h3>Core design decisions</h3>
+    <div class="grid2">
+      <div class="card"><div class="card-title">Microservices with saga pattern</div><p>14 independently deployable services. Distributed transactions via choreography-based saga over Kafka — no 2-phase commit. Compensating transactions on failure.</p></div>
+      <div class="card"><div class="card-title">Hybrid push-pull for inventory</div><p>Real-time stock reservation via Redis pessimistic locks during checkout. Eventual sync to PostgreSQL. Prevents oversell without blocking catalog reads.</p></div>
+      <div class="card"><div class="card-title">Elasticsearch + ML re-ranking</div><p>BM25 full-text search + vector similarity for semantic results + ML re-ranking for personalization. 32-shard cluster, updated via Kafka consumers.</p></div>
+      <div class="card"><div class="card-title">Multi-region active-active</div><p>4 regions: US-East, EU-West, India, SEA. Geo-routing at DNS level. Data residency compliance per region (GDPR, DPDP, CCPA).</p></div>
+    </div>
+  </div>
+
+  <!-- ===== REQUIREMENTS ===== -->
+  <div class="section" id="sec-requirements">
+    <h2>Requirements</h2>
+    <h3>Functional requirements</h3>
+    <div class="card">
+      <table>
+        <tr><th>Feature</th><th>Description</th><th>Priority</th></tr>
+        <tr><td>Product search & browse</td><td>Full-text, filters, facets, personalized ranking</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Cart & checkout</td><td>Add/remove items, apply coupons, select address & payment</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Order management</td><td>Place, track, cancel, return orders end-to-end</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Payment processing</td><td>Cards, UPI, wallets, BNPL — PCI-DSS compliant</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Inventory management</td><td>Real-time stock, warehouse allocation, oversell prevention</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Seller onboarding</td><td>KYC, product listing, bulk upload, dashboard</td><td><span class="tag tag-orange">P1</span></td></tr>
+        <tr><td>Logistics & tracking</td><td>Carrier assignment, real-time GPS tracking, delivery proof</td><td><span class="tag tag-orange">P1</span></td></tr>
+        <tr><td>Notifications</td><td>Push, SMS, email for order events</td><td><span class="tag tag-orange">P1</span></td></tr>
+        <tr><td>Reviews & ratings</td><td>Verified purchase reviews, moderation</td><td><span class="tag tag-orange">P1</span></td></tr>
+        <tr><td>Recommendations</td><td>Personalized homepage, PDP cross-sell, email recs</td><td><span class="tag tag-blue">P2</span></td></tr>
+        <tr><td>Flash sales</td><td>Time-limited offers, queue-based fairness, oversell prevention</td><td><span class="tag tag-blue">P2</span></td></tr>
+        <tr><td>Affiliate tracking</td><td>Commission attribution, click tracking, payout management</td><td><span class="tag tag-blue">P2</span></td></tr>
+      </table>
+    </div>
+    <h3>Non-functional requirements</h3>
+    <div class="card">
+      <table>
+        <tr><th>Dimension</th><th>Target</th><th>Rationale</th></tr>
+        <tr><td>Availability</td><td><span class="hlg">99.99%</span> (52 min/year)</td><td>Revenue-critical — every minute down = ~$350K lost GMV</td></tr>
+        <tr><td>Search latency</td><td>p99 &lt; 200ms</td><td>Users abandon after 1s; search is the primary discovery path</td></tr>
+        <tr><td>Checkout latency</td><td>p99 &lt; 500ms</td><td>Payment drop-off rises sharply beyond this</td></tr>
+        <tr><td>Product page</td><td>p99 &lt; 300ms</td><td>CDN-cached, globally served</td></tr>
+        <tr><td>Consistency</td><td>Strong: orders/payments. Eventual: catalog/feed</td><td>ACID for money, AP for browsing</td></tr>
+        <tr><td>Durability</td><td>RPO = 0 for orders/payments</td><td>Zero transaction loss — financial data</td></tr>
+        <tr><td>Flash sale scale</td><td>50x traffic spike handling</td><td>Big Billion Day / Prime Day patterns</td></tr>
+        <tr><td>Security</td><td>PCI-DSS L1, E2E encryption, OAuth 2.0</td><td>Payment data + 500M user PII</td></tr>
+        <tr><td>Privacy / Legal</td><td>GDPR, DPDP, CCPA, data residency</td><td>Multi-jurisdiction global operation</td></tr>
+        <tr><td>Geographic</td><td>Multi-region active-active, &lt;100ms globally</td><td>US, EU, India, SEA user bases</td></tr>
+        <tr><td>Maintainability</td><td>Independent deploy per service, feature flags</td><td>1000+ engineers, 50+ teams</td></tr>
+      </table>
+    </div>
+    <h3>Key clarifying questions</h3>
+    <div class="grid2">
+      <div class="card"><div class="card-title">Inventory model</div><p>Real-time reservation (not eventual) — overselling is catastrophic for seller trust and customer experience. Pessimistic locking during checkout window.</p></div>
+      <div class="card"><div class="card-title">Fulfillment model</div><p>Hybrid: FBA-style (our warehouse) + self-ship by seller. Logistics service abstracts both behind a unified carrier assignment API.</p></div>
+      <div class="card"><div class="card-title">Flash sale approach</div><p>Queue-based virtual waiting room, not optimistic locking. Prevents thundering herd on DB while maintaining fairness.</p></div>
+      <div class="card"><div class="card-title">Physical goods only</div><p>No digital goods for now. Simplifies fulfillment, inventory, and tax calculation. Digital goods would require license key management and DRM.</p></div>
+    </div>
+  </div>
+
+  <!-- ===== ARCHITECTURE ===== -->
+  <div class="section" id="sec-architecture">
+    <h2>System Architecture</h2>
+    <p style="margin-bottom:14px;">Click any component to see its deep-dive details. The system is organized into 8 layers from client to observability.</p>
+
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <div class="arch-layer-label">L1 — Clients</div>
+        <div class="arch-boxes">
+          <div class="arch-box gray" onclick="showDetail('client-web')"><div class="arch-box-name">Web / iOS / Android</div><div class="arch-box-sub">500M DAU</div></div>
+          <div class="arch-box gray" onclick="showDetail('client-seller')"><div class="arch-box-name">Seller portal</div><div class="arch-box-sub">Multi-tenant SaaS</div></div>
+          <div class="arch-box gray" onclick="showDetail('client-admin')"><div class="arch-box-name">Admin panel</div><div class="arch-box-sub">Internal tooling</div></div>
+          <div class="arch-box gray" onclick="showDetail('client-affiliate')"><div class="arch-box-name">Affiliate app</div><div class="arch-box-sub">Commission tracking</div></div>
+          <div class="arch-box gray" onclick="showDetail('client-3p')"><div class="arch-box-name">3rd party API</div><div class="arch-box-sub">REST / webhook</div></div>
+          <div class="arch-box gray" onclick="showDetail('client-logistics')"><div class="arch-box-name">Logistics partner</div><div class="arch-box-sub">FedEx, Delhivery</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L2 — Edge layer</div>
+        <div class="arch-boxes">
+          <div class="arch-box teal" onclick="showDetail('cdn')"><div class="arch-box-name">CDN</div><div class="arch-box-sub">CloudFront / Akamai</div></div>
+          <div class="arch-box teal" onclick="showDetail('ddos')"><div class="arch-box-name">DDoS protection</div><div class="arch-box-sub">AWS Shield L3/L4</div></div>
+          <div class="arch-box teal" onclick="showDetail('glb')"><div class="arch-box-name">Global Load Balancer</div><div class="arch-box-sub">AWS ALB — geo-routing</div></div>
+          <div class="arch-box teal" onclick="showDetail('envoy')"><div class="arch-box-name">API Gateway (Envoy)</div><div class="arch-box-sub">200 instances · mTLS</div></div>
+          <div class="arch-box teal" onclick="showDetail('ratelimit')"><div class="arch-box-name">Rate Limiter</div><div class="arch-box-sub">Redis token bucket</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L3 — Core microservices (row A — buyer path)</div>
+        <div class="arch-boxes">
+          <div class="arch-box blue" onclick="showDetail('user-svc')"><div class="arch-box-name">User service</div><div class="arch-box-sub">auth, profiles, KYC</div></div>
+          <div class="arch-box blue" onclick="showDetail('product-svc')"><div class="arch-box-name">Product service</div><div class="arch-box-sub">catalog, 500M SKUs</div></div>
+          <div class="arch-box blue" onclick="showDetail('search-svc')"><div class="arch-box-name">Search service</div><div class="arch-box-sub">ES · NLP · ML rank</div></div>
+          <div class="arch-box blue" onclick="showDetail('cart-svc')"><div class="arch-box-name">Cart service</div><div class="arch-box-sub">Redis · sessions</div></div>
+          <div class="arch-box blue" onclick="showDetail('inventory-svc')"><div class="arch-box-name">Inventory service</div><div class="arch-box-sub">real-time · locks</div></div>
+          <div class="arch-box blue" onclick="showDetail('pricing-svc')"><div class="arch-box-name">Pricing service</div><div class="arch-box-sub">dynamic · coupons · tax</div></div>
+        </div>
+      </div>
+
+      <div class="arch-layer" style="margin-top:6px;">
+        <div class="arch-layer-label">L3 — Core microservices (row B — transaction path)</div>
+        <div class="arch-boxes">
+          <div class="arch-box blue" onclick="showDetail('order-svc')"><div class="arch-box-name">Order service</div><div class="arch-box-sub">saga · lifecycle</div></div>
+          <div class="arch-box blue" onclick="showDetail('payment-svc')"><div class="arch-box-name">Payment service</div><div class="arch-box-sub">PCI-DSS · idempotent</div></div>
+          <div class="arch-box blue" onclick="showDetail('seller-svc')"><div class="arch-box-name">Seller service</div><div class="arch-box-sub">onboard · analytics</div></div>
+          <div class="arch-box blue" onclick="showDetail('logistics-svc')"><div class="arch-box-name">Logistics service</div><div class="arch-box-sub">routing · tracking</div></div>
+          <div class="arch-box blue" onclick="showDetail('notif-svc')"><div class="arch-box-name">Notification svc</div><div class="arch-box-sub">push · SMS · email</div></div>
+          <div class="arch-box blue" onclick="showDetail('review-svc')"><div class="arch-box-name">Review service</div><div class="arch-box-sub">ratings · moderation</div></div>
+        </div>
+      </div>
+
+      <div class="arch-layer" style="margin-top:6px;">
+        <div class="arch-layer-label">L3 — Core microservices (row C — intelligence + growth)</div>
+        <div class="arch-boxes">
+          <div class="arch-box blue" onclick="showDetail('rec-svc')"><div class="arch-box-name">Recommendation ML</div><div class="arch-box-sub">CTR · personalize</div></div>
+          <div class="arch-box blue" onclick="showDetail('affiliate-svc')"><div class="arch-box-name">Affiliate service</div><div class="arch-box-sub">tracking · commissions</div></div>
+          <div class="arch-box blue" onclick="showDetail('flash-svc')"><div class="arch-box-name">Flash sale engine</div><div class="arch-box-sub">queue · fairness · lock</div></div>
+          <div class="arch-box blue" onclick="showDetail('fraud-svc')"><div class="arch-box-name">Fraud detection</div><div class="arch-box-sub">ML scoring · rules</div></div>
+          <div class="arch-box blue" onclick="showDetail('warehouse-svc')"><div class="arch-box-name">Warehouse mgmt</div><div class="arch-box-sub">FBA · pick-pack-ship</div></div>
+          <div class="arch-box blue" onclick="showDetail('return-svc')"><div class="arch-box-name">Returns service</div><div class="arch-box-sub">RMA · refunds · restock</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L4 — Async event bus</div>
+        <div class="arch-boxes">
+          <div class="arch-box amber" onclick="showDetail('kafka')"><div class="arch-box-name">Apache Kafka</div><div class="arch-box-sub">24 brokers · RF=3 · ISR 2</div></div>
+          <div class="arch-box amber" onclick="showDetail('topic-orders')"><div class="arch-box-name">orders.created</div><div class="arch-box-sub">32 partitions</div></div>
+          <div class="arch-box amber" onclick="showDetail('topic-payments')"><div class="arch-box-name">payments.confirmed</div><div class="arch-box-sub">16 partitions</div></div>
+          <div class="arch-box amber" onclick="showDetail('topic-inventory')"><div class="arch-box-name">inventory.updated</div><div class="arch-box-sub">16 partitions</div></div>
+          <div class="arch-box amber" onclick="showDetail('topic-shipment')"><div class="arch-box-name">shipment.status</div><div class="arch-box-sub">8 partitions</div></div>
+          <div class="arch-box amber" onclick="showDetail('topic-fraud')"><div class="arch-box-name">fraud.flagged</div><div class="arch-box-sub">8 partitions</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L5 — Data stores</div>
+        <div class="arch-boxes">
+          <div class="arch-box coral" onclick="showDetail('postgres')"><div class="arch-box-name">PostgreSQL</div><div class="arch-box-sub">orders · users · payments · 64 shards</div></div>
+          <div class="arch-box coral" onclick="showDetail('mongodb')"><div class="arch-box-name">MongoDB</div><div class="arch-box-sub">product catalog · 500M SKUs</div></div>
+          <div class="arch-box coral" onclick="showDetail('redis')"><div class="arch-box-name">Redis cluster</div><div class="arch-box-sub">cart · sessions · locks · 20 nodes</div></div>
+          <div class="arch-box coral" onclick="showDetail('elasticsearch')"><div class="arch-box-name">Elasticsearch</div><div class="arch-box-sub">search index · 32 shards</div></div>
+          <div class="arch-box coral" onclick="showDetail('s3')"><div class="arch-box-name">S3 / Blob store</div><div class="arch-box-sub">images · docs · ~1PB</div></div>
+          <div class="arch-box coral" onclick="showDetail('cassandra')"><div class="arch-box-name">Cassandra</div><div class="arch-box-sub">order events · time-series</div></div>
+          <div class="arch-box coral" onclick="showDetail('clickhouse')"><div class="arch-box-name">ClickHouse</div><div class="arch-box-sub">analytics · seller dashboard</div></div>
+          <div class="arch-box coral" onclick="showDetail('featurestore')"><div class="arch-box-name">Feature store</div><div class="arch-box-sub">ML features · embeddings</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L6 — External integrations</div>
+        <div class="arch-boxes">
+          <div class="arch-box purple" onclick="showDetail('ext-payment')"><div class="arch-box-name">Payment gateways</div><div class="arch-box-sub">Stripe · Razorpay · UPI · PayPal</div></div>
+          <div class="arch-box purple" onclick="showDetail('ext-logistics')"><div class="arch-box-name">Logistics partners</div><div class="arch-box-sub">FedEx · BlueDart · Delhivery</div></div>
+          <div class="arch-box purple" onclick="showDetail('ext-comms')"><div class="arch-box-name">Comms providers</div><div class="arch-box-sub">Twilio · FCM · AWS SES</div></div>
+          <div class="arch-box purple" onclick="showDetail('ext-fraud')"><div class="arch-box-name">Fraud detection</div><div class="arch-box-sub">Stripe Radar · internal ML</div></div>
+          <div class="arch-box purple" onclick="showDetail('ext-tax')"><div class="arch-box-name">Tax / compliance</div><div class="arch-box-sub">Avalara · GST APIs</div></div>
+          <div class="arch-box purple" onclick="showDetail('ext-auth')"><div class="arch-box-name">OAuth providers</div><div class="arch-box-sub">Google · Apple · Facebook</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L7 — Multi-region active-active</div>
+        <div class="arch-boxes">
+          <div class="arch-box green" onclick="showDetail('region-us')"><div class="arch-box-name">US-East (primary)</div><div class="arch-box-sub">AWS us-east-1</div></div>
+          <div class="arch-box green" onclick="showDetail('region-eu')"><div class="arch-box-name">EU-West</div><div class="arch-box-sub">eu-west-1 · GDPR zone</div></div>
+          <div class="arch-box green" onclick="showDetail('region-in')"><div class="arch-box-name">India (ap-south-1)</div><div class="arch-box-sub">DPDP Act compliance</div></div>
+          <div class="arch-box green" onclick="showDetail('region-sea')"><div class="arch-box-name">SEA (ap-southeast-1)</div><div class="arch-box-sub">Singapore hub</div></div>
+        </div>
+      </div>
+      <div class="arch-arrow">↓↓↓↓↓↓</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-label">L8 — Observability & CI/CD</div>
+        <div class="arch-boxes">
+          <div class="arch-box gray" onclick="showDetail('obs-metrics')"><div class="arch-box-name">Metrics</div><div class="arch-box-sub">Prometheus + Grafana</div></div>
+          <div class="arch-box gray" onclick="showDetail('obs-logging')"><div class="arch-box-name">Logging</div><div class="arch-box-sub">ELK Stack</div></div>
+          <div class="arch-box gray" onclick="showDetail('obs-tracing')"><div class="arch-box-name">Tracing</div><div class="arch-box-sub">Jaeger / Zipkin</div></div>
+          <div class="arch-box gray" onclick="showDetail('obs-alert')"><div class="arch-box-name">Alerting</div><div class="arch-box-sub">PagerDuty · SLOs</div></div>
+          <div class="arch-box gray" onclick="showDetail('obs-cicd')"><div class="arch-box-name">CI / CD</div><div class="arch-box-sub">K8s · Helm · ArgoCD</div></div>
+          <div class="arch-box gray" onclick="showDetail('obs-chaos')"><div class="arch-box-name">Chaos engineering</div><div class="arch-box-sub">Chaos Monkey · GameDay</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="detail-panel">
+      <h4 id="detail-title"></h4>
+      <div id="detail-body"></div>
+    </div>
+  </div>
+
+  <!-- ===== DEEP DIVES ===== -->
+  <div class="section" id="sec-deepdive">
+    <h2>Subsystem Deep Dives</h2>
+    <p>Select a subsystem to explore its design, technology choices, alternatives, scale numbers, and failure modes.</p>
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0;">
+      <button class="nav-btn active" id="dd-btn-1" onclick="showDD(1)">API Gateway</button>
+      <button class="nav-btn" id="dd-btn-2" onclick="showDD(2)">User service</button>
+      <button class="nav-btn" id="dd-btn-3" onclick="showDD(3)">Product catalog</button>
+      <button class="nav-btn" id="dd-btn-4" onclick="showDD(4)">Search service</button>
+      <button class="nav-btn" id="dd-btn-5" onclick="showDD(5)">Cart service</button>
+      <button class="nav-btn" id="dd-btn-6" onclick="showDD(6)">Order service</button>
+      <button class="nav-btn" id="dd-btn-7" onclick="showDD(7)">Payment service</button>
+      <button class="nav-btn" id="dd-btn-8" onclick="showDD(8)">Inventory service</button>
+      <button class="nav-btn" id="dd-btn-9" onclick="showDD(9)">Seller service</button>
+      <button class="nav-btn" id="dd-btn-10" onclick="showDD(10)">Logistics service</button>
+      <button class="nav-btn" id="dd-btn-11" onclick="showDD(11)">Notification svc</button>
+      <button class="nav-btn" id="dd-btn-12" onclick="showDD(12)">Recommendation ML</button>
+      <button class="nav-btn" id="dd-btn-13" onclick="showDD(13)">Affiliate service</button>
+      <button class="nav-btn" id="dd-btn-14" onclick="showDD(14)">Flash sale engine</button>
+    </div>
+
+    <div id="dd-content"></div>
+  </div>
+
+  <!-- ===== ORDER FLOW ===== -->
+  <div class="section" id="sec-orderflow">
+    <h2>Order Placement Flow</h2>
+    <p>Click each step to see exactly what happens, including latency budget, database writes, and Kafka events emitted.</p>
+    <div class="flow-wrap">
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showFlow('order',0,this)"><div class="flow-node">User checkout request</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',1,this)"><div class="flow-node">API Gateway auth + rate limit</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',2,this)"><div class="flow-node">Pricing service validate coupon + tax</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',3,this)"><div class="flow-node">Inventory reserve (Redis lock)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',4,this)"><div class="flow-node">Order service create (PENDING)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',5,this)"><div class="flow-node">Payment service charge</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',6,this)"><div class="flow-node">Kafka: orders.confirmed</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('order',7,this)"><div class="flow-node">Fanout: notify, ship, analytics, fraud</div></div>
+      </div>
+    </div>
+    <div class="flow-detail" id="order-flow-detail"></div>
+
+    <h3>Saga compensating transactions</h3>
+    <div class="card">
+      <table>
+        <tr><th>Step fails</th><th>Compensating action</th></tr>
+        <tr><td>Inventory reservation fails</td><td>Return 409 — item out of stock, no order created</td></tr>
+        <tr><td>Payment fails</td><td>Release Redis inventory lock → emit ORDER_PAYMENT_FAILED → notify user</td></tr>
+        <tr><td>Order DB write fails</td><td>Release lock, void payment authorization, notify user</td></tr>
+        <tr><td>Kafka publish fails</td><td>Outbox pattern — DB write + Kafka publish in same local transaction via CDC</td></tr>
+      </table>
+    </div>
+    <div class="tradeoff-callout">
+      Saga choreography (event-driven) vs orchestration (central coordinator): we chose choreography for lower coupling between services. Downside is harder debugging — mitigated by correlation IDs and distributed tracing in Jaeger.
+    </div>
+  </div>
+
+  <!-- ===== SEARCH FLOW ===== -->
+  <div class="section" id="sec-searchflow">
+    <h2>Search Pipeline</h2>
+    <p>Click each step to see query parsing, Elasticsearch internals, ML ranking, and caching strategy.</p>
+    <div class="flow-wrap">
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showFlow('search',0,this)"><div class="flow-node">User search query</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('search',1,this)"><div class="flow-node">Redis cache check</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('search',2,this)"><div class="flow-node">NLP query parser</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('search',3,this)"><div class="flow-node">Elasticsearch BM25 + filters</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('search',4,this)"><div class="flow-node">Vector similarity (semantic)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('search',5,this)"><div class="flow-node">ML re-ranking (personalized)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('search',6,this)"><div class="flow-node">Cache write + respond</div></div>
+      </div>
+    </div>
+    <div class="flow-detail" id="search-flow-detail"></div>
+
+    <h3>Catalog indexing pipeline</h3>
+    <div class="card">
+      <p>Product updates → Kafka <code>catalog.updated</code> topic → ES indexer consumer → bulk API (batches of 500 every 1s) → index lag &lt;2s. Separate trending index updated every 30s for autocomplete and trending searches.</p>
+    </div>
+  </div>
+
+  <!-- ===== FLASH SALE ===== -->
+  <div class="section" id="sec-flashsale">
+    <h2>Flash Sale Engine</h2>
+    <p>The hardest single problem in e-commerce infrastructure. Big Billion Day drives 50x normal traffic in under 60 seconds of a sale going live.</p>
+
+    <div class="grid2">
+      <div class="card"><div class="card-title">Problem: Thundering herd</div><p>50M users simultaneously hitting a product page at T=0. Naive implementation DDOSes the DB, causes oversell, and creates an unfair experience where only users with fast connections win.</p></div>
+      <div class="card"><div class="card-title">Solution: Virtual waiting room</div><p>Traffic enters a queue before reaching checkout. Position in queue determined by arrival time. Users see real-time position. Checkout tokens issued at a controlled rate matching inventory depletion speed.</p></div>
+    </div>
+
+    <h3>Architecture</h3>
+    <div class="flow-wrap">
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showFlow('flash',0,this)"><div class="flow-node">User hits flash sale URL at T=0</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('flash',1,this)"><div class="flow-node">Gateway routes to queue service</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('flash',2,this)"><div class="flow-node">Redis LPUSH into sale queue</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('flash',3,this)"><div class="flow-node">User polls position via SSE</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('flash',4,this)"><div class="flow-node">Token issued when position reached</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('flash',5,this)"><div class="flow-node">Checkout with token (5 min TTL)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlow('flash',6,this)"><div class="flow-node">Lua script atomic stock decrement</div></div>
+      </div>
+    </div>
+    <div class="flow-detail" id="flash-flow-detail"></div>
+
+    <div class="tradeoff-callout">
+      Pessimistic locking (Redis SETNX) vs optimistic (compare-and-swap) vs queue: at 50x traffic, optimistic locking causes extreme retry storms. Pessimistic locking serializes too aggressively. Queue-based approach provides fairness + controlled throughput + survives traffic spike without DB pressure.
+    </div>
+    <div class="failure-callout">
+      Redis primary failure during flash sale: Redis Sentinel promotes replica in &lt;30s. Queue state is preserved (AOF persistence). Users experience a brief wait but no data loss. Fallback: serve static "sale ended" page from CDN if queue service is fully down.
+    </div>
+    <div class="em-callout">
+      Flash sale infra is pre-warmed 2 hours before go-live. Load test at 2x expected peak the day before. Dedicated on-call rotation during Big Billion Day. Auto-rollback trigger if error rate &gt;1% within 60s of sale start.
+    </div>
+  </div>
+
+  <!-- ===== DATA STORES ===== -->
+  <div class="section" id="sec-datastores">
+    <h2>Data Store Decisions</h2>
+    <div class="card">
+      <table>
+        <tr><th>Store</th><th>Used for</th><th>Why this, not alternatives</th><th>Scale</th></tr>
+        <tr><td><span class="hl">PostgreSQL</span></td><td>Orders, users, payments, sellers</td><td>ACID required for financial data. Strong consistency. Mature tooling. Patroni for HA.</td><td>64 shards by entity_id. 1 primary + 2 replicas each.</td></tr>
+        <tr><td><span class="hlo">MongoDB</span></td><td>Product catalog</td><td>Flexible schema — a laptop and a t-shirt have completely different attributes. Document model is natural fit. Sharded by category.</td><td>500M documents. Atlas sharded cluster.</td></tr>
+        <tr><td><span class="hlg">Redis cluster</span></td><td>Cart, sessions, inventory locks, rate limits, flash sale queue</td><td>Sub-millisecond latency. Atomic operations (SETNX, ZADD, Lua scripts). Sorted sets for queues. Not Memcached — lacks data structures.</td><td>20 nodes × 32GB = 640GB. Cluster mode.</td></tr>
+        <tr><td><span class="hlg">Elasticsearch</span></td><td>Product search, autocomplete, trending</td><td>BM25 full-text + vector search in one system. Rich faceting. Near-real-time indexing. Not Solr — worse operability at scale.</td><td>32 shards × 1 replica. 290K queries/sec peak.</td></tr>
+        <tr><td><span class="hlr">Cassandra</span></td><td>Order tracking events, delivery location history</td><td>Append-only time-series. Wide rows per order. Tunable consistency. Excellent write throughput. Not PostgreSQL — can't handle millions of append events at this rate.</td><td>12-node cluster. RF=3.</td></tr>
+        <tr><td><span class="hlp">ClickHouse</span></td><td>Seller analytics, revenue dashboards, GMV reporting</td><td>Columnar OLAP. 100x faster than PostgreSQL for aggregation queries. Not BigQuery — need sub-second latency for interactive dashboards.</td><td>6-node cluster. 10TB analytics data.</td></tr>
+        <tr><td><span class="hlo">S3 / Blob</span></td><td>Product images, seller documents, invoices</td><td>Infinite scale, cheap, CDN-integrated. Not block storage — objects don't need random access.</td><td>~1PB. Multi-region replication.</td></tr>
+        <tr><td><span class="hlp">Feature store</span></td><td>ML model features for ranking + fraud</td><td>Redis for online (low-latency lookup during inference). Parquet on S3 for offline training. Not a single DB — different SLAs for online vs offline.</td><td>Redis: 50GB user features. S3: 5TB training data.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== NON-FUNCTIONAL ===== -->
+  <div class="section" id="sec-nonfunc">
+    <h2>Non-Functional Deep Dive</h2>
+
+    <h3>Security</h3>
+    <div class="grid2">
+      <div class="card"><div class="card-title">PCI-DSS Level 1</div><p>Payment card data never touches our servers. Tokenized via Stripe / Razorpay. All cardholder data flows directly to PCI-compliant gateway. We store only the last 4 digits + token.</p></div>
+      <div class="card"><div class="card-title">Auth architecture</div><p>OAuth 2.0 + PKCE for social login. JWT access tokens (15 min). Refresh tokens in HttpOnly cookies (30 days). mTLS between all internal services. API keys for seller/3P clients.</p></div>
+      <div class="card"><div class="card-title">Encryption</div><p>TLS 1.3 for all external traffic. AES-256 at rest for sensitive fields. KMS-managed keys per region. PII fields (email, phone) encrypted at column level in PostgreSQL.</p></div>
+      <div class="card"><div class="card-title">Secrets management</div><p>HashiCorp Vault for all secrets. No env vars in code. Automatic rotation for DB credentials every 24h. Audit log for every secret access.</p></div>
+    </div>
+
+    <h3>Privacy & Legal compliance</h3>
+    <div class="card">
+      <table>
+        <tr><th>Regulation</th><th>Region</th><th>Implementation</th></tr>
+        <tr><td>GDPR</td><td>EU</td><td>Data residency in eu-west-1. Right to erasure via soft-delete + async purge job. Cookie consent service. DPA with all processors.</td></tr>
+        <tr><td>DPDP Act</td><td>India</td><td>User data stored in ap-south-1. Consent management. Data fiduciary obligations. Breach notification &lt;72h.</td></tr>
+        <tr><td>CCPA</td><td>California</td><td>Opt-out of data sale. Data inventory map. Consumer request portal. 45-day response SLA.</td></tr>
+        <tr><td>PCI-DSS</td><td>Global</td><td>Tokenization, no card storage, annual QSA audit, network segmentation for payment services.</td></tr>
+      </table>
+    </div>
+
+    <h3>Multi-region & Cross-DC</h3>
+    <div class="card">
+      <p>Active-active across 4 regions. Geo DNS routes users to nearest region. Each region is fully self-sufficient for reads. Writes for orders/payments use <span class="hl">leader-follower</span> with US-East as primary — asynchronous replication to other regions (RPO ~1s for non-financial data, RPO=0 for payments via synchronous cross-region write).</p>
+      <p style="margin-top:10px;"><span class="hlg">Cross-DC failover:</span> If a region goes down, Route53 health checks detect within 30s and reroute traffic. Automated runbook via AWS FIS (Fault Injection Service) tested monthly in GameDay exercises.</p>
+    </div>
+  </div>
+
+  <!-- ===== TRADEOFFS ===== -->
+  <div class="section" id="sec-tradeoffs">
+    <h2>Key Tradeoffs</h2>
+    <div class="grid2">
+      <div class="tradeoff-callout" style="border-radius:10px;">
+        <strong style="color:#f0a050;">Microservices vs Monolith</strong><br><br>
+        Chose microservices for independent scaling, independent deployment, and team autonomy at 1000+ engineer scale. Cost: operational complexity, distributed tracing needed, network latency between services. Mitigated by service mesh (Istio) and strong observability.
+      </div>
+      <div class="tradeoff-callout" style="border-radius:10px;">
+        <strong style="color:#f0a050;">Eventual consistency for catalog</strong><br><br>
+        Product catalog (prices, descriptions) uses eventual consistency. A buyer might see a price that's 2s stale. Acceptable — we show a "price confirmed at checkout" message. Allows 100x read throughput via CDN caching without DB reads.
+      </div>
+      <div class="tradeoff-callout" style="border-radius:10px;">
+        <strong style="color:#f0a050;">Kafka choreography vs orchestration</strong><br><br>
+        Saga choreography chosen for loose coupling between order, payment, inventory services. Each service reacts to events independently. Downside: harder to visualize overall flow. Mitigated by distributed tracing and a separate saga state monitor service.
+      </div>
+      <div class="tradeoff-callout" style="border-radius:10px;">
+        <strong style="color:#f0a050;">Redis inventory locks vs DB transactions</strong><br><br>
+        Redis pessimistic locks for inventory reservation (not DB SELECT FOR UPDATE). Reason: Redis handles 500K ops/sec vs PostgreSQL's ~50K. Lock TTL = 10 min (checkout window). Risk: lock orphaning on crash — mitigated by TTL expiry and background reconciliation job.
+      </div>
+      <div class="tradeoff-callout" style="border-radius:10px;">
+        <strong style="color:#f0a050;">MongoDB for catalog vs PostgreSQL</strong><br><br>
+        Different product categories have wildly different attributes (a book has ISBN, a shirt has size/color, a laptop has RAM/CPU). JSONB in PostgreSQL is an alternative but MongoDB's native document model and horizontal sharding story are stronger at 500M SKUs.
+      </div>
+      <div class="tradeoff-callout" style="border-radius:10px;">
+        <strong style="color:#f0a050;">Build vs buy: search</strong><br><br>
+        Elasticsearch chosen over Algolia (too expensive at this scale, ~$500K/month), AWS OpenSearch (same engine, better control with self-managed), and Solr (worse operational tooling). At 500M SKUs and 290K QPS, Elasticsearch + self-managed gives best cost-performance.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EM ANGLE ===== -->
+  <div class="section" id="sec-em">
+    <h2>Engineering Manager Perspective</h2>
+
+    <h3>MVP — Phase 1 (0-6 months)</h3>
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-badge p1">PHASE 1</span>
+        <span class="phase-title">Core buying experience</span>
+        <span class="phase-duration">0 – 6 months</span>
+      </div>
+      <p><strong>Scope:</strong> User auth · Product catalog (single category) · Search (basic keyword) · Cart · Checkout · Payment (cards only) · Order management · Email notifications · Basic seller onboarding</p>
+      <p><strong>Not in MVP:</strong> Flash sales · Recommendations · Affiliates · Multi-region · Logistics tracking · Returns</p>
+      <div class="grid3" style="margin-top:12px;">
+        <div class="metric"><div class="metric-value">8</div><div class="metric-label">Backend engineers</div></div>
+        <div class="metric"><div class="metric-value">3</div><div class="metric-label">Frontend engineers</div></div>
+        <div class="metric"><div class="metric-value">2</div><div class="metric-label">SRE / DevOps</div></div>
+        <div class="metric"><div class="metric-value">1</div><div class="metric-label">ML engineer</div></div>
+        <div class="metric"><div class="metric-value">2</div><div class="metric-label">QA engineers</div></div>
+        <div class="metric"><div class="metric-value">1</div><div class="metric-label">Engineering manager</div></div>
+      </div>
+    </div>
+
+    <h3>Phase 2 (6-12 months)</h3>
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-badge p2">PHASE 2</span>
+        <span class="phase-title">Scale & growth features</span>
+        <span class="phase-duration">6 – 12 months</span>
+      </div>
+      <p><strong>Scope:</strong> Multi-category catalog · Advanced search (filters, facets, ML ranking) · Logistics tracking · SMS + push notifications · Returns & refunds · Seller analytics dashboard · Recommendation engine v1 · Second region (India)</p>
+      <div class="grid3" style="margin-top:12px;">
+        <div class="metric"><div class="metric-value">20</div><div class="metric-label">Backend engineers</div></div>
+        <div class="metric"><div class="metric-value">6</div><div class="metric-label">Frontend engineers</div></div>
+        <div class="metric"><div class="metric-value">4</div><div class="metric-label">SRE / DevOps</div></div>
+        <div class="metric"><div class="metric-value">4</div><div class="metric-label">ML engineers</div></div>
+        <div class="metric"><div class="metric-value">4</div><div class="metric-label">QA engineers</div></div>
+        <div class="metric"><div class="metric-value">3</div><div class="metric-label">Engineering managers</div></div>
+      </div>
+    </div>
+
+    <h3>Phase 3 (12-24 months)</h3>
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-badge p3">PHASE 3</span>
+        <span class="phase-title">Global scale + super-app</span>
+        <span class="phase-duration">12 – 24 months</span>
+      </div>
+      <p><strong>Scope:</strong> Flash sale engine · Affiliate platform · Multi-region active-active (4 regions) · Fraud detection ML · Warehouse management system · Dynamic pricing · B2B seller APIs · Full GDPR/DPDP compliance · Chaos engineering program</p>
+      <div class="grid3" style="margin-top:12px;">
+        <div class="metric"><div class="metric-value">60+</div><div class="metric-label">Backend engineers</div></div>
+        <div class="metric"><div class="metric-value">15</div><div class="metric-label">Frontend engineers</div></div>
+        <div class="metric"><div class="metric-value">10</div><div class="metric-label">SRE / DevOps</div></div>
+        <div class="metric"><div class="metric-value">10</div><div class="metric-label">ML engineers</div></div>
+        <div class="metric"><div class="metric-value">10</div><div class="metric-label">QA / SDET</div></div>
+        <div class="metric"><div class="metric-value">8</div><div class="metric-label">Engineering managers</div></div>
+      </div>
+    </div>
+
+    <h3>Team structure (Phase 3 steady state)</h3>
+    <div class="card">
+      <table>
+        <tr><th>Team</th><th>Owns</th><th>Size</th></tr>
+        <tr><td>Platform / infra</td><td>API gateway, K8s, observability, CI/CD</td><td>8 eng + 2 SRE</td></tr>
+        <tr><td>Buyer experience</td><td>Search, catalog, PDP, cart, checkout</td><td>12 eng</td></tr>
+        <tr><td>Transactions</td><td>Order, payment, inventory, returns</td><td>10 eng</td></tr>
+        <tr><td>Seller platform</td><td>Seller onboarding, catalog tools, analytics</td><td>8 eng</td></tr>
+        <tr><td>Logistics</td><td>Carrier integration, tracking, warehouse</td><td>8 eng</td></tr>
+        <tr><td>ML / personalization</td><td>Recommendations, ranking, fraud, pricing</td><td>10 ML + 4 eng</td></tr>
+        <tr><td>Growth</td><td>Affiliates, flash sales, promotions</td><td>6 eng</td></tr>
+        <tr><td>Compliance</td><td>GDPR, DPDP, PCI-DSS, security</td><td>4 eng</td></tr>
+      </table>
+    </div>
+
+    <h3>Key risks & mitigation</h3>
+    <div class="grid2">
+      <div class="failure-callout" style="border-radius:10px;">
+        <strong style="color:#f06060;">Payment gateway outage</strong><br>
+        Mitigation: 3 gateway providers in active-active (Stripe primary, Razorpay fallback, UPI direct fallback). Circuit breaker auto-switches in &lt;5s. Tested monthly.
+      </div>
+      <div class="failure-callout" style="border-radius:10px;">
+        <strong style="color:#f06060;">Inventory data inconsistency</strong><br>
+        Mitigation: Nightly reconciliation job comparing Redis locks vs PostgreSQL actual stock. Alert on delta &gt;1%. Manual review process for disputed stock counts.
+      </div>
+      <div class="failure-callout" style="border-radius:10px;">
+        <strong style="color:#f06060;">Flash sale DDoS (self-inflicted)</strong><br>
+        Mitigation: Virtual waiting room absorbs spike. Pre-scaled K8s nodes 2h before sale. CDN serves product page; only checkout hits origin. Rate limit by user_id at gateway.
+      </div>
+      <div class="failure-callout" style="border-radius:10px;">
+        <strong style="color:#f06060;">Data breach / PII leak</strong><br>
+        Mitigation: Column-level encryption for PII. No PII in logs (scrubbed at ingestion). Vault-managed keys. Annual penetration test. Bug bounty program.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCALE MATH ===== -->
+  <div class="section" id="sec-scalemath">
+    <h2>Scale Math (Back of Envelope)</h2>
+    <div class="card">
+      <table>
+        <tr><th>Metric</th><th>Calculation</th><th>Result</th></tr>
+        <tr><td>Avg requests/sec</td><td>500M DAU × 20 req/day ÷ 86400</td><td class="hlg">~115K req/sec</td></tr>
+        <tr><td>Peak requests/sec (10x sale)</td><td>115K × 10</td><td class="hlr">~1.15M req/sec</td></tr>
+        <tr><td>Search queries/sec (avg)</td><td>500M × 5 searches/day ÷ 86400</td><td class="hlg">~29K/sec</td></tr>
+        <tr><td>Search queries/sec (peak)</td><td>29K × 10</td><td class="hlr">~290K/sec</td></tr>
+        <tr><td>Orders/sec (avg)</td><td>10M orders/day ÷ 86400</td><td class="hlg">~115/sec</td></tr>
+        <tr><td>Orders/sec (peak)</td><td>115 × 10</td><td class="hlr">~1,150/sec</td></tr>
+        <tr><td>Catalog storage</td><td>500M SKUs × 5KB avg</td><td class="hlg">~2.5TB</td></tr>
+        <tr><td>Image storage</td><td>500M × 10 images × 200KB</td><td class="hlr">~1PB</td></tr>
+        <tr><td>Redis cart memory</td><td>500M users × 2KB avg cart × 10% active</td><td class="hlg">~100GB</td></tr>
+        <tr><td>Kafka throughput</td><td>1,150 orders/sec × avg 5 events/order</td><td class="hlg">~5,750 msgs/sec</td></tr>
+        <tr><td>ES index size</td><td>500M docs × 2KB avg indexed doc</td><td class="hlg">~1TB</td></tr>
+        <tr><td>Daily GMV</td><td>10M orders × $50 avg order value</td><td class="hlg">$500M/day</td></tr>
+        <tr><td>Envoy instances needed</td><td>1.15M req/sec ÷ 6K req/instance</td><td class="hlg">~200 instances</td></tr>
+        <tr><td>PostgreSQL shards</td><td>10M orders/day × 365 × 3yr × 1KB = ~11TB ÷ 200GB/shard</td><td class="hlg">~64 shards</td></tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+const archDetails = {
+  'cdn': '<h4>CDN — CloudFront / Akamai</h4><p>Serves all static assets: product images, JS bundles, CSS. Cache-Control headers set per content type. Product images: 24h TTL. JS/CSS: 1yr TTL with content hash. <strong>Impact:</strong> Reduces origin load by ~80%. ~1PB of images served from edge globally. Invalidations via API on product image update.</p>',
+  'ddos': '<h4>DDoS Protection — AWS Shield Advanced</h4><p>L3/L4 volumetric attack mitigation. Absorbs up to 2.3Tbps. Auto-detection within 1s. WAF rules for L7 (SQL injection, XSS). <strong>Flash sale mode:</strong> Pre-configured WAF rules during Big Billion Day to distinguish bot traffic from legitimate users via fingerprinting + CAPTCHA challenges.</p>',
+  'envoy': '<h4>API Gateway — Envoy Proxy</h4><p>~200 stateless instances behind ALB. Each handles ~6K concurrent connections. Responsibilities: JWT validation (&lt;1ms cached), rate limiting (Redis sliding window), request routing (path-based), SSL termination, mTLS to internal services, correlation ID injection, circuit breaking (5% error rate threshold). <strong>Why Envoy:</strong> Native gRPC, xDS dynamic config, battle-tested at Uber/Lyft scale, better observability than NGINX.</p>',
+  'user-svc': '<h4>User Service</h4><p>Owns: registration, login, OAuth social login (Google/Apple/Facebook via PKCE), JWT token issuance, profile management, address book, KYC status. <strong>DB:</strong> PostgreSQL 64 shards by user_id. <strong>Cache:</strong> Redis for sessions (15min TTL) and JWT blacklist on logout. <strong>Scale:</strong> 500M users, p99 login &lt;200ms. <strong>Security:</strong> Bcrypt cost 12, rate limit on login attempts (5 failures → 15min lockout).</p>',
+  'product-svc': '<h4>Product & Catalog Service</h4><p>Owns: product CRUD, variant management (size/color/SKU), category taxonomy, image management, bulk import via CSV/API. <strong>DB:</strong> MongoDB sharded by category_id — flexible schema critical for heterogeneous product attributes. <strong>Cache:</strong> Redis for hot product pages (60s TTL). <strong>CDN:</strong> Product detail pages cached at edge. <strong>Scale:</strong> 500M SKUs, 10K seller catalog updates/min, index changes propagated to ES via Kafka consumer.</p>',
+  'search-svc': '<h4>Search Service</h4><p>Query pipeline: cache check → NLP parsing (tokenization, stemming, synonym expansion, spell correction) → ES BM25 full-text → vector similarity (semantic search via sentence-transformers embeddings) → ML re-ranking (personalized by user history + CTR data) → response. <strong>ES cluster:</strong> 32 shards, 16 data nodes, 3 master nodes. <strong>Latency target:</strong> p99 &lt;200ms end-to-end. <strong>Cache:</strong> Redis for popular queries (5min TTL). ~60% cache hit rate cuts ES load significantly.</p>',
+  'order-svc': '<h4>Order Service</h4><p>Central saga coordinator. Order states: PENDING → PAYMENT_PROCESSING → CONFIRMED → PACKED → SHIPPED → DELIVERED → (RETURNED). Each state transition emits a Kafka event. <strong>DB:</strong> PostgreSQL — ACID required. Sharded by order_id. <strong>Idempotency:</strong> client-generated idempotency key prevents duplicate orders on retry. <strong>Outbox pattern:</strong> DB write + Kafka event in same local transaction via Debezium CDC — guarantees at-least-once delivery even on crash.</p>',
+  'payment-svc': '<h4>Payment Service</h4><p>Never stores raw card data (PCI-DSS). Tokenizes via gateway. <strong>Idempotency:</strong> payment_reference_id prevents double charges on retry. <strong>Flow:</strong> Auth → 3DS verification → Capture (async on order confirm) → Settlement. <strong>Providers:</strong> Stripe (US/EU), Razorpay (India), UPI (India), PayPal (global). Circuit breaker auto-switches provider on failure. <strong>Reconciliation:</strong> Nightly job matches internal payment records vs gateway settlements. Alert on mismatch.</p>',
+  'inventory-svc': '<h4>Inventory Service</h4><p>Real-time stock management. <strong>Reservation flow:</strong> Redis SETNX lock on SKU during checkout (10min TTL) → confirmed on payment success → released on failure. <strong>Write path:</strong> Redis update (sync) + PostgreSQL update (async via Kafka consumer). <strong>Oversell prevention:</strong> Lua script atomic check-and-decrement in Redis. <strong>Warehouse allocation:</strong> Picks nearest warehouse with stock. <strong>Reconciliation:</strong> Nightly Redis ↔ PostgreSQL diff job, alert on delta &gt;1%.</p>',
+  'kafka': '<h4>Apache Kafka — Event Bus</h4><p>Central nervous system. 24 brokers across 3 AZs. RF=3, ISR min 2. Topics: orders.created (32 partitions), payments.confirmed (16), inventory.updated (16), shipment.status (8), fraud.flagged (8), catalog.updated (16). 7-day retention for replay. <strong>Why Kafka over RabbitMQ:</strong> 500K msgs/sec throughput, consumer groups, offset replay, ordering guarantees per partition. <strong>Why not SQS:</strong> No ordering, no consumer groups, higher latency, no replay.</p>',
+  'postgres': '<h4>PostgreSQL — Transactional Store</h4><p>Owns: orders, users, payments, sellers, addresses, inventory (source of truth). 64 shards by entity_id % 64. 1 primary + 2 read replicas per shard. Patroni for automatic failover (&lt;30s). Monthly table partitioning for orders by created_at. <strong>Indexes:</strong> (user_id, created_at DESC) for order history. (seller_id, status) for seller dashboard. <strong>RPO=0:</strong> Synchronous replication to 1 replica before ACK on payments.</p>',
+  'elasticsearch': '<h4>Elasticsearch — Search Index</h4><p>32 data shards + 32 replica shards across 16 nodes. Updated via Kafka consumer (bulk API, 500 docs/batch, every 1s). Index lag &lt;2s. <strong>Mapping:</strong> title (text, analyzed), description (text), price (scaled_float), category (keyword, for facets), attributes (nested for variant filtering), vector_embedding (dense_vector 384-dim). <strong>Query type:</strong> bool(must: multi_match) + knn(vector) + function_score(personalization boost).</p>',
+  'region-us': '<h4>US-East — Primary Region</h4><p>AWS us-east-1. All write-primary services here for financial data (orders, payments). Other regions replicate asynchronously. <strong>Why US primary:</strong> Largest engineering team in same timezone. First to receive new deployments in canary rollout. 99.99% availability target — 3 AZs minimum per service.</p>',
+  'obs-tracing': '<h4>Distributed Tracing — Jaeger</h4><p>Every request gets a correlation ID at the gateway injected as HTTP header X-Trace-ID. Propagated through all service calls. Jaeger collects spans from all services. <strong>Sampling:</strong> 100% for errors and slow requests (&gt;500ms), 1% for normal traffic. <strong>Critical use:</strong> Flash sale debugging, payment failure root cause, cross-service latency attribution.</p>'
+};
+
+function showDetail(id) {
+  const panel = document.getElementById('detail-panel');
+  const body = document.getElementById('detail-body');
+  const content = archDetails[id];
+  if (content) {
+    body.innerHTML = content;
+    panel.classList.add('show');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    body.innerHTML = '<p style="color:var(--text-dim)">Deep dive for this component will be covered in the Deep Dives tab.</p>';
+    panel.classList.add('show');
+  }
+  document.querySelectorAll('.arch-box').forEach(b => b.style.borderColor = '');
+  event.currentTarget.style.borderColor = 'var(--blue)';
+}
+
+const ddData = {
+  1: {
+    title: 'API Gateway & Edge',
+    tech: 'Envoy Proxy · AWS ALB · CloudFront · AWS Shield',
+    scale: '1.15M req/sec peak · 200 Envoy instances · <10ms gateway latency',
+    body: `
+      <h3>Responsibilities</h3>
+      <ul>
+        <li>JWT validation (&lt;1ms, cached public key) + OAuth token introspection</li>
+        <li>Rate limiting: buyers 200 req/min, sellers 1000 req/min, flash endpoints queue-based</li>
+        <li>Path-based routing to downstream microservices</li>
+        <li>SSL/TLS termination at edge, mTLS for all internal service-to-service calls</li>
+        <li>Correlation ID injection for distributed tracing</li>
+        <li>Circuit breaking: 5% error rate → open circuit, return cached/degraded response</li>
+        <li>Priority load shedding: Checkout > Search > Browse > Recommendations > Analytics</li>
+      </ul>
+      <h3>Why Envoy over alternatives</h3>
+      <table>
+        <tr><th>Option</th><th>Decision</th><th>Reason</th></tr>
+        <tr><td>Envoy</td><td><span class="tag tag-green">Chosen</span></td><td>Native gRPC, xDS dynamic config, battle-tested at Uber/Netflix, rich observability</td></tr>
+        <tr><td>Kong</td><td><span class="tag tag-red">Rejected</span></td><td>Plugin overhead at 1M+ req/sec, Lua-based plugins limit performance</td></tr>
+        <tr><td>AWS API Gateway</td><td><span class="tag tag-red">Rejected</span></td><td>Vendor lock-in, $3.50/million req is prohibitive at this scale, limited customization</td></tr>
+        <tr><td>NGINX</td><td><span class="tag tag-red">Rejected</span></td><td>No native service mesh, dynamic config requires reload, weaker gRPC support</td></tr>
+      </table>
+      <div class="failure-callout">Auth service down → serve cached JWT validations (stale-while-revalidate 5min). New logins fail gracefully with clear error message. Existing sessions continue uninterrupted.</div>
+      <div class="em-callout">Team: 3 backend engineers + 1 SRE. Zero-downtime deploys mandatory — every other team depends on this. Key SLO: gateway p99 &lt;10ms (excluding downstream). On-call rotation owns this 24/7.</div>
+    `
+  },
+  2: {
+    title: 'User Service',
+    tech: 'PostgreSQL (sharded) · Redis · OAuth 2.0 PKCE · Bcrypt',
+    scale: '500M users · 64 PG shards · p99 login <200ms',
+    body: `
+      <h3>Responsibilities</h3>
+      <ul>
+        <li>Registration: email/phone (OTP verification) + social (Google, Apple, Facebook via OAuth PKCE)</li>
+        <li>JWT access tokens (15min) + refresh tokens (30 days, HttpOnly cookie)</li>
+        <li>Profile management: name, addresses (multiple), payment methods, preferences</li>
+        <li>KYC status (for high-value purchases and seller onboarding)</li>
+        <li>Password management: Bcrypt cost 12, reset via email OTP</li>
+        <li>Session management: Redis with 15min TTL, JWT blacklist on logout</li>
+      </ul>
+      <h3>Data model</h3>
+      <pre>users(user_id PK, email, phone_hash, bcrypt_hash, status, created_at)
+addresses(address_id PK, user_id FK, line1, city, pincode, is_default)
+sessions(session_id PK, user_id, refresh_token_hash, expires_at, device_info)</pre>
+      <div class="tradeoff-callout">PostgreSQL over MongoDB: user data is highly relational — addresses, payment methods, order history all join on user_id. ACID guarantees critical for account-level operations (password change, deactivation). MongoDB's flexible schema offers no advantage here.</div>
+      <div class="failure-callout">DB primary down → Patroni auto-promotes replica in &lt;30s. New logins have ~30s degraded latency. Existing JWT tokens remain valid (stateless). Redis down → fallback to DB session lookup, ~10x latency but functional.</div>
+      <div class="em-callout">2 backend engineers own this. Security review mandatory for every PR. Monthly penetration test on auth endpoints. Key metric: login success rate &gt;99.9%, &lt;0.1% account takeover attempts succeed.</div>
+    `
+  },
+  3: {
+    title: 'Product & Catalog Service',
+    tech: 'MongoDB · Redis · S3 · Kafka producer · CDN',
+    scale: '500M SKUs · 10K updates/min · p99 PDP load <300ms',
+    body: `
+      <h3>Responsibilities</h3>
+      <ul>
+        <li>Product CRUD: title, description, attributes (category-specific), variants (size/color/SKU)</li>
+        <li>Category taxonomy management (hierarchical: Electronics > Laptops > Gaming Laptops)</li>
+        <li>Image management: upload to S3, generate thumbnails (150/300/600/1200px) via Lambda</li>
+        <li>Bulk upload: CSV/XLSX for sellers, async processing via job queue</li>
+        <li>Publish catalog.updated events to Kafka → consumed by ES indexer and recommendation service</li>
+        <li>Price management: base price, MRP, seller-specific overrides, scheduled price changes</li>
+      </ul>
+      <h3>Why MongoDB for catalog</h3>
+      <p>A laptop has CPU, RAM, storage, GPU. A t-shirt has size, color, material, fit. A book has ISBN, author, genre, pages. These are completely different schemas — forcing them into a relational table requires either hundreds of nullable columns or an EAV (Entity-Attribute-Value) model, both of which are painful to query and maintain. MongoDB's document model is a natural fit.</p>
+      <div class="tradeoff-callout">MongoDB vs PostgreSQL JSONB: JSONB in Postgres is a valid alternative and avoids running a separate DB. At 500M documents with complex nested attributes and high-throughput writes, MongoDB's native horizontal sharding story (by category_id) and dedicated document optimizations win. JSONB becomes a bottleneck at this scale.</div>
+      <div class="failure-callout">MongoDB primary failure → replica election in ~10s. Reads continue from secondary (with potential stale data for &lt;10s). Writes queue client-side. Product updates during this window retried via Kafka consumer.</div>
+      <div class="em-callout">3 engineers own catalog. Critical dependency for search and recommendations. SLO: catalog update visible in search within 2s of publish. Bulk upload jobs processed within 30min for up to 100K products.</div>
+    `
+  },
+  4: {
+    title: 'Search Service',
+    tech: 'Elasticsearch · Redis cache · NLP pipeline · ML ranking · Kafka consumer',
+    scale: '290K queries/sec peak · 32 ES shards · p99 <200ms end-to-end',
+    body: `
+      <h3>Query pipeline (step by step)</h3>
+      <ol style="padding-left:18px;font-size:14px;line-height:2;">
+        <li>Redis cache lookup by query hash (5min TTL) — ~60% hit rate for top queries</li>
+        <li>NLP parsing: tokenization → stemming → spell correction (edit distance) → synonym expansion (brand aliases, common misspellings)</li>
+        <li>ES BM25 multi-match: (title^3, description^1, brand^2, category^1.5)</li>
+        <li>Vector similarity: query embedding (sentence-transformers) vs product embeddings (kNN, k=200)</li>
+        <li>Score fusion: BM25 score × 0.6 + vector score × 0.4</li>
+        <li>ML re-ranking: top 100 candidates → LightGBM model → personalized rank (user history, CTR, recency)</li>
+        <li>Facet aggregation: price ranges, brands, ratings, availability</li>
+        <li>Write result to Redis cache, return to client</li>
+      </ol>
+      <h3>Index update pipeline</h3>
+      <p>catalog.updated → Kafka consumer → ES bulk API (500 docs/batch, 1s interval) → index lag &lt;2s. Separate trending index refreshed every 30s for autocomplete.</p>
+      <div class="tradeoff-callout">Elasticsearch vs Algolia vs Solr: Algolia is excellent but ~$500K/month at this scale. Solr has worse operational tooling and cluster management. ES with self-managed gives best cost-performance ratio. Vector search in ES (since 8.0) eliminates need for a separate vector DB like Pinecone.</div>
+      <div class="failure-callout">ES cluster degraded (node loss): auto-rebalances shards. Search latency increases but results remain available — ES continues serving with fewer replicas. Full cluster failure: fallback to MongoDB text search (worse quality, higher latency but functional).</div>
+      <div class="em-callout">4 engineers: 2 backend + 1 ML + 1 SRE for ES ops. Key metric: search relevance (CTR on top 3 results &gt;40%), zero-results rate &lt;5%, p99 &lt;200ms. A/B test all ranking model changes for 7 days before full rollout.</div>
+    `
+  },
+  5: {
+    title: 'Cart Service',
+    tech: 'Redis · PostgreSQL (persistence) · TTL-based expiry',
+    scale: '500M potential carts · 50M active carts · p99 cart ops <20ms',
+    body: `
+      <h3>Design decisions</h3>
+      <ul>
+        <li><strong>Redis as primary store:</strong> Cart is ephemeral, high-frequency read/write. Redis HASH per user: cart:{user_id} → {sku_id: quantity}. O(1) add/remove/update.</li>
+        <li><strong>Guest carts:</strong> Stored in Redis keyed by session_id (30-day TTL). On login, merged with user cart.</li>
+        <li><strong>Price freshness:</strong> Prices NOT stored in cart — fetched from pricing service at checkout time. Prevents stale price issues.</li>
+        <li><strong>Inventory NOT checked at add-to-cart:</strong> Only at checkout. UX decision — overly strict at add-to-cart frustrates users (item gone before they decide). Inventory check happens at reservation time.</li>
+        <li><strong>Persistence:</strong> Cart state written to PostgreSQL async every 5min for recovery if Redis fails.</li>
+      </ul>
+      <div class="tradeoff-callout">Checking inventory at add-to-cart vs checkout: checking at add-to-cart gives better UX feedback but causes false negatives (item might be available again by checkout). Industry standard (Amazon, Flipkart) is to check at checkout — more accurate, less friction during browsing.</div>
+      <div class="failure-callout">Redis down → serve cart from PostgreSQL (5min stale at worst). Write operations queue and replay on Redis recovery. Cart data loss risk: near-zero with async persistence + AOF on Redis.</div>
+    `
+  },
+  6: {
+    title: 'Order Service',
+    tech: 'PostgreSQL · Kafka · Saga pattern · Outbox + Debezium CDC · Idempotency keys',
+    scale: '115 orders/sec avg · 1150/sec peak · RPO=0',
+    body: `
+      <h3>Order lifecycle</h3>
+      <pre>PENDING → PAYMENT_PROCESSING → CONFIRMED → PACKED → PICKED_UP → IN_TRANSIT → DELIVERED → (RETURNED)</pre>
+      <h3>Saga choreography</h3>
+      <p>No central orchestrator. Each service listens for events and emits its own:</p>
+      <ul>
+        <li>Order service creates order (PENDING) → emits orders.created</li>
+        <li>Payment service consumes → charges → emits payments.confirmed or payments.failed</li>
+        <li>Inventory service consumes payments.confirmed → confirms reservation → emits inventory.reserved</li>
+        <li>Logistics service consumes → assigns carrier → emits shipment.created</li>
+        <li>Notification service consumes all events → sends user notifications</li>
+      </ul>
+      <h3>Outbox pattern for guaranteed delivery</h3>
+      <p>Order DB write + Kafka event publish in same local PostgreSQL transaction. Debezium CDC reads the outbox table and publishes to Kafka. Guarantees at-least-once even on crash between DB write and Kafka publish.</p>
+      <div class="tradeoff-callout">Choreography vs orchestration: Orchestration (Temporal/Conductor) gives better visibility into saga state and easier debugging. Choreography gives looser coupling. We chose choreography with a dedicated saga state monitor service that reconstructs state from events — best of both worlds.</div>
+      <div class="failure-callout">Payment confirmed but inventory reservation fails → emit ORDER_INVENTORY_FAILED → trigger refund via payment service → notify user. Every failure path has a compensating transaction defined before the system goes live.</div>
+      <div class="em-callout">5 engineers own this + payment team collaboration. Most critical service — bugs here directly impact revenue. 100% test coverage requirement for all state transitions. Chaos testing: randomly kill services during order flow in staging monthly.</div>
+    `
+  },
+  7: {
+    title: 'Payment Service',
+    tech: 'PostgreSQL · Stripe/Razorpay/UPI · Idempotency keys · PCI-DSS tokenization · Reconciliation job',
+    scale: '115 TPS avg · 1150 TPS peak · RPO=0 · $500M/day GMV',
+    body: `
+      <h3>Core design principles</h3>
+      <ul>
+        <li><strong>Never store raw card data:</strong> Tokenized immediately by gateway. We store gateway_token + last4 + expiry only.</li>
+        <li><strong>Idempotency:</strong> Every payment request includes a client-generated idempotency_key (UUID). Duplicate requests return cached result — no double charges.</li>
+        <li><strong>Auth-then-capture:</strong> Auth at checkout (reserves funds). Capture async after order confirmation. Reduces failed captures from inventory issues.</li>
+        <li><strong>Multi-provider failover:</strong> Stripe primary → Razorpay fallback → UPI direct fallback. Circuit breaker switches in &lt;5s on provider failure.</li>
+        <li><strong>3DS 2.0:</strong> Mandatory for EU (PSD2 SCA). Risk-based — low-risk transactions skip challenge flow.</li>
+      </ul>
+      <h3>Reconciliation</h3>
+      <p>Nightly job: fetch settlement files from all gateways → match against internal payment records → flag mismatches → alert finance team. Any unmatched transactions trigger manual review within 24h.</p>
+      <div class="failure-callout">Gateway outage during payment: circuit breaker detects failure rate &gt;5% → auto-switch to backup provider. User sees slight delay (&lt;5s) but transaction completes. If all providers down: order held in PAYMENT_PENDING state, user notified to retry, inventory lock maintained for 30min.</div>
+      <div class="em-callout">4 engineers + dedicated security engineer. PCI-DSS Level 1 audit annually (QSA). Penetration test quarterly. Zero tolerance for payment bugs — every prod incident triggers a post-mortem within 48h regardless of severity.</div>
+    `
+  },
+  8: {
+    title: 'Inventory Service',
+    tech: 'Redis (locks + real-time) · PostgreSQL (source of truth) · Kafka consumer · Lua scripts',
+    scale: '500M SKUs · 1150 reservations/sec peak · p99 reservation <50ms',
+    body: `
+      <h3>Two-layer inventory model</h3>
+      <ul>
+        <li><strong>Redis layer (operational):</strong> Current available stock per SKU per warehouse. Updated on every reservation, release, restock. Source for real-time "X left in stock" display and checkout decisions.</li>
+        <li><strong>PostgreSQL layer (source of truth):</strong> Committed stock levels after orders fulfilled. Reconciled with Redis nightly. Source for financial reporting and seller dashboards.</li>
+      </ul>
+      <h3>Reservation flow (atomic)</h3>
+      <pre>EVAL lua_script KEYS[1] ARGV[1]
+-- Lua: if stock[sku] >= qty then stock[sku] -= qty; return 1 else return 0 end
+-- Atomic in Redis — no race conditions</pre>
+      <h3>Oversell prevention</h3>
+      <p>Lua script atomically checks and decrements. Cannot oversell even at 1150 concurrent reservations/sec. Lock TTL = 10min (checkout window). Background job releases expired locks every minute.</p>
+      <div class="tradeoff-callout">Redis locks vs DB SELECT FOR UPDATE: PostgreSQL handles ~50K TPS. Redis handles 500K+ ops/sec. At 1150 reservations/sec peak (trivial for Redis) plus 10x flash sale = 11,500/sec (still fine for Redis, would crush a single PG shard). Redis is the right tool here.</div>
+      <div class="failure-callout">Redis failure during reservation: immediately failover to Redis Sentinel replica. &lt;30s downtime. Orders queue client-side. No inventory inconsistency — Lua scripts are atomic so partial execution is impossible.</div>
+    `
+  },
+  9: {
+    title: 'Seller Service',
+    tech: 'PostgreSQL · ClickHouse · Kafka consumer · S3 (document storage)',
+    scale: '10M sellers · 500M catalog updates/year · dashboard queries <1s',
+    body: `
+      <h3>Responsibilities</h3>
+      <ul>
+        <li>Seller onboarding: KYC (PAN/GST verification), bank account verification, category approval</li>
+        <li>Catalog management: product listing, bulk upload (CSV/XLSX/API), variant management</li>
+        <li>Order management: view incoming orders, accept/reject, print shipping labels</li>
+        <li>Analytics dashboard: sales, revenue, returns, conversion rate, inventory health</li>
+        <li>Settlement management: weekly payouts, fee deductions, dispute resolution</li>
+        <li>Performance scoring: seller health score (fulfillment rate, cancel rate, customer rating)</li>
+      </ul>
+      <h3>Analytics stack</h3>
+      <p>Kafka consumers write order/return/review events to ClickHouse. Seller dashboard queries ClickHouse directly for &lt;1s aggregations on millions of rows. Not PostgreSQL — columnar OLAP is 100x faster for these aggregation queries.</p>
+      <div class="em-callout">4 engineers. Seller NPS is a key business metric — dashboard performance directly impacts seller satisfaction. SLO: dashboard load &lt;1s for 90-day analytics. Bulk upload: 100K products processed within 30min.</div>
+    `
+  },
+  10: {
+    title: 'Logistics Service',
+    tech: 'PostgreSQL · Cassandra · Kafka · Google Maps API · WebSocket (tracking)',
+    scale: '10M shipments/day · real-time GPS every 30s · p99 tracking update <5s',
+    body: `
+      <h3>Carrier assignment algorithm</h3>
+      <ol style="padding-left:18px;font-size:14px;line-height:2;">
+        <li>Determine fulfillment type: FBA (our warehouse) vs self-ship (seller)</li>
+        <li>Find nearest warehouse with stock (inventory service query)</li>
+        <li>Get carrier options for origin→destination pincode pair</li>
+        <li>Score carriers: delivery time × weight × cost × seller preference × historical performance</li>
+        <li>Assign carrier, generate AWB (airway bill) number, emit shipment.created event</li>
+      </ol>
+      <h3>Real-time tracking</h3>
+      <p>Delivery agent app sends GPS coordinates every 30s → Kafka → tracking service → WebSocket push to customer app. Location history stored in Cassandra (time-series, wide rows per shipment). Customer sees live map via Google Maps embed.</p>
+      <div class="failure-callout">Carrier API down: fallback to manual status updates from carrier webhook. Tracking shows "In transit" without live GPS. Customer notified of tracking delay. Carrier SLA breach automatically triggers compensation credit issuance.</div>
+    `
+  },
+  11: {
+    title: 'Notification Service',
+    tech: 'Kafka consumer · FCM (Android) · APNs (iOS) · Twilio (SMS) · AWS SES (email) · WebSocket',
+    scale: '50M notifications/day · p99 delivery <5s for push · email p99 <30s',
+    body: `
+      <h3>Channel routing logic</h3>
+      <ul>
+        <li><strong>Push (FCM/APNs):</strong> User online + app installed → preferred channel. Delivery receipt tracked.</li>
+        <li><strong>SMS (Twilio):</strong> Critical events (OTP, payment confirmed, order delivered) regardless of push opt-in status.</li>
+        <li><strong>Email (SES):</strong> Order confirmation, invoice, promotional. Async, lower priority.</li>
+        <li><strong>In-app (WebSocket):</strong> Real-time for active session. Order status changes, delivery alerts.</li>
+      </ul>
+      <h3>Event-driven architecture</h3>
+      <p>Notification service is a pure Kafka consumer. Consumes: orders.*, payments.*, shipment.*, promotions.*. Each event maps to a notification template. Rate limiting per user (max 5 notifications/hour for promotional, unlimited for transactional).</p>
+      <div class="failure-callout">FCM outage: queue notifications in Redis with 24h TTL, retry when FCM recovers. SMS as fallback for critical events (payment, delivery). Email always sent regardless of push status for order confirmation — financial record.</div>
+    `
+  },
+  12: {
+    title: 'Recommendation & ML Service',
+    tech: 'TensorFlow Serving · Feature store (Redis + Parquet) · Kafka consumer · A/B testing framework',
+    scale: '500M users · 100ms inference budget · models retrained daily',
+    body: `
+      <h3>Recommendation surfaces</h3>
+      <ul>
+        <li>Homepage: "Recommended for you" (collaborative filtering + user history)</li>
+        <li>PDP: "Frequently bought together" (association rules) + "Similar products" (item-item CF)</li>
+        <li>Cart: "Complete the look" / "Often bought with" (basket analysis)</li>
+        <li>Email: Weekly recommendations (batch, lower latency requirement)</li>
+        <li>Search ranking: Personalization boost layer on top of ES results</li>
+      </ul>
+      <h3>Model stack</h3>
+      <ul>
+        <li><strong>Retrieval:</strong> Two-tower model (user embedding × item embedding) → top 500 candidates</li>
+        <li><strong>Ranking:</strong> LightGBM on 200+ features → score and rank candidates</li>
+        <li><strong>Features:</strong> User: last 30 views, purchases, category affinity (hourly batch). Item: CTR, conversion rate, recency, price tier (streaming). Cross: user-item affinity score (daily)</li>
+      </ul>
+      <div class="tradeoff-callout">Real-time vs batch recommendations: homepage recs are batch (updated hourly) — 500M users × fresh inference in real-time is too expensive. PDP cross-sell is real-time (lower traffic, higher intent signal). Email is fully batch. Latency budget drives the choice.</div>
+      <div class="em-callout">6 ML engineers + 2 data engineers. Every model change: offline eval (AUC) → shadow mode → 1% canary (7 days) → 10% → 100%. Revenue impact tracked per experiment. Kill switch: feature flag disables ML ranking, falls back to recency sort in &lt;1s.</div>
+    `
+  },
+  13: {
+    title: 'Affiliate Service',
+    tech: 'PostgreSQL · Redis · Kafka consumer · URL shortener · Click tracker',
+    scale: '1B affiliate clicks/month · commission accuracy 99.99%',
+    body: `
+      <h3>Attribution model</h3>
+      <ul>
+        <li>Affiliate generates tracking link: <code>https://app.com/p/123?aff=ABC123&utm_source=affiliate</code></li>
+        <li>Click tracked: store (aff_id, user_id/cookie, product_id, timestamp) in Redis (30-day attribution window)</li>
+        <li>On purchase: Kafka consumer matches order to affiliate click → calculate commission (% of GMV per category)</li>
+        <li>Commission accrued in PostgreSQL. Monthly payout batch job.</li>
+        <li>Fraud detection: same IP clicking multiple times, cookie stuffing detection, self-referral prevention</li>
+      </ul>
+      <div class="tradeoff-callout">Last-click vs multi-touch attribution: last-click is standard in e-commerce (simpler, clear accountability). Multi-touch more accurate but complex — deferred to Phase 3. Affiliates contractually agree to last-click model at onboarding.</div>
+    `
+  },
+  14: {
+    title: 'Flash Sale Engine',
+    tech: 'Redis · Virtual queue · Lua scripts · WebSocket/SSE · Pre-scaled K8s · CDN-first architecture',
+    scale: '50x traffic spike · 50M concurrent users at T=0 · zero oversell',
+    body: `
+      <h3>Architecture</h3>
+      <ul>
+        <li><strong>Virtual waiting room:</strong> Users redirected to queue service on accessing flash sale URL. Queue position = Redis LPUSH return index.</li>
+        <li><strong>Position polling:</strong> SSE (Server-Sent Events) pushes position updates every 5s. No polling — server pushes.</li>
+        <li><strong>Token issuance:</strong> When user's position reached, issue a signed JWT checkout token (5min TTL, single-use).</li>
+        <li><strong>Atomic stock decrement:</strong> Checkout validates token + Lua script atomically decrements stock. Token invalidated immediately on use.</li>
+        <li><strong>CDN-first product page:</strong> Flash sale PDP served entirely from CDN. No origin requests for browsing. Only checkout hits origin.</li>
+      </ul>
+      <h3>Pre-sale preparation</h3>
+      <ul>
+        <li>T-2h: Pre-scale K8s nodes to 5x normal capacity</li>
+        <li>T-1h: Warm Redis with product data, pre-compute recommendations</li>
+        <li>T-30min: Enable queue service, start accepting pre-queue registrations</li>
+        <li>T-0: Open sale — queue starts draining at controlled rate</li>
+      </ul>
+      <div class="failure-callout">Redis queue failure at T=0: Sentinel promotes replica in &lt;30s. Queue positions preserved (AOF). Users see "briefly unavailable" message. Sale paused for 30s then resumes. Worst case: serve static "coming back soon" from CDN.</div>
+      <div class="em-callout">Dedicated war room on Big Billion Day: EM, SRE lead, payment lead, infra lead on video call from T-2h to T+2h. Auto-rollback trigger: if checkout error rate &gt;1% for 60s, flash sale paused automatically. Manual restart required after investigation.</div>
+    `
+  }
+};
+
+function showDD(n) {
+  document.querySelectorAll('[id^="dd-btn-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('dd-btn-'+n).classList.add('active');
+  const d = ddData[n];
+  document.getElementById('dd-content').innerHTML = `
+    <div class="card" style="border-color:#1e3a6a;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div>
+          <div class="card-title" style="font-size:16px;">${d.title}</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:3px;">${d.tech}</div>
+          <div style="font-size:12px;color:var(--green);margin-top:2px;">${d.scale}</div>
+        </div>
+      </div>
+      ${d.body}
+    </div>`;
+}
+showDD(1);
+
+const orderFlowDetails = [
+  { title: 'User checkout request', detail: 'Client sends POST /v1/orders/checkout with: cart_id, address_id, payment_method_token, coupon_code (optional), idempotency_key. Request size ~2KB. JWT token in Authorization header.' },
+  { title: 'API Gateway — auth + rate limit', detail: 'Envoy validates JWT (&lt;1ms). Rate limiter checks Redis: checkout endpoint has separate higher quota (20/min) to reduce false throttles during legitimate purchasing. Fraud pre-check: IP reputation, velocity check on payment token.' },
+  { title: 'Pricing service — validate + compute', detail: 'Fetch current prices for all cart items (prevents stale cart price). Apply coupon (validate code, check usage limits, calculate discount). Compute tax (Avalara API for multi-state, GST for India). Return final order total with itemized breakdown. &lt;100ms.' },
+  { title: 'Inventory reservation (Redis Lua)', detail: 'For each SKU in cart: atomic Lua script checks stock ≥ quantity then decrements. If any SKU fails: release all successful locks, return 409 with list of unavailable items. Lock TTL = 10min. All-or-nothing — no partial reservations.' },
+  { title: 'Order service — create PENDING', detail: 'INSERT order record to PostgreSQL with status=PENDING. Write to outbox table in same transaction. Debezium CDC picks up outbox entry and publishes orders.created to Kafka. Client receives order_id immediately — async processing begins.' },
+  { title: 'Payment service — charge', detail: 'Consume orders.created from Kafka. Auth charge on payment gateway (Stripe/Razorpay/UPI). 3DS challenge if required by card issuer. On success: emit payments.confirmed. On failure: emit payments.failed → compensating transaction releases inventory locks, cancels order.' },
+  { title: 'Kafka: payments.confirmed event', detail: 'Event payload: {order_id, user_id, amount, currency, gateway_ref, timestamp}. Consumed by: order service (update status → CONFIRMED), inventory service (commit reservation to PostgreSQL), notification service (send confirmation), analytics service, fraud service.' },
+  { title: 'Fanout — notify, ship, analytics, fraud', detail: 'Notification: push + email confirmation sent within 5s. Logistics: carrier assignment, AWB generation, pickup scheduled. Analytics: order written to ClickHouse for seller dashboard. Fraud: async ML scoring, flag for manual review if score &gt;0.8. All in parallel, none blocking the user flow.' }
+];
+
+const searchFlowDetails = [
+  { title: 'User search query', detail: 'GET /v1/products/search?q=nike+running+shoes&filters=price:1000-5000,rating:4+&page=1&limit=24. Query string URL-encoded. User\'s location header used for geo-boosting local warehouse stock.' },
+  { title: 'Redis cache check', detail: 'Cache key = MD5(normalized_query + filters + page). TTL = 5min. ~60% hit rate for top queries (brand names, categories). Cache warmed on trending searches. Cache miss continues to NLP pipeline. HIT returns cached JSON directly — &lt;5ms total.' },
+  { title: 'NLP query parser', detail: 'Tokenization → lowercase → spell correction (edit distance ≤2 for words &gt;4 chars) → stemming (running→run) → synonym expansion (shoe→footwear, sneaker). Brand extraction (Nike, Adidas recognized as entities). Intent detection: navigational vs informational vs transactional.' },
+  { title: 'Elasticsearch BM25 + filters', detail: 'bool query: must(multi_match: title^3 + brand^2 + description^1) + filter(price range, rating, in_stock, category). BM25 scoring normalized by field length. Returns top 500 candidates with scores. Facet aggregations computed in parallel. ~30ms for this step.' },
+  { title: 'Vector similarity (semantic search)', detail: 'Query embedding generated by sentence-transformers (384-dim). kNN search against pre-computed product embeddings. Returns top 200 semantically similar products (handles "comfortable shoes for flat feet" → orthopedic footwear). Score fusion: BM25×0.6 + vector×0.4. ~40ms.' },
+  { title: 'ML re-ranking (personalized)', detail: 'Top 100 candidates → LightGBM model → 200+ features: user purchase history, click history, category affinity, item CTR (global + user-specific), recency, price tier match, seller rating. Personalization score boosted for items in user\'s preferred brands/categories. ~20ms inference.' },
+  { title: 'Cache write + respond', detail: 'Write result to Redis (5min TTL). Return top 24 products with: title, image, price, rating, seller, delivery estimate, stock status. Response size ~15KB. Total pipeline p50: 80ms, p99: 180ms. Autocomplete results returned from separate trending index in &lt;20ms.' }
+];
+
+const flashFlowDetails = [
+  { title: 'User hits flash sale URL at T=0', detail: 'All marketing traffic (email, app notifications, social) links to /flash/sale-id. CDN detects this is a flash sale URL (configured pre-sale) and routes to queue service instead of product service. Product page itself served entirely from CDN — no origin requests for browsing.' },
+  { title: 'Gateway routes to queue service', detail: 'Dedicated queue service endpoint bypasses normal rate limiting. Instead uses per-user token bucket: 1 queue entry per user per sale. Duplicate requests (page refresh) return existing position without creating new queue entry. Queue service pre-scaled to 500 pods.' },
+  { title: 'Redis LPUSH into sale queue', detail: 'LPUSH sale:{sale_id}:queue {user_id}:{timestamp}. LPUSH is O(1). Redis handles 500K LPUSH/sec easily. Queue length at T=0 can reach 10M+ entries within seconds. Queue length = live "number of people ahead of you" shown to user. Queue backed by AOF persistence.' },
+  { title: 'User polls position via SSE', detail: 'Server-Sent Events connection maintained per user. Server pushes position update every 5s: {position: 12450, total_inventory: 10000, estimated_wait: "~10 min"}. SSE chosen over WebSocket: unidirectional, lower overhead, HTTP/2 compatible, auto-reconnects. 50K SSE connections per pod.' },
+  { title: 'Checkout token issued at position reached', detail: 'When LINDEX position ≤ current_serving_position: issue signed JWT checkout_token = {user_id, sale_id, sku_id, exp: now+5min, nonce: uuid}. Token is single-use. User redirected to checkout page. 5-min window to complete payment — if expired, returned to queue (back of line).' },
+  { title: 'Checkout with token (5 min TTL)', detail: 'Normal checkout flow but checkout_token validated first: signature valid? not expired? not already used? Token nonce stored in Redis SETNX (prevents replay). If all checks pass, proceed to payment. Payment must complete within remaining TTL. Urgency UI shown: "Complete in 4:32".' },
+  { title: 'Lua script atomic stock decrement', detail: 'EVAL: if tokens_remaining[sale_id] > 0 then decr tokens_remaining[sale_id]; mark token_nonce as used; return SUCCESS else return SOLD_OUT end. Atomic — impossible to oversell even with thousands of simultaneous checkouts. SOLD_OUT returns 409, user sees "Sorry, item sold out" with compensation coupon.' }
+];
+
+function showFlow(type, step, el) {
+  const details = type === 'order' ? orderFlowDetails : type === 'search' ? searchFlowDetails : flashFlowDetails;
+  const detailId = type + '-flow-detail';
+  el.closest('.flow-wrap').querySelectorAll('.flow-step').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  const detailEl = document.getElementById(detailId);
+  detailEl.innerHTML = '<div class="flow-detail-title">' + details[step].title + '</div><p>' + details[step].detail + '</p>';
+  detailEl.classList.add('show');
+}
+</script>
+</body>
+</html>

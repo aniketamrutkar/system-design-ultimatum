@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp System Design — Staff/Principal Engineer Deep Dive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2332;
+    --surface3: #243044;
+    --border: #2a3a50;
+    --text: #e2e8f0;
+    --text-dim: #8899aa;
+    --accent: #00d4aa;
+    --accent2: #6366f1;
+    --accent3: #f59e0b;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --info: #3b82f6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+  /* Header */
+  .header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header p { color: var(--text-dim); font-size: 15px; }
+
+  /* Navigation */
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 40px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-tab {
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    white-space: nowrap;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    font-family: inherit;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--surface2); }
+  .nav-tab.active { color: var(--bg); background: var(--accent); }
+
+  /* Sections */
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    color: var(--accent);
+  }
+
+  /* Architecture Diagram */
+  .arch-container {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+
+  .arch-svg { width: 100%; min-width: 1100px; }
+
+  .arch-node {
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .arch-node:hover rect,
+  .arch-node:hover ellipse {
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 8px rgba(0,212,170,0.3));
+  }
+  .arch-node.selected rect,
+  .arch-node.selected ellipse {
+    stroke: var(--accent);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 12px rgba(0,212,170,0.5));
+  }
+
+  /* Detail Panel */
+  .detail-panel {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 32px;
+  }
+  .detail-panel h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .detail-panel h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent2);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .detail-panel p, .detail-panel li {
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+  }
+  .detail-panel ul { padding-left: 20px; }
+  .detail-panel li { margin-bottom: 4px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .badge-green { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .badge-blue { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .badge-yellow { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .badge-red { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .badge-purple { background: rgba(99,102,241,0.15); color: #6366f1; }
+
+  /* Flow Diagram */
+  .flow-container {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .flow-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  .flow-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .flow-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .flow-btn:hover { border-color: var(--accent); color: var(--text); }
+  .flow-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border-left: 3px solid var(--border);
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .flow-step.active {
+    border-left-color: var(--accent);
+    background: var(--surface3);
+  }
+  .flow-step.highlight {
+    border-left-color: var(--accent3);
+    background: rgba(245,158,11,0.08);
+  }
+  .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0,212,170,0.1);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .step-content h5 {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .step-content p {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .step-arrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: 44px;
+    padding: 2px 0;
+  }
+  .step-component {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    background: rgba(99,102,241,0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* Deep Dive Cards */
+  .deep-dive {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .dd-header {
+    padding: 20px 24px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+  }
+  .dd-header:hover { background: var(--surface2); }
+  .dd-header h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .dd-toggle {
+    font-size: 18px;
+    color: var(--accent);
+    transition: transform 0.3s;
+  }
+  .dd-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+  }
+  .dd-body.open { max-height: 5000px; }
+  .dd-content {
+    padding: 0 24px 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Data Store Table */
+  .ds-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0;
+  }
+  .ds-table th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--surface2);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .ds-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .ds-table tr:hover td { background: rgba(0,212,170,0.03); }
+
+  /* Code blocks */
+  .code-block {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 12px 0;
+    border: 1px solid #21262d;
+    color: #c9d1d9;
+  }
+  .code-kw { color: #ff7b72; }
+  .code-str { color: #a5d6ff; }
+  .code-cm { color: #8b949e; }
+  .code-fn { color: #d2a8ff; }
+  .code-num { color: #79c0ff; }
+
+  /* Metric Cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .metric-card {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .metric-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+  .metric-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Toggle */
+  .toggle-group {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 3px;
+    margin: 12px 0;
+    display: inline-flex;
+  }
+  .toggle-opt {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-dim);
+    border: none;
+    background: none;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .toggle-opt.active { background: var(--accent2); color: white; }
+
+  /* Failure mode cards */
+  .failure-card {
+    background: rgba(239,68,68,0.05);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 12px 0;
+  }
+  .failure-card h5 {
+    color: var(--danger);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .failure-card p { font-size: 13px; color: var(--text); }
+
+  .mitigation-card {
+    background: rgba(34,197,94,0.05);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 12px 0;
+  }
+  .mitigation-card h5 {
+    color: var(--success);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .mitigation-card p { font-size: 13px; color: var(--text); }
+
+  /* EM section */
+  .em-callout {
+    background: rgba(99,102,241,0.08);
+    border-left: 3px solid var(--accent2);
+    border-radius: 0 12px 12px 0;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .em-callout h5 {
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .em-callout p { font-size: 13px; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 16px 0;
+  }
+  @media (max-width: 800px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .subsection {
+    margin: 24px 0;
+  }
+  .subsection h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+  }
+
+  /* Tooltip */
+  .info-tip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    color: var(--accent);
+    border-bottom: 1px dashed var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>System Design: WhatsApp-like Chat Platform</h1>
+    <p>Staff/Principal Engineer Deep Dive — 50M DAU, 10B messages/day, E2E encrypted</p>
+  </div>
+
+  <div class="nav-tabs" id="navTabs">
+    <button class="nav-tab active" data-tab="arch">Architecture</button>
+    <button class="nav-tab" data-tab="flows">Critical Flows</button>
+    <button class="nav-tab" data-tab="components">Component Deep Dives</button>
+    <button class="nav-tab" data-tab="datastores">Data Stores</button>
+    <button class="nav-tab" data-tab="failures">Failures & Tradeoffs</button>
+    <button class="nav-tab" data-tab="em">EM Perspective</button>
+    <button class="nav-tab" data-tab="scale">Scale Reasoning</button>
+  </div>
+
+  <!-- ==================== ARCHITECTURE TAB ==================== -->
+  <div class="section active" id="tab-arch">
+    <h2 class="section-title">High-Level Architecture</h2>
+    <p style="color:var(--text-dim);margin-bottom:20px;font-size:14px;">Click any component in the diagram to see its deep dive. The architecture follows a <strong>cell-based topology</strong> — each geographic region runs an independent cell serving ~5M users, with cross-cell routing for inter-region messages.</p>
+
+    <div class="arch-container">
+      <svg class="arch-svg" viewBox="0 0 1100 720" xmlns="http://www.w3.org/2000/svg">
+        <!-- Background grid -->
+        <defs>
+          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1a2332" stroke-width="0.5"/>
+          </pattern>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#4a5568"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00d4aa"/>
+          </marker>
+        </defs>
+        <rect width="1100" height="720" fill="#0d1219" rx="12"/>
+        <rect width="1100" height="720" fill="url(#grid)" rx="12"/>
+
+        <!-- Client Layer -->
+        <text x="80" y="35" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">CLIENT LAYER</text>
+        <g class="arch-node" data-component="client" onclick="showComponent('client')">
+          <rect x="30" y="45" width="130" height="50" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="95" y="67" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Mobile Client</text>
+          <text x="95" y="82" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">iOS / Android</text>
+        </g>
+        <g class="arch-node" data-component="client" onclick="showComponent('client')">
+          <rect x="180" y="45" width="130" height="50" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="245" y="67" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Web Client</text>
+          <text x="245" y="82" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">React / WebSocket</text>
+        </g>
+
+        <!-- Edge / Gateway Layer -->
+        <text x="80" y="135" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">EDGE & GATEWAY</text>
+        <g class="arch-node" data-component="lb" onclick="showComponent('lb')">
+          <rect x="30" y="148" width="140" height="50" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="100" y="170" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Load Balancer</text>
+          <text x="100" y="185" fill="#f59e0b" font-family="JetBrains Mono" font-size="9" text-anchor="middle">L4 / Envoy</text>
+        </g>
+        <g class="arch-node" data-component="gateway" onclick="showComponent('gateway')">
+          <rect x="190" y="148" width="160" height="50" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="270" y="170" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">API Gateway</text>
+          <text x="270" y="185" fill="#6366f1" font-family="JetBrains Mono" font-size="9" text-anchor="middle">Auth + Rate Limit</text>
+        </g>
+        <g class="arch-node" data-component="ws" onclick="showComponent('ws')">
+          <rect x="370" y="148" width="160" height="50" rx="8" fill="#1e3a2f" stroke="#00d4aa" stroke-width="1.5"/>
+          <text x="450" y="170" fill="#00d4aa" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">WebSocket Gateway</text>
+          <text x="450" y="185" fill="#00d4aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">25M connections</text>
+        </g>
+
+        <!-- Core Services -->
+        <text x="80" y="248" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">CORE SERVICES</text>
+        <g class="arch-node" data-component="chat" onclick="showComponent('chat')">
+          <rect x="30" y="262" width="150" height="55" rx="8" fill="#1e2a3a" stroke="#3b82f6" stroke-width="1.5"/>
+          <text x="105" y="284" fill="#3b82f6" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">Chat Service</text>
+          <text x="105" y="300" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">msg routing + ordering</text>
+        </g>
+        <g class="arch-node" data-component="group" onclick="showComponent('group')">
+          <rect x="200" y="262" width="150" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="275" y="284" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Group Service</text>
+          <text x="275" y="300" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">fan-out + membership</text>
+        </g>
+        <g class="arch-node" data-component="presence" onclick="showComponent('presence')">
+          <rect x="370" y="262" width="150" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="445" y="284" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Presence Service</text>
+          <text x="445" y="300" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">online/typing/last_seen</text>
+        </g>
+        <g class="arch-node" data-component="push" onclick="showComponent('push')">
+          <rect x="540" y="262" width="150" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="615" y="284" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Push / Notification</text>
+          <text x="615" y="300" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">APNs / FCM bridge</text>
+        </g>
+
+        <!-- Second row of services -->
+        <g class="arch-node" data-component="media" onclick="showComponent('media')">
+          <rect x="30" y="335" width="150" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="105" y="357" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Media Service</text>
+          <text x="105" y="373" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">upload/transcode/CDN</text>
+        </g>
+        <g class="arch-node" data-component="user" onclick="showComponent('user')">
+          <rect x="200" y="335" width="150" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="275" y="357" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">User Service</text>
+          <text x="275" y="373" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">profile + contacts</text>
+        </g>
+        <g class="arch-node" data-component="encryption" onclick="showComponent('encryption')">
+          <rect x="370" y="335" width="150" height="55" rx="8" fill="#2a1e1e" stroke="#ef4444" stroke-width="1.5"/>
+          <text x="445" y="357" fill="#ef4444" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">E2E Encryption</text>
+          <text x="445" y="373" fill="#ef4444" font-family="JetBrains Mono" font-size="9" text-anchor="middle">Signal Protocol</text>
+        </g>
+        <g class="arch-node" data-component="sync" onclick="showComponent('sync')">
+          <rect x="540" y="335" width="150" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="615" y="357" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Sync Service</text>
+          <text x="615" y="373" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">offline queue + replay</text>
+        </g>
+
+        <!-- Message Queue -->
+        <text x="750" y="248" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">MESSAGE BUS</text>
+        <g class="arch-node" data-component="kafka" onclick="showComponent('kafka')">
+          <rect x="730" y="262" width="160" height="80" rx="8" fill="#2a2a1e" stroke="#f59e0b" stroke-width="1.5"/>
+          <text x="810" y="290" fill="#f59e0b" font-family="DM Sans" font-size="13" font-weight="700" text-anchor="middle">Apache Kafka</text>
+          <text x="810" y="308" fill="#f59e0b" font-family="JetBrains Mono" font-size="9" text-anchor="middle">msg-events topic</text>
+          <text x="810" y="322" fill="#f59e0b" font-family="JetBrains Mono" font-size="9" text-anchor="middle">350K msg/sec</text>
+        </g>
+
+        <!-- Data Layer -->
+        <text x="80" y="440" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">DATA LAYER</text>
+
+        <g class="arch-node" data-component="cassandra" onclick="showComponent('cassandra')">
+          <ellipse cx="105" cy="490" rx="75" ry="35" fill="#1e2a3a" stroke="#3b82f6" stroke-width="1.5"/>
+          <text x="105" y="486" fill="#3b82f6" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">Cassandra</text>
+          <text x="105" y="501" fill="#3b82f6" font-family="JetBrains Mono" font-size="9" text-anchor="middle">Messages</text>
+        </g>
+        <g class="arch-node" data-component="redis" onclick="showComponent('redis')">
+          <ellipse cx="275" cy="490" rx="75" ry="35" fill="#2a1e1e" stroke="#ef4444" stroke-width="1.5"/>
+          <text x="275" y="486" fill="#ef4444" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">Redis Cluster</text>
+          <text x="275" y="501" fill="#ef4444" font-family="JetBrains Mono" font-size="9" text-anchor="middle">Sessions + Presence</text>
+        </g>
+        <g class="arch-node" data-component="postgres" onclick="showComponent('postgres')">
+          <ellipse cx="445" cy="490" rx="75" ry="35" fill="#1a2a2a" stroke="#22c55e" stroke-width="1.5"/>
+          <text x="445" y="486" fill="#22c55e" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">PostgreSQL</text>
+          <text x="445" y="501" fill="#22c55e" font-family="JetBrains Mono" font-size="9" text-anchor="middle">Users + Groups</text>
+        </g>
+        <g class="arch-node" data-component="s3" onclick="showComponent('s3')">
+          <ellipse cx="615" cy="490" rx="75" ry="35" fill="#2a2a1e" stroke="#f59e0b" stroke-width="1.5"/>
+          <text x="615" y="486" fill="#f59e0b" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">Object Store</text>
+          <text x="615" y="501" fill="#f59e0b" font-family="JetBrains Mono" font-size="9" text-anchor="middle">S3 / Media</text>
+        </g>
+
+        <!-- Cross-cell Router -->
+        <text x="750" y="400" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">CROSS-REGION</text>
+        <g class="arch-node" data-component="cellrouter" onclick="showComponent('cellrouter')">
+          <rect x="730" y="415" width="160" height="55" rx="8" fill="#1e2a3a" stroke="#6366f1" stroke-width="1.5"/>
+          <text x="810" y="438" fill="#6366f1" font-family="DM Sans" font-size="12" font-weight="700" text-anchor="middle">Cell Router</text>
+          <text x="810" y="453" fill="#6366f1" font-family="JetBrains Mono" font-size="9" text-anchor="middle">cross-region relay</text>
+        </g>
+
+        <!-- Monitoring -->
+        <text x="750" y="520" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">OBSERVABILITY</text>
+        <g class="arch-node" data-component="monitoring" onclick="showComponent('monitoring')">
+          <rect x="730" y="535" width="160" height="55" rx="8" fill="#1a2332" stroke="#2a3a50"/>
+          <text x="810" y="558" fill="#e2e8f0" font-family="DM Sans" font-size="12" font-weight="600" text-anchor="middle">Monitoring Stack</text>
+          <text x="810" y="573" fill="#8899aa" font-family="JetBrains Mono" font-size="9" text-anchor="middle">metrics/logs/traces</text>
+        </g>
+
+        <!-- Arrows -->
+        <!-- Client to LB -->
+        <line x1="160" y1="95" x2="100" y2="148" stroke="#4a5568" marker-end="url(#arrow)"/>
+        <line x1="245" y1="95" x2="270" y2="148" stroke="#4a5568" marker-end="url(#arrow)"/>
+
+        <!-- LB to WS Gateway -->
+        <line x1="170" y1="173" x2="190" y2="173" stroke="#4a5568" marker-end="url(#arrow)"/>
+        <line x1="350" y1="173" x2="370" y2="173" stroke="#00d4aa" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+
+        <!-- WS to Chat Service -->
+        <line x1="450" y1="198" x2="105" y2="262" stroke="#00d4aa" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+        <line x1="450" y1="198" x2="275" y2="262" stroke="#4a5568" marker-end="url(#arrow)"/>
+        <line x1="450" y1="198" x2="445" y2="262" stroke="#4a5568" marker-end="url(#arrow)"/>
+        <line x1="450" y1="198" x2="615" y2="262" stroke="#4a5568" marker-end="url(#arrow)"/>
+
+        <!-- Services to Kafka -->
+        <line x1="180" y1="290" x2="730" y2="290" stroke="#f59e0b" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <line x1="350" y1="290" x2="730" y2="302" stroke="#f59e0b" stroke-dasharray="4,3"/>
+
+        <!-- Services to Data -->
+        <line x1="105" y1="317" x2="105" y2="455" stroke="#3b82f6" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+        <line x1="445" y1="317" x2="275" y2="455" stroke="#4a5568" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+        <line x1="275" y1="390" x2="445" y2="455" stroke="#4a5568" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+        <line x1="105" y1="390" x2="615" y2="455" stroke="#4a5568" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+
+        <!-- Kafka to Cell Router -->
+        <line x1="810" y1="342" x2="810" y2="415" stroke="#6366f1" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+
+        <!-- Labels on key paths -->
+        <text x="530" y="220" fill="#00d4aa" font-family="JetBrains Mono" font-size="9" transform="rotate(-20,530,220)">WebSocket frames</text>
+        <text x="480" y="290" fill="#f59e0b" font-family="JetBrains Mono" font-size="9">event stream</text>
+
+        <!-- Cell boundary -->
+        <rect x="15" y="130" width="700" height="420" rx="12" fill="none" stroke="#2a3a50" stroke-dasharray="6,4" stroke-width="1"/>
+        <text x="25" y="545" fill="#2a3a50" font-family="JetBrains Mono" font-size="10" font-weight="700">CELL BOUNDARY (one per region, ~5M users)</text>
+
+        <!-- Scale numbers at bottom -->
+        <rect x="30" y="580" width="1040" height="130" rx="10" fill="#111827" stroke="#2a3a50"/>
+        <text x="50" y="605" fill="#8899aa" font-family="JetBrains Mono" font-size="11" font-weight="700">SCALE TARGETS PER CELL</text>
+        <text x="50" y="630" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">Users: 5M DAU</text>
+        <text x="250" y="630" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">Messages: 35K/sec</text>
+        <text x="480" y="630" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">WS Conns: 2.5M</text>
+        <text x="720" y="630" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">Storage: 200GB/day text</text>
+        <text x="50" y="655" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">Media: 600 uploads/sec</text>
+        <text x="250" y="655" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">P99 Latency: &lt;200ms</text>
+        <text x="480" y="655" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">Availability: 99.99%</text>
+        <text x="720" y="655" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11">Total Cells: 10 regions</text>
+        <text x="50" y="690" fill="#00d4aa" font-family="JetBrains Mono" font-size="10">↑ Each cell is independent — blast radius of any failure is 10% of users max</text>
+      </svg>
+    </div>
+
+    <div class="detail-panel" id="componentDetail" style="display:none;">
+      <h3 id="componentTitle">Select a component</h3>
+      <div id="componentBody"></div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Peak Messages/sec</div>
+        <div class="metric-value">350K</div>
+        <div class="metric-note">3x average (burst handling)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Active WS Connections</div>
+        <div class="metric-value">25M</div>
+        <div class="metric-note">~500K per WS server (50 boxes)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Cassandra Write/sec</div>
+        <div class="metric-value">350K</div>
+        <div class="metric-note">RF=3, LOCAL_QUORUM</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Message Delivery P99</div>
+        <div class="metric-value">&lt;200ms</div>
+        <div class="metric-note">For online recipients</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Daily Storage (Text)</div>
+        <div class="metric-value">2TB</div>
+        <div class="metric-note">Compressed, RF=3 → 6TB raw</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Daily Storage (Media)</div>
+        <div class="metric-value">50TB</div>
+        <div class="metric-note">S3 with CDN edge caching</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FLOWS TAB ==================== -->
+  <div class="section" id="tab-flows">
+    <h2 class="section-title">Critical Flows</h2>
+
+    <!-- Flow 1: Message Send -->
+    <div class="flow-container">
+      <div class="flow-title">Flow 1: 1:1 Message Send (Online Recipient)</div>
+      <div class="flow-controls" id="flow1-controls">
+        <button class="flow-btn active" onclick="setFlow('flow1','happy')">Happy Path</button>
+        <button class="flow-btn" onclick="setFlow('flow1','offline')">Recipient Offline</button>
+        <button class="flow-btn" onclick="setFlow('flow1','crosscell')">Cross-Cell</button>
+      </div>
+      <div class="flow-steps" id="flow1-steps"></div>
+    </div>
+
+    <!-- Flow 2: Group Message -->
+    <div class="flow-container">
+      <div class="flow-title">Flow 2: Group Message Fan-out (500-member group)</div>
+      <div class="flow-controls" id="flow2-controls">
+        <button class="flow-btn active" onclick="setFlow('flow2','fanout')">Fan-out Write</button>
+        <button class="flow-btn" onclick="setFlow('flow2','hybrid')">Hybrid (Our Choice)</button>
+      </div>
+      <div class="flow-steps" id="flow2-steps"></div>
+    </div>
+
+    <!-- Flow 3: E2E Encryption -->
+    <div class="flow-container">
+      <div class="flow-title">Flow 3: End-to-End Encryption Key Exchange</div>
+      <div class="flow-controls" id="flow3-controls">
+        <button class="flow-btn active" onclick="setFlow('flow3','x3dh')">X3DH Handshake</button>
+        <button class="flow-btn" onclick="setFlow('flow3','doubleratchet')">Double Ratchet</button>
+      </div>
+      <div class="flow-steps" id="flow3-steps"></div>
+    </div>
+
+    <!-- Flow 4: Media Upload -->
+    <div class="flow-container">
+      <div class="flow-title">Flow 4: Media Upload & Delivery</div>
+      <div class="flow-controls" id="flow4-controls">
+        <button class="flow-btn active" onclick="setFlow('flow4','upload')">Upload Flow</button>
+        <button class="flow-btn" onclick="setFlow('flow4','download')">Download Flow</button>
+      </div>
+      <div class="flow-steps" id="flow4-steps"></div>
+    </div>
+
+    <!-- Flow 5: Offline Sync -->
+    <div class="flow-container">
+      <div class="flow-title">Flow 5: Offline-to-Online Message Sync</div>
+      <div class="flow-controls" id="flow5-controls">
+        <button class="flow-btn active" onclick="setFlow('flow5','reconnect')">Reconnect Sync</button>
+      </div>
+      <div class="flow-steps" id="flow5-steps"></div>
+    </div>
+  </div>
+
+  <!-- ==================== COMPONENTS TAB ==================== -->
+  <div class="section" id="tab-components">
+    <h2 class="section-title">Component Deep Dives</h2>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-green">CRITICAL</span> WebSocket Gateway</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>What It Does</h4>
+          <p>Maintains long-lived, persistent WebSocket connections with every online client. This is the real-time nervous system — every message, receipt, typing indicator, and presence update flows through here. At our scale, this is 25M concurrent connections across ~50 server instances.</p>
+
+          <h4>Why It Exists as a Separate Service</h4>
+          <p>Decoupling connection management from business logic is essential. WS connections are stateful and long-lived (hours/days), while business logic services need to be stateless and horizontally scalable. If you couple them, deploying a new version of your chat logic tears down millions of connections and causes a reconnection storm.</p>
+
+          <h4>Key Technical Decisions</h4>
+          <p><strong>Language: Go or Rust.</strong> We choose Go for this layer. Each connection needs ~30KB of memory (buffers + goroutine stack). At 500K connections per box, that's ~15GB RAM per server — well within 64GB machines, leaving room for headroom and OS overhead. Rust would give us lower per-connection overhead (~10KB) but Go's goroutine model maps perfectly to the "one connection = one lightweight thread" pattern, and the ecosystem for WebSocket handling is mature.</p>
+
+          <p><strong>Connection-to-Server Mapping:</strong> We store the mapping of <code>user_id → ws_server_id</code> in Redis. When the Chat Service needs to deliver a message to user B, it looks up which WS server holds B's connection and sends it there via internal gRPC. This lookup is O(1) in Redis and adds ~1ms latency.</p>
+
+          <p><strong>Session stickiness via consistent hashing:</strong> The L4 load balancer uses consistent hashing on user_id to route reconnections to the same WS server when possible. This reduces the window of "connection migration" during reconnects. But we never depend on stickiness — the Redis session store is the source of truth.</p>
+
+          <h4>Connection Lifecycle</h4>
+          <div class="code-block">
+<span class="code-cm">// Simplified connection handler</span>
+<span class="code-kw">func</span> <span class="code-fn">handleConnection</span>(ws *websocket.Conn, userID string) {
+    <span class="code-cm">// 1. Register in session store</span>
+    redis.Set(<span class="code-str">"session:{userID}"</span>, serverID, TTL=<span class="code-num">30m</span>)
+
+    <span class="code-cm">// 2. Heartbeat loop (client sends ping every 30s)</span>
+    <span class="code-cm">//    Server extends TTL on each ping</span>
+    <span class="code-cm">//    If no ping for 60s → connection dead → cleanup</span>
+
+    <span class="code-cm">// 3. Read pump: client messages → Kafka producer</span>
+    <span class="code-kw">go</span> readPump(ws, kafkaProducer)
+
+    <span class="code-cm">// 4. Write pump: internal gRPC delivery → client</span>
+    <span class="code-kw">go</span> writePump(ws, deliveryChan)
+}
+          </div>
+
+          <h4>Data Structures</h4>
+          <p><strong>Per-connection buffer ring:</strong> Each connection has a 64KB write buffer ring. Messages queue here if the client's TCP window is full (slow network). If the ring fills, we start dropping low-priority messages (typing indicators first, then presence, never chat messages). Chat messages go to the offline queue instead.</p>
+
+          <h4>Failure Mode</h4>
+          <div class="failure-card">
+            <h5>WS Server Crash</h5>
+            <p>If a WS server dies, 500K connections drop simultaneously. Clients detect this within 30-60 seconds (heartbeat timeout) and reconnect. The L4 LB re-routes them to surviving servers. During the reconnect window, the Sync Service queues messages for these users. The blast radius is 500K/25M = 2% of online users, and recovery is fully automatic.</p>
+          </div>
+          <div class="mitigation-card">
+            <h5>Graceful Drain</h5>
+            <p>For planned maintenance, we drain connections gradually: send a "reconnect" control frame to 5% of connections per second. Clients reconnect to a new server. Full drain takes ~20 seconds. Zero message loss.</p>
+          </div>
+
+          <div class="em-callout">
+            <h5>EM Perspective</h5>
+            <p><strong>Staffing:</strong> 2 senior engineers own this service. It's the most operationally sensitive component — on-call rotation is critical. <strong>Deploy cadence:</strong> Weekly at most, always during low-traffic windows (2-4 AM local), with connection draining. <strong>Key metric:</strong> Connection count per server, reconnection rate (spikes indicate problems), message delivery latency histogram.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-blue">CORE</span> Chat Service — Message Routing & Ordering</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>What It Does</h4>
+          <p>The Chat Service is the brain of message routing. It receives messages from the WS Gateway, validates them, persists them to Cassandra, determines which recipients need the message, and dispatches delivery to the correct WS servers (or the Push/Offline queue for offline users).</p>
+
+          <h4>Why It Exists</h4>
+          <p>Separating routing logic from connection management means we can scale, deploy, and reason about message handling independently. The Chat Service is stateless — any instance can handle any message — enabling trivial horizontal scaling.</p>
+
+          <h4>Message Ordering — The Hard Problem</h4>
+          <p>Users expect messages in a conversation to appear in order. But in a distributed system, "order" is ambiguous. We use a <strong>Hybrid Logical Clock (HLC)</strong> approach:</p>
+          <ul>
+            <li><strong>Client-side timestamp</strong> (physical clock) for rough ordering</li>
+            <li><strong>Server-assigned sequence number per conversation</strong> for strict ordering within a conversation</li>
+            <li>The sequence number is generated atomically using a <strong>Redis INCR</strong> on key <code>seq:{conversation_id}</code></li>
+          </ul>
+          <p>This gives us a total order within each conversation, which is all users care about. We do NOT need global ordering across conversations.</p>
+
+          <div class="code-block">
+<span class="code-cm">// Message processing pipeline</span>
+<span class="code-kw">func</span> <span class="code-fn">processMessage</span>(msg Message) {
+    <span class="code-cm">// 1. Validate: size, rate limit, conversation membership</span>
+    validate(msg)
+
+    <span class="code-cm">// 2. Assign sequence number (atomic)</span>
+    msg.SeqNum = redis.Incr(<span class="code-str">"seq:"</span> + msg.ConvID)
+
+    <span class="code-cm">// 3. Persist to Cassandra (async, but before ACK)</span>
+    cassandra.Write(msg)  <span class="code-cm">// CL=LOCAL_QUORUM</span>
+
+    <span class="code-cm">// 4. ACK to sender ("sent" checkmark)</span>
+    sendAck(msg.SenderID, msg.MsgID, SENT)
+
+    <span class="code-cm">// 5. Route to recipient(s)</span>
+    <span class="code-kw">for</span> _, recipient := <span class="code-kw">range</span> getRecipients(msg.ConvID) {
+        <span class="code-kw">if</span> isOnline(recipient) {
+            deliverViaWS(recipient, msg)
+        } <span class="code-kw">else</span> {
+            queueOffline(recipient, msg)
+            sendPush(recipient, msg)
+        }
+    }
+}
+          </div>
+
+          <h4>Key Tradeoff: ACK Before or After Persist?</h4>
+          <p>We ACK to the sender <strong>after</strong> Cassandra write confirms at LOCAL_QUORUM. This adds ~5ms latency but guarantees that a "sent" checkmark means the message is durable. The alternative (ACK immediately, persist async) risks message loss if the Chat Service crashes between ACK and persist. For a messaging product, durability > latency.</p>
+
+          <h4>Idempotency</h4>
+          <p>Clients may retry sending the same message (network timeout after send, before ACK). We use the client-generated <code>msg_id</code> (UUID) as an idempotency key. Before processing, we check if <code>msg_id</code> already exists in Cassandra. If so, we return the existing ACK. This check is fast because msg_id is part of the Cassandra partition key.</p>
+
+          <div class="failure-card">
+            <h5>Chat Service Instance Crash Mid-Processing</h5>
+            <p>If the service crashes after persist but before delivery: the message is safe in Cassandra. The recipient will pick it up on their next sync (or another delivery attempt from the Kafka consumer, which retries undelivered messages).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-yellow">HIGH SCALE</span> Group Service — Fan-out Strategy</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>The Fan-out Problem</h4>
+          <p>When a user sends a message to a 500-member group, we need to deliver it to 499 other users. At 350K messages/sec total, if even 10% are group messages with avg 50 members, that's 35K × 50 = 1.75M delivery operations/sec just for groups. The fan-out strategy is the most important design decision here.</p>
+
+          <h4>Approach: Hybrid Fan-out (Write + Read)</h4>
+          <div class="grid-2">
+            <div>
+              <strong style="color:var(--accent)">Small groups (≤50 members): Fan-out on Write</strong>
+              <p style="font-size:13px;margin-top:6px;">When a message arrives, immediately push to each member's delivery channel. This is eager delivery — higher write amplification but lower read latency. Users get messages pushed to them instantly.</p>
+            </div>
+            <div>
+              <strong style="color:var(--accent3)">Large groups (51-1024 members): Fan-out on Read</strong>
+              <p style="font-size:13px;margin-top:6px;">Write the message once to the group's timeline. When a member opens the group, they pull the latest messages. This avoids the thundering herd problem of pushing to 1000 members simultaneously, most of whom may have the group muted anyway.</p>
+            </div>
+          </div>
+          <p style="margin-top:16px;">The threshold of 50 is calibrated based on our scale numbers: 50-member fan-out at 35K msgs/sec = 1.75M deliveries/sec, which our WS layer handles comfortably. But 500-member fan-out would be 17.5M deliveries/sec, which would saturate our WS gateway's internal gRPC capacity.</p>
+
+          <h4>Group Membership Storage</h4>
+          <p>Stored in PostgreSQL with a denormalized cache in Redis (SET per group). Membership changes are infrequent (adds/removes) compared to messages, so a write-through cache is appropriate. Cache invalidation on membership change is synchronous — we cannot deliver messages to stale member lists.</p>
+
+          <div class="em-callout">
+            <h5>EM Perspective — Phased Rollout</h5>
+            <p>Start with fan-out-on-write for all groups (simpler). Instrument delivery latency and WS gateway CPU. When large group delivery latency exceeds SLO, implement the hybrid approach. This avoids premature optimization and lets production data drive the threshold.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-red">SECURITY</span> End-to-End Encryption (Signal Protocol)</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Why Signal Protocol</h4>
+          <p>Signal Protocol (used by WhatsApp, Signal, and Facebook Messenger's secret mode) provides: forward secrecy (compromising a key doesn't decrypt past messages), future secrecy (self-healing after compromise), and deniability (messages can't be cryptographically proven to have been sent by a specific party).</p>
+
+          <h4>Server's Role: Key Distribution Only</h4>
+          <p>The server NEVER sees plaintext. It stores and distributes public key bundles (pre-keys) for offline users. The encryption/decryption happens entirely on the client device. This is architecturally significant because it means:</p>
+          <ul>
+            <li>Server-side message search is impossible (by design)</li>
+            <li>Message backup requires client-side key backup (encrypted with user passphrase)</li>
+            <li>Group messages use the Sender Key distribution protocol (one encrypt, each member decrypts)</li>
+          </ul>
+
+          <h4>Key Server</h4>
+          <p>Stores pre-key bundles in PostgreSQL. Each user uploads 100 one-time pre-keys. When another user initiates a session, one pre-key is consumed (atomically deleted). When pre-keys run low (<20), the server pushes a "replenish keys" request to the client. This is a write-heavy workload for popular users (lots of people initiating chats with them), which is why we use PostgreSQL with row-level locking on the pre-key table.</p>
+
+          <h4>Impact on Architecture</h4>
+          <p>E2E encryption constrains several other design decisions: no server-side message indexing/search, media is encrypted client-side before upload (so CDN serves opaque blobs), and message backup to cloud requires a separate user-held backup key. These are acceptable tradeoffs for privacy guarantees.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-purple">INFRA</span> Presence & Typing Indicators</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Design Philosophy: Optimistic, Lossy, Cheap</h4>
+          <p>Presence and typing indicators are ephemeral signals. If a user misses a "typing" indicator, nothing bad happens. This lets us relax consistency and durability requirements dramatically compared to chat messages.</p>
+
+          <h4>Implementation</h4>
+          <p><strong>Online/Offline Presence:</strong> Stored in Redis with TTL. When a user connects, set <code>presence:{user_id} = ONLINE</code> with 60s TTL. The heartbeat (every 30s) refreshes the TTL. When TTL expires, user is implicitly offline. No explicit "offline" event needed — this handles crashes, network drops, and app kills gracefully.</p>
+          <p><strong>Last Seen:</strong> Updated in Redis on disconnect (or TTL expiry). Persisted to PostgreSQL asynchronously (batch write every 5 minutes) so it survives Redis restarts.</p>
+          <p><strong>Typing Indicators:</strong> Pure fire-and-forget UDP-style. Client sends "typing" to WS Gateway, which relays to the other participant's WS server directly (no Kafka, no persistence). If the relay fails, we silently drop it. Typing indicators have a client-side 5-second auto-expiry.</p>
+
+          <h4>Scale Trick: Presence Fan-out Filtering</h4>
+          <p>We do NOT broadcast presence changes to all contacts. Instead, the client subscribes to presence for the conversations currently visible on screen (typically 10-15 chats). The server maintains a <strong>reverse index</strong> in Redis: <code>presence_subscribers:{user_id} → [subscriber_ids]</code>. When user A's presence changes, we only notify users who have actively subscribed. This reduces presence fan-out by ~95%.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-green">MEDIA</span> Media Service — Upload, Transcode, CDN</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Upload Flow (Pre-signed URL Pattern)</h4>
+          <p>Client requests an upload URL from Media Service → Media Service generates a pre-signed S3 PUT URL (valid 15 minutes) → Client uploads directly to S3, bypassing our servers entirely. This is critical at 6K uploads/sec — routing 100MB files through our application servers would saturate network bandwidth instantly.</p>
+
+          <h4>Processing Pipeline</h4>
+          <p>After upload completes, S3 fires an event to our processing queue (SQS/Kafka):</p>
+          <ul>
+            <li><strong>Images:</strong> Generate thumbnails (150px, 300px, 600px). Thumbnails are sent inline with the message notification so the recipient sees a blurred preview immediately.</li>
+            <li><strong>Video:</strong> Transcode to H.264 at multiple bitrates (240p, 480p, 720p) for adaptive streaming. Generate a poster frame.</li>
+            <li><strong>Documents:</strong> Generate preview thumbnail of first page.</li>
+          </ul>
+          <p>All media is encrypted client-side before upload. The server processes encrypted blobs — it cannot see the content. Thumbnails are also encrypted (generated client-side before upload as a separate blob).</p>
+
+          <h4>Download via CDN</h4>
+          <p>Media is served through a CDN (CloudFront/Akamai). Since media is encrypted, CDN caching works normally — the CDN serves opaque encrypted blobs. Decryption happens on the recipient's device. CDN cache hit rate target: >80% for media accessed within 24 hours.</p>
+
+          <h4>Storage Economics</h4>
+          <p>At 50TB/day, storage costs dominate. We use S3 Intelligent Tiering: media accessed within 30 days stays in Standard, then auto-moves to Infrequent Access, then Glacier Deep Archive after 1 year. WhatsApp-style "media auto-delete after 30 days on server" further bounds storage growth.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3><span class="badge badge-blue">RELIABILITY</span> Sync Service — Offline Message Queue</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Problem Statement</h4>
+          <p>When a user is offline for hours or days, messages accumulate. When they come back online, we need to deliver all missed messages quickly and in order, without overwhelming the client or the network.</p>
+
+          <h4>Architecture</h4>
+          <p>Each user has a <strong>sync cursor</strong> — a (conversation_id, sequence_number) pair that tracks the last message they received in each conversation. This cursor is stored in Redis (hot) and PostgreSQL (durable).</p>
+          <p>On reconnect, the client sends its sync cursor. The Sync Service queries Cassandra for all messages after the cursor, groups them by conversation, and streams them to the client in reverse chronological order (newest conversations first, newest messages first within each conversation). This matches the UX — users see their most recent conversations immediately.</p>
+
+          <h4>Throttling & Backpressure</h4>
+          <p>If a user has 10K unread messages, we don't dump them all at once. We use progressive loading: send the 20 most recent messages per conversation for the 50 most recent conversations (= 1000 messages max in first batch), then let the client request more via pagination. This keeps the initial sync under 2 seconds.</p>
+
+          <h4>Compaction</h4>
+          <p>For very long offline periods, the offline queue can grow large. We compact: if a user has 500 messages in one group, we send only the latest 50 and a "X more messages" indicator. The client fetches older messages on scroll. This bounds the sync payload regardless of offline duration.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DATA STORES TAB ==================== -->
+  <div class="section" id="tab-datastores">
+    <h2 class="section-title">Data Store Deep Dives</h2>
+
+    <table class="ds-table">
+      <thead>
+        <tr>
+          <th>Store</th>
+          <th>Data</th>
+          <th>Why This Store</th>
+          <th>Scale</th>
+          <th>Consistency</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-blue">Cassandra</span></td>
+          <td>Messages, delivery receipts</td>
+          <td>Append-heavy, time-series access pattern (newest first). Linear horizontal scaling. No single point of failure — leaderless replication. Proven at WhatsApp/Discord scale.</td>
+          <td>350K writes/sec, ~100 nodes per cell</td>
+          <td>LOCAL_QUORUM (2 of 3 replicas)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-red">Redis Cluster</span></td>
+          <td>Sessions, presence, seq counters, membership cache</td>
+          <td>Sub-millisecond reads for hot-path lookups (session routing, presence checks). INCR for atomic sequence numbers. TTL for automatic presence expiry. In-memory = fastest possible latency on the critical message delivery path.</td>
+          <td>1M ops/sec, 50-node cluster</td>
+          <td>Eventual (single-leader per shard)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">PostgreSQL</span></td>
+          <td>User profiles, groups, contacts, pre-keys, settings</td>
+          <td>Relational data with complex queries (contact intersection, group membership with roles). ACID transactions for pre-key consumption (must be atomic to prevent key reuse). Moderate write volume — user/group changes are infrequent.</td>
+          <td>5K writes/sec, primary + 3 read replicas</td>
+          <td>Strong (synchronous replication to 1 replica)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-yellow">S3 / Object Store</span></td>
+          <td>Encrypted media files (images, video, docs)</td>
+          <td>Infinite horizontal scaling. 99.999999999% durability. Pre-signed URLs enable direct client upload, bypassing application servers. Cost-effective tiered storage (Standard → IA → Glacier).</td>
+          <td>6K uploads/sec, 50TB/day</td>
+          <td>Read-after-write consistency</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Cassandra Schema Deep Dive -->
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Cassandra Schema — Messages Table</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Table Design</h4>
+          <div class="code-block">
+<span class="code-kw">CREATE TABLE</span> messages (
+    conversation_id  <span class="code-fn">UUID</span>,
+    bucket           <span class="code-fn">INT</span>,        <span class="code-cm">-- time bucket (day number)</span>
+    seq_num          <span class="code-fn">BIGINT</span>,     <span class="code-cm">-- from Redis INCR</span>
+    msg_id           <span class="code-fn">UUID</span>,
+    sender_id        <span class="code-fn">UUID</span>,
+    encrypted_body   <span class="code-fn">BLOB</span>,       <span class="code-cm">-- E2E encrypted</span>
+    msg_type         <span class="code-fn">TINYINT</span>,    <span class="code-cm">-- text/image/video/etc</span>
+    media_url        <span class="code-fn">TEXT</span>,
+    created_at       <span class="code-fn">TIMESTAMP</span>,
+    <span class="code-kw">PRIMARY KEY</span> ((conversation_id, bucket), seq_num)
+) <span class="code-kw">WITH CLUSTERING ORDER BY</span> (seq_num <span class="code-kw">DESC</span>);
+          </div>
+
+          <h4>Why This Schema</h4>
+          <p><strong>Partition key = (conversation_id, bucket):</strong> The bucket (day number since epoch) prevents unbounded partition growth. Without bucketing, a conversation with 1M messages over 5 years would be a single giant partition — terrible for Cassandra performance. With daily buckets, each partition holds at most one day's messages (~200-500 per active conversation).</p>
+          <p><strong>Clustering key = seq_num DESC:</strong> Most reads are "give me the latest N messages" — descending order means the newest messages are read first in a single sequential disk read. No sorting needed.</p>
+          <p><strong>Why not timestamp as clustering key?</strong> Two messages could have the same timestamp (clock precision). The sequence number is guaranteed unique and ordered within a conversation.</p>
+
+          <h4>Read Pattern</h4>
+          <div class="code-block">
+<span class="code-cm">-- "Latest 50 messages in conversation X"</span>
+<span class="code-kw">SELECT</span> * <span class="code-kw">FROM</span> messages
+<span class="code-kw">WHERE</span> conversation_id = <span class="code-str">'X'</span>
+  <span class="code-kw">AND</span> bucket = <span class="code-num">current_bucket</span>
+<span class="code-kw">LIMIT</span> <span class="code-num">50</span>;
+
+<span class="code-cm">-- If fewer than 50 in today's bucket, query previous bucket(s)</span>
+<span class="code-cm">-- Client-side merge of results across buckets</span>
+          </div>
+
+          <h4>Compaction Strategy</h4>
+          <p>We use <strong>TWCS (TimeWindowCompactionStrategy)</strong> with a window of 1 day, matching our bucket size. This is optimal for time-series data because it avoids compacting old data with new data, reducing write amplification. Old buckets are never modified (messages are immutable), so they compact once and stay compacted.</p>
+
+          <h4>TTL and Data Lifecycle</h4>
+          <p>Messages have a configurable TTL (default: never expire for 1:1, 90 days for groups). When a user deletes a message, we write a tombstone. Cassandra's gc_grace_seconds is set to 10 days to allow all replicas to receive the tombstone before purging.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Redis — Session & Presence Schema</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Key Design</h4>
+          <div class="code-block">
+<span class="code-cm">// Session: which WS server holds this user's connection</span>
+<span class="code-str">"sess:{user_id}"</span> → <span class="code-str">"{ws_server_id}:{connection_id}"</span>  TTL=<span class="code-num">60s</span>
+
+<span class="code-cm">// Presence: is user online?</span>
+<span class="code-str">"pres:{user_id}"</span> → <span class="code-str">"online"</span>  TTL=<span class="code-num">60s</span>
+
+<span class="code-cm">// Last seen (for offline users)</span>
+<span class="code-str">"last:{user_id}"</span> → <span class="code-num">1713196800</span>  <span class="code-cm">(unix timestamp, no TTL)</span>
+
+<span class="code-cm">// Conversation sequence counter</span>
+<span class="code-str">"seq:{conversation_id}"</span> → <span class="code-num">284519</span>  <span class="code-cm">(monotonic, no TTL)</span>
+
+<span class="code-cm">// Group membership cache</span>
+<span class="code-str">"grp:{group_id}"</span> → SET{user_id1, user_id2, ...}  TTL=<span class="code-num">1h</span>
+
+<span class="code-cm">// Presence subscribers (who's watching user X's presence)</span>
+<span class="code-str">"psub:{user_id}"</span> → SET{watcher1, watcher2, ...}  TTL=<span class="code-num">5m</span>
+          </div>
+
+          <h4>Why Redis Cluster (not Memcached, not DynamoDB)</h4>
+          <p><strong>vs Memcached:</strong> We need data structures (SETs for group membership, INCR for sequence numbers, TTL for presence). Memcached is pure key-value with no data structure support. Redis gives us these primitives natively without application-level serialization/deserialization overhead.</p>
+          <p><strong>vs DynamoDB:</strong> DynamoDB can handle the throughput but adds 3-10ms latency per operation. Redis is sub-millisecond. On the message delivery hot path, every millisecond matters — the session lookup is in the critical path for every single message delivery.</p>
+
+          <h4>Durability Trade-off</h4>
+          <p>Redis is in-memory with AOF persistence. If a Redis node dies, we lose recent session data. This is acceptable because: sessions are re-established on client reconnect (within seconds), presence is inherently ephemeral, and sequence numbers are also tracked in Cassandra (last seq_num per conversation). The only risk is a brief period of duplicate sequence numbers during Redis recovery, which we handle with idempotency checks.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FAILURES TAB ==================== -->
+  <div class="section" id="tab-failures">
+    <h2 class="section-title">Failure Modes & Tradeoffs</h2>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>CAP Theorem Position</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <p>Our system is fundamentally <strong>AP with tunable consistency</strong>. Here's how this manifests per component:</p>
+          <table class="ds-table">
+            <thead><tr><th>Component</th><th>CAP Choice</th><th>Rationale</th></tr></thead>
+            <tbody>
+              <tr><td>Message Store (Cassandra)</td><td><span class="badge badge-blue">AP</span> with LOCAL_QUORUM</td><td>Availability over strict consistency. LOCAL_QUORUM gives us "strong enough" consistency — 2 of 3 replicas must confirm. In a network partition, the partition with 2+ replicas continues serving; the minority partition rejects writes. This is the right tradeoff: users prefer sending messages with a small risk of temporary inconsistency over being unable to send at all.</td></tr>
+              <tr><td>Session Store (Redis)</td><td><span class="badge badge-green">AP</span></td><td>If session lookup fails, the message goes to offline queue. User gets it on next sync. No data loss, minor delay.</td></tr>
+              <tr><td>User/Group DB (PostgreSQL)</td><td><span class="badge badge-purple">CP</span></td><td>Profile and membership changes need strong consistency. It's acceptable for group member updates to briefly make the service unavailable (user sees "retry") rather than deliver messages to a stale member list (security issue — removed member receiving messages).</td></tr>
+              <tr><td>Pre-key Store (PostgreSQL)</td><td><span class="badge badge-purple">CP</span></td><td>Pre-key consumption MUST be strongly consistent. If two users consume the same pre-key, the encryption session is broken. ACID transaction required.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Failure Scenarios & Graceful Degradation</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <div class="grid-2">
+            <div class="failure-card">
+              <h5>Cassandra Node Failure (1 of 3 replicas)</h5>
+              <p>With RF=3 and LOCAL_QUORUM, losing 1 node has zero user impact. Reads and writes continue at 2/3 quorum. The failed node catches up via Cassandra's built-in anti-entropy repair on recovery.</p>
+            </div>
+            <div class="mitigation-card">
+              <h5>Mitigation</h5>
+              <p>Monitor node count per datacenter. Alert if <2 nodes available for any token range. Auto-replace failed nodes within 1 hour via infrastructure automation.</p>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="failure-card">
+              <h5>Kafka Broker Failure</h5>
+              <p>Kafka partition leader fails. Follower is elected as new leader (takes 1-5 seconds). During this window, messages in-flight to that partition will timeout and retry. With acks=all and min.insync.replicas=2, no message loss occurs. Client-side retries absorb the brief disruption.</p>
+            </div>
+            <div class="mitigation-card">
+              <h5>Mitigation</h5>
+              <p>Run 5+ brokers per cell with RF=3. Use rack-aware placement to survive full rack failures. Monitor under-replicated partitions as a leading indicator.</p>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="failure-card">
+              <h5>Redis Cluster Partition</h5>
+              <p>If Redis cluster splits, sequence number generation may produce gaps or (in rare cases) duplicates. Session lookups may fail, routing messages to offline queue unnecessarily.</p>
+            </div>
+            <div class="mitigation-card">
+              <h5>Mitigation</h5>
+              <p>Use Redis Cluster with 6 nodes (3 primary + 3 replica) across 3 AZs. Automatic failover within 15 seconds. For sequence numbers, accept gaps (they don't affect ordering, just aren't contiguous). Idempotency at Cassandra layer catches any duplicate sequences.</p>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="failure-card">
+              <h5>Entire Cell Failure (Region Outage)</h5>
+              <p>All 5M users in the cell lose service. This is the worst case. DNS-based failover to the nearest cell takes 30-60 seconds (TTL). During this window, messages queue at the sender's client.</p>
+            </div>
+            <div class="mitigation-card">
+              <h5>Mitigation</h5>
+              <p>Cell assignment has 10% headroom — each cell can absorb a neighboring cell's users temporarily. Cross-cell Cassandra replication (async, EACH_QUORUM on select critical data) enables read-your-writes on failover. Practice cell evacuation drills quarterly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Design Alternatives Considered & Rejected</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <table class="ds-table">
+            <thead><tr><th>Decision</th><th>Alternative</th><th>Why Rejected</th></tr></thead>
+            <tbody>
+              <tr><td>Cassandra for messages</td><td>MySQL/PostgreSQL with sharding</td><td>Operational complexity of manual sharding, rebalancing, and managing shard maps at 350K writes/sec. Cassandra's consistent hashing handles this natively. MySQL would require a Vitess-like layer adding latency and operational burden.</td></tr>
+              <tr><td>Cassandra for messages</td><td>DynamoDB</td><td>At 350K writes/sec with avg 200-byte items, DynamoDB WCU cost is ~$190K/month per cell. Self-managed Cassandra on EC2 is ~$40K/month for equivalent capacity. 5x cost difference at this scale.</td></tr>
+              <tr><td>WebSocket for real-time</td><td>HTTP Long Polling</td><td>Long polling requires re-establishing connection every 30 seconds, doubling connection overhead. At 25M connections, this means 25M TCP handshakes every 30 seconds = 833K connections/sec, which would overwhelm the L4 load balancer.</td></tr>
+              <tr><td>WebSocket for real-time</td><td>gRPC bidirectional streaming</td><td>gRPC works well for service-to-service, but for mobile clients, WebSocket has better browser support, simpler reconnection logic, and lower overhead (no HTTP/2 framing per message). Mobile SDKs for WebSocket are more mature.</td></tr>
+              <tr><td>Redis for sessions</td><td>Consistent hashing without central store</td><td>Without a session store, if the hash ring changes (server add/remove), connections remap silently and messages route to the wrong server. The Redis lookup adds 1ms but guarantees correctness.</td></tr>
+              <tr><td>Kafka for event bus</td><td>RabbitMQ</td><td>RabbitMQ's per-queue model doesn't fit our access pattern (topic-based partitioning by conversation_id). Kafka's log-based model also gives us replay capability for message redelivery and debugging. RabbitMQ would also struggle at 350K msgs/sec sustained throughput.</td></tr>
+              <tr><td>Cell-based architecture</td><td>Global monolithic cluster</td><td>A single global cluster has unbounded blast radius — one bad deploy affects all 50M users. Cells limit blast radius to 10% of users. Cells also reduce cross-region latency (users are served by the nearest cell). The tradeoff is cross-cell routing complexity for inter-region messages, which we accept.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EM TAB ==================== -->
+  <div class="section" id="tab-em">
+    <h2 class="section-title">Engineering Manager Perspective</h2>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Team Structure & Staffing</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <p>For initial build (6-month timeline to MVP), I'd staff 4 teams totaling ~20 engineers:</p>
+          <table class="ds-table">
+            <thead><tr><th>Team</th><th>Size</th><th>Scope</th><th>Key Hire</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Messaging Core</strong></td><td>6 eng (1 TL)</td><td>Chat Service, Group Service, message ordering, delivery guarantees, offline sync</td><td>TL with distributed systems background (ex-FAANG messaging team ideal)</td></tr>
+              <tr><td><strong>Connectivity</strong></td><td>4 eng (1 TL)</td><td>WebSocket Gateway, Presence, Push Notifications, client SDKs</td><td>Senior engineer with low-level networking experience (Go/Rust, epoll/kqueue)</td></tr>
+              <tr><td><strong>Media & Storage</strong></td><td>4 eng</td><td>Media upload/download, transcoding pipeline, CDN, object storage</td><td>Engineer with video processing / CDN experience</td></tr>
+              <tr><td><strong>Platform & Infra</strong></td><td>4 eng (1 TL)</td><td>Cassandra operations, Kafka, Redis, CI/CD, observability, cell management</td><td>SRE/infra TL with experience running Cassandra at scale</td></tr>
+              <tr><td><strong>Security & Encryption</strong></td><td>2 eng</td><td>Signal Protocol implementation, key server, security audits</td><td>Cryptography specialist — this is NOT a generalist role</td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:16px;">Post-MVP, each team grows by 2-3 engineers for scalability hardening, international expansion, and feature velocity.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Rollout & Canary Strategy</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Deployment Pipeline</h4>
+          <p>Every service follows the same 4-stage deployment pipeline:</p>
+          <ol style="padding-left:20px;">
+            <li style="margin-bottom:12px;"><strong>Shadow (Day 0):</strong> Deploy new version alongside production. Mirror 1% of traffic. Compare response correctness and latency against production. Zero user impact.</li>
+            <li style="margin-bottom:12px;"><strong>Canary Cell (Day 1):</strong> Deploy to our smallest cell (São Paulo, 2M users). Monitor for 24 hours. Key metrics: message delivery success rate, P99 latency, error rate, crash rate.</li>
+            <li style="margin-bottom:12px;"><strong>Regional Rollout (Day 2-3):</strong> Deploy to 3 more cells (Mumbai, Singapore, London). Monitor 24 hours each. If any cell shows regression, halt and rollback.</li>
+            <li style="margin-bottom:12px;"><strong>Global (Day 4-5):</strong> Deploy to remaining cells. At this point we have 48+ hours of production data on 4 cells.</li>
+          </ol>
+
+          <h4>Rollback</h4>
+          <p>Every deployment creates a rollback artifact. Rollback is a single command that: reverts the container image, drains connections (for WS Gateway), and is automated if error rate exceeds 0.1% or P99 latency exceeds 500ms. Target: rollback completes in <5 minutes.</p>
+
+          <h4>Feature Flags</h4>
+          <p>All new features are behind feature flags (LaunchDarkly or similar). This decouples deployment from feature launch. We can deploy code to all cells, then gradually enable the feature for 1% → 10% → 50% → 100% of users. If the feature causes issues, we disable the flag instantly without a code deploy.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <div class="dd-header" onclick="toggleDD(this)">
+        <h3>Monitoring, Alerting & On-Call</h3>
+        <span class="dd-toggle">▸</span>
+      </div>
+      <div class="dd-body">
+        <div class="dd-content">
+          <h4>Key SLIs (Service Level Indicators)</h4>
+          <table class="ds-table">
+            <thead><tr><th>SLI</th><th>SLO</th><th>Alert Threshold</th></tr></thead>
+            <tbody>
+              <tr><td>Message delivery success rate</td><td>99.99%</td><td>&lt;99.95% for 5 min → page</td></tr>
+              <tr><td>Message delivery latency (P99)</td><td>&lt;200ms</td><td>&gt;500ms for 5 min → page</td></tr>
+              <tr><td>WebSocket connection success rate</td><td>99.9%</td><td>&lt;99.5% for 2 min → page</td></tr>
+              <tr><td>Media upload success rate</td><td>99.9%</td><td>&lt;99.5% for 5 min → page</td></tr>
+              <tr><td>Cassandra write latency (P99)</td><td>&lt;50ms</td><td>&gt;100ms for 3 min → warn</td></tr>
+              <tr><td>Kafka consumer lag</td><td>&lt;1000 msgs</td><td>&gt;10000 for 5 min → page</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Dashboards</h4>
+          <p>Three dashboards per cell: (1) Real-time message flow — sends, deliveries, failures per second with 10-second granularity. (2) Infrastructure health — Cassandra, Redis, Kafka cluster metrics. (3) User experience — client-side metrics (SDK-reported delivery latency, retry rates, connection time).</p>
+
+          <h4>On-Call Structure</h4>
+          <p>Two-tier on-call: <strong>Tier 1</strong> (primary) handles all pages, does initial triage, and resolves ~80% of incidents using runbooks. <strong>Tier 2</strong> (specialist) is escalated for complex issues (data corruption, cross-cell routing failures, encryption key server issues). Each team has a 1-week on-call rotation. On-call engineer has a 15-minute response SLA for P1 incidents.</p>
+
+          <h4>Incident Runbooks</h4>
+          <p>Pre-written runbooks for top 10 failure scenarios: WS connection storm, Cassandra node failure, Kafka broker failure, Redis cluster partition, CDN origin failure, push notification provider outage, cell failover, high message delivery latency, encryption key server unavailability, and DDoS attack. Each runbook has: symptoms, diagnosis steps, resolution steps, and escalation criteria.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCALE TAB ==================== -->
+  <div class="section" id="tab-scale">
+    <h2 class="section-title">Scale Reasoning — From Numbers to Decisions</h2>
+
+    <div class="detail-panel">
+      <h3>Starting from First Principles</h3>
+
+      <div class="subsection">
+        <h4>1. Message Throughput → Cassandra</h4>
+        <p><strong>Input:</strong> 10B messages/day ÷ 86400 seconds = ~115K msgs/sec average, ~350K peak (3x factor).</p>
+        <p><strong>Per write:</strong> avg 200 bytes payload + ~100 bytes metadata = ~300 bytes per message. With RF=3, each write becomes 3 physical writes = ~1M physical writes/sec at peak.</p>
+        <p><strong>Why Cassandra:</strong> A single Cassandra node handles ~10K-15K writes/sec sustained. At 1M physical writes/sec, we need ~70-100 nodes. This is well within Cassandra's proven operating range (Apple runs 150K+ nodes, Netflix runs 10K+ nodes). PostgreSQL with sharding could theoretically work, but managing 100+ shards with consistent hashing, rebalancing, and cross-shard queries is exactly what Cassandra was built to eliminate.</p>
+        <p><strong>Cost at this scale:</strong> 100 nodes × c5.4xlarge (16 vCPU, 32GB RAM) = ~$45K/month. DynamoDB at 1M WCU = ~$190K/month. Cassandra wins 4x on cost.</p>
+      </div>
+
+      <div class="subsection">
+        <h4>2. Connection Count → WebSocket Server Fleet</h4>
+        <p><strong>Input:</strong> 50M DAU × 50% concurrent = 25M WebSocket connections.</p>
+        <p><strong>Per connection:</strong> ~30KB memory (8KB read buffer + 8KB write buffer + 4KB goroutine stack + 10KB connection metadata). 30KB × 500K = ~15GB per server.</p>
+        <p><strong>Fleet size:</strong> 25M ÷ 500K = 50 servers. Using c5.2xlarge (8 vCPU, 16GB RAM) would be tight; we use c5.4xlarge (16 vCPU, 32GB) for headroom and CPU for TLS termination.</p>
+        <p><strong>Why not HTTP/2 Server Push?</strong> HTTP/2 multiplexes over a single TCP connection but still requires a full HTTP request/response cycle per message. WebSocket is a framed protocol — after the initial handshake, each message is just a few bytes of framing. At 350K msgs/sec, the framing overhead difference is significant.</p>
+      </div>
+
+      <div class="subsection">
+        <h4>3. Session Lookups → Redis</h4>
+        <p><strong>Input:</strong> Every message delivery requires 1 session lookup (recipient → WS server). At 350K msgs/sec, that's 350K Redis GETs/sec. For group messages with avg 20 members, add 20 lookups per group message. Worst case: ~1M Redis ops/sec.</p>
+        <p><strong>Why Redis:</strong> A single Redis node handles ~100K ops/sec. A 10-node cluster handles 1M+. Latency is <1ms P99. DynamoDB would add 3-10ms per lookup, adding 3-10ms to every message's delivery latency — unacceptable when our P99 target is 200ms total.</p>
+        <p><strong>Memory footprint:</strong> 50M session entries × ~100 bytes each = ~5GB. Easily fits in a small Redis cluster.</p>
+      </div>
+
+      <div class="subsection">
+        <h4>4. Media Storage → S3 with CDN</h4>
+        <p><strong>Input:</strong> 5% of messages include media. 10B × 5% = 500M media files/day. Average size 100KB (heavily skewed — most are compressed images, few are large videos). 500M × 100KB = ~50TB/day.</p>
+        <p><strong>Why S3 + CDN, not our own storage:</strong> At 50TB/day, we'd need to manage 18PB/year of storage. S3's cost is ~$0.023/GB/month for standard, dropping to $0.004/GB for Glacier. Self-managing this much storage (HDFS, Ceph) requires a dedicated storage team of 5-10 engineers. S3 is operationally free. The CDN ensures that popular media (shared in large groups, viral content) is served from edge without hitting S3 repeatedly.</p>
+        <p><strong>Pre-signed URL pattern:</strong> At 6K uploads/sec, if each upload went through our application servers, we'd need ~60 servers just for proxying media (assuming 100MB uploads at 100Mbps per server). Pre-signed URLs eliminate this — clients upload directly to S3.</p>
+      </div>
+
+      <div class="subsection">
+        <h4>5. Cell Architecture → Blast Radius Control</h4>
+        <p><strong>Input:</strong> 50M DAU ÷ 10 cells = 5M users per cell. Each cell is a complete, independent stack.</p>
+        <p><strong>Why cells:</strong> A bad deploy or infrastructure failure in one cell affects 5M users (10%) instead of 50M (100%). At our scale, the probability of a catastrophic failure is non-trivial — cells reduce the expected impact by 10x. The cost is cross-cell routing complexity for messages between users in different cells (~15% of all messages). This adds 20-50ms latency for cross-cell messages (inter-region network hop) which is acceptable.</p>
+        <p><strong>Cell sizing:</strong> Each cell must be small enough that a neighboring cell can absorb its users during failover (10% headroom). 5M users is calibrated so that a cell can temporarily handle 5.5M users without performance degradation.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Navigation =====
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ===== Toggle Deep Dives =====
+function toggleDD(header) {
+  const body = header.nextElementSibling;
+  const toggle = header.querySelector('.dd-toggle');
+  body.classList.toggle('open');
+  toggle.textContent = body.classList.contains('open') ? '▾' : '▸';
+}
+
+// ===== Component Detail (Architecture diagram click) =====
+const componentData = {
+  ws: {
+    title: 'WebSocket Gateway',
+    html: '<p><strong>The real-time backbone.</strong> Maintains 25M persistent WebSocket connections. Written in Go for efficient goroutine-per-connection model. Each server handles ~500K connections using ~15GB RAM.</p><h4>Key Design</h4><p>Connection-to-server mapping stored in Redis. Heartbeat every 30s with TTL-based dead connection detection. Messages are binary Protocol Buffer frames — not JSON — saving ~40% bandwidth vs text encoding.</p><h4>Internal Communication</h4><p>WS servers expose an internal gRPC API for message delivery. When Chat Service needs to deliver to user B, it looks up B\'s WS server in Redis and calls <code>Deliver(user_id, message)</code> via gRPC. This internal call is <1ms within the same datacenter.</p>'
+  },
+  chat: {
+    title: 'Chat Service',
+    html: '<p><strong>Message routing brain.</strong> Receives messages from WS Gateway, assigns sequence numbers, persists to Cassandra, and routes to recipients. Stateless — any instance handles any message.</p><h4>Critical Path</h4><p>Validate → Redis INCR (seq#) → Cassandra write (LOCAL_QUORUM) → ACK sender → Route to recipient(s). Total latency: ~15ms for persist + route.</p><h4>Idempotency</h4><p>Client-generated msg_id (UUIDv7) used as idempotency key. Checked against Cassandra before processing. UUIDv7 is time-ordered, so the check is a fast point lookup.</p>'
+  },
+  group: {
+    title: 'Group Service',
+    html: '<p><strong>Fan-out manager.</strong> Handles group message delivery with a hybrid strategy: fan-out-on-write for groups ≤50 members, fan-out-on-read for larger groups.</p><h4>Why Hybrid</h4><p>At 350K msgs/sec, 50-member fan-out = 1.75M deliveries/sec (manageable). 500-member fan-out = 17.5M deliveries/sec (would overwhelm WS gateway gRPC capacity).</p>'
+  },
+  presence: {
+    title: 'Presence Service',
+    html: '<p><strong>Ephemeral state manager.</strong> Tracks online/offline status and typing indicators. Designed for lossy, best-effort delivery — dropping a typing indicator is acceptable.</p><h4>Key Optimization</h4><p>Subscription-based fan-out: only notify users who are actively viewing a conversation, not all contacts. Reduces presence fan-out by ~95%.</p>'
+  },
+  push: {
+    title: 'Push / Notification Service',
+    html: '<p><strong>Offline delivery bridge.</strong> Sends push notifications via APNs (iOS) and FCM (Android) for offline users. Batches notifications to avoid rate limiting by Apple/Google.</p><h4>Smart Notification Collapsing</h4><p>If user has 50 unread messages from the same conversation, we don\'t send 50 pushes. We collapse into "50 new messages from Alice" using APNs collapse_id / FCM collapse_key.</p>'
+  },
+  media: {
+    title: 'Media Service',
+    html: '<p><strong>Upload orchestrator.</strong> Generates pre-signed S3 URLs for direct client upload. Triggers transcoding pipeline on upload completion. Serves media via CDN with E2E encrypted blobs.</p><h4>Upload Path</h4><p>Client → pre-signed URL → direct S3 upload → S3 event → transcode queue → thumbnail/preview generation → notify sender of completion.</p>'
+  },
+  encryption: {
+    title: 'E2E Encryption (Signal Protocol)',
+    html: '<p><strong>Zero-knowledge security.</strong> Server never sees plaintext. Implements X3DH key agreement for session establishment and Double Ratchet for ongoing message encryption with forward/future secrecy.</p><h4>Server Role</h4><p>Key Distribution Server only: stores public pre-key bundles, mediates initial key exchange. 100 one-time pre-keys per user, atomically consumed on session establishment.</p>'
+  },
+  cassandra: {
+    title: 'Apache Cassandra — Message Store',
+    html: '<p><strong>Why Cassandra for messages:</strong> Append-heavy, time-series access pattern. Linear horizontal scaling. No single point of failure. At 350K writes/sec with RF=3, we need ~100 nodes — well within Cassandra\'s proven range.</p><h4>Schema</h4><p>Partition key: (conversation_id, day_bucket). Clustering key: seq_num DESC. TWCS compaction matching daily buckets. This gives us ordered reads within a conversation with a single disk seek per partition.</p>'
+  },
+  redis: {
+    title: 'Redis Cluster — Session & Presence',
+    html: '<p><strong>Why Redis:</strong> Sub-millisecond latency on the critical message delivery path. INCR for atomic sequence numbers. TTL for automatic presence expiry. SET operations for group membership cache.</p><h4>Scale</h4><p>~1M ops/sec across a 10-node cluster. ~5GB total memory footprint for 50M session entries. Cost: negligible compared to Cassandra/S3.</p>'
+  },
+  postgres: {
+    title: 'PostgreSQL — Users, Groups, Pre-keys',
+    html: '<p><strong>Why PostgreSQL:</strong> Relational data needing ACID transactions. Contact sync requires set intersection queries. Pre-key consumption requires row-level locking. Group membership changes need transactional consistency.</p><h4>Scale</h4><p>Moderate write volume (~5K writes/sec). Primary + 3 read replicas. Partitioned by user_id for pre-keys table.</p>'
+  },
+  s3: {
+    title: 'S3 / Object Store — Media Files',
+    html: '<p><strong>Why S3:</strong> 50TB/day of media. S3 handles unlimited scale with zero operational overhead. Pre-signed URLs enable direct client upload at 6K/sec without proxying through application servers.</p><h4>Cost Management</h4><p>Intelligent Tiering: Standard (30 days) → IA (1 year) → Glacier Deep Archive. Media auto-delete policy further bounds growth.</p>'
+  },
+  kafka: {
+    title: 'Apache Kafka — Event Bus',
+    html: '<p><strong>Why Kafka:</strong> Durable, ordered, replayable event stream at 350K msgs/sec. Topic partitioned by conversation_id ensures all messages for a conversation are ordered within a partition.</p><h4>Key Topics</h4><p>msg-events (message lifecycle), delivery-events (receipts), presence-events, media-events. Each topic has partition count = 10× broker count for parallelism.</p>'
+  },
+  cellrouter: {
+    title: 'Cell Router — Cross-Region Relay',
+    html: '<p><strong>Problem:</strong> ~15% of messages are between users in different cells (different geographic regions). The Cell Router handles inter-cell message relay.</p><h4>How It Works</h4><p>Each cell publishes cross-cell messages to a dedicated Kafka topic. Cell Routers consume this topic and forward messages to the destination cell via gRPC over dedicated inter-region links (AWS PrivateLink or dedicated fiber).</p><h4>Latency Impact</h4><p>Cross-cell messages add 20-50ms latency (inter-region network hop). This is acceptable and transparent to users.</p>'
+  },
+  lb: {
+    title: 'Load Balancer (L4)',
+    html: '<p><strong>L4 TCP load balancing</strong> using consistent hashing on source IP (for initial WebSocket connection) and on user_id header (for gRPC internal traffic).</p><h4>Why L4 not L7</h4><p>At 25M concurrent connections, L7 (HTTP parsing) would add significant CPU overhead. L4 just routes TCP streams based on IP/port hashing. TLS termination happens at the WS Gateway layer, not the LB.</p>'
+  },
+  gateway: {
+    title: 'API Gateway',
+    html: '<p><strong>REST API entry point</strong> for non-real-time operations: media uploads, contact sync, group management, message history. Handles authentication (JWT validation), rate limiting (per-user token bucket), and request routing to backend services.</p>'
+  },
+  client: {
+    title: 'Client (Mobile/Web)',
+    html: '<p><strong>Client responsibilities:</strong> E2E encryption/decryption (Signal Protocol), local message database (SQLite on mobile), WebSocket connection management with exponential backoff reconnection, offline message queue, media compression before upload.</p><h4>Local Storage</h4><p>Messages stored locally in SQLite, encrypted at rest with device key. This enables instant message display without server round-trip and supports offline access.</p>'
+  },
+  user: {
+    title: 'User Service',
+    html: '<p><strong>Profile and contact management.</strong> Handles user registration, profile updates, phone number verification, and contact list sync. Contact sync uses set intersection: client uploads hashed phone numbers, server returns which ones are registered users.</p>'
+  },
+  sync: {
+    title: 'Sync Service',
+    html: '<p><strong>Offline-to-online bridge.</strong> When a user reconnects after being offline, the Sync Service delivers all missed messages. Uses per-conversation cursor tracking to know exactly where each user left off.</p><h4>Progressive Loading</h4><p>First batch: 20 messages × 50 conversations = 1000 messages max. Additional messages loaded on scroll. This keeps initial sync under 2 seconds regardless of offline duration.</p>'
+  },
+  monitoring: {
+    title: 'Monitoring Stack',
+    html: '<p><strong>Three pillars:</strong> Metrics (Prometheus + Grafana), Logs (structured JSON → Elasticsearch), Traces (distributed tracing via Jaeger/OpenTelemetry). Every message has a trace ID that follows it from client send → server receive → persist → deliver → client receive.</p><h4>Key Dashboard</h4><p>Real-time message flow: sends/sec, deliveries/sec, failures/sec with 10-second granularity per cell. Alert on delivery success rate <99.95% or P99 latency >500ms.</p>'
+  }
+};
+
+function showComponent(id) {
+  const data = componentData[id];
+  if (!data) return;
+  document.querySelectorAll('.arch-node').forEach(n => n.classList.remove('selected'));
+  document.querySelector(`.arch-node[data-component="${id}"]`)?.classList.add('selected');
+  document.getElementById('componentTitle').textContent = data.title;
+  document.getElementById('componentBody').innerHTML = data.html;
+  document.getElementById('componentDetail').style.display = 'block';
+  document.getElementById('componentDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ===== Flow Diagrams =====
+const flows = {
+  flow1: {
+    happy: [
+      { num: 1, title: 'Client A: Encrypt & Send', desc: 'Alice\'s client encrypts the message using Bob\'s session key (Double Ratchet). Generates a UUIDv7 msg_id. Sends SEND_MESSAGE frame over WebSocket.', comp: 'Client' },
+      { arrow: 'WebSocket frame (binary protobuf, ~300 bytes)' },
+      { num: 2, title: 'WS Gateway: Receive & Forward', desc: 'Gateway authenticates the frame (JWT in initial handshake), deserializes the protobuf, and publishes to Kafka topic "msg-events" partitioned by conversation_id.', comp: 'WS Gateway' },
+      { arrow: 'Kafka produce (acks=all, ~5ms)' },
+      { num: 3, title: 'Chat Service: Process Message', desc: 'Consumes from Kafka. Validates message (size, rate limit, conversation membership). Assigns sequence number via Redis INCR. Writes to Cassandra at LOCAL_QUORUM.', comp: 'Chat Service' },
+      { arrow: 'Cassandra write confirmed (~8ms)' },
+      { num: 4, title: 'Chat Service: ACK Sender', desc: 'Sends SENT receipt back to Alice\'s WS server via internal gRPC. Alice sees the single checkmark ✓. The message is now durable.', comp: 'Chat Service → WS Gateway' },
+      { arrow: 'Redis lookup: sess:bob_id → ws-server-7 (~1ms)' },
+      { num: 5, title: 'Chat Service: Route to Recipient', desc: 'Looks up Bob\'s WS server in Redis. Calls Deliver(bob_id, message) on ws-server-7 via gRPC. Bob\'s WS server pushes the NEW_MESSAGE frame to Bob\'s connection.', comp: 'Chat Service → WS Gateway' },
+      { arrow: 'WebSocket push to Bob\'s client' },
+      { num: 6, title: 'Client B: Receive & Decrypt', desc: 'Bob\'s client receives the frame, decrypts with his session key, displays the message. Sends ACK_RECEIVED back to server.', comp: 'Client' },
+      { arrow: 'ACK propagation' },
+      { num: 7, title: 'Delivery Receipt', desc: 'Server receives Bob\'s ACK, marks message as DELIVERED in Cassandra, and relays DELIVERY_RECEIPT to Alice. Alice sees double checkmark ✓✓.', comp: 'Chat Service' },
+    ],
+    offline: [
+      { num: 1, title: 'Steps 1-4: Same as Happy Path', desc: 'Message is encrypted, sent, sequenced, persisted, and ACKed to sender. Alice sees ✓.', comp: 'Client → Chat Service' },
+      { arrow: 'Redis lookup: sess:bob_id → null (not found)' },
+      { num: 2, title: 'Recipient Offline Detected', desc: 'Redis session lookup returns null — Bob has no active WS connection. Chat Service routes to offline delivery path.', comp: 'Chat Service', highlight: true },
+      { arrow: 'Two parallel actions:' },
+      { num: 3, title: 'Queue in Offline Store', desc: 'Message is already in Cassandra. Bob\'s sync cursor hasn\'t advanced, so this message will be picked up on reconnect. No additional storage needed.', comp: 'Sync Service' },
+      { num: 4, title: 'Send Push Notification', desc: 'Push Service sends notification via APNs/FCM. Notification shows "Alice: [message preview]" (preview is optional, configurable by user for privacy). Uses collapse_key to avoid spam.', comp: 'Push Service', highlight: true },
+      { arrow: '--- Bob comes online hours later ---' },
+      { num: 5, title: 'Bob Reconnects', desc: 'Bob opens app → WebSocket connects → Sync Service queries Cassandra for all messages after Bob\'s last sync cursor. Delivers messages in batches. Bob sees ✓✓ auto-sent.', comp: 'Sync Service' },
+    ],
+    crosscell: [
+      { num: 1, title: 'Steps 1-4: Same (in Alice\'s Cell)', desc: 'Message processed in Alice\'s cell (e.g., US-East). Persisted to US-East Cassandra. Alice gets ✓.', comp: 'Cell: US-East' },
+      { arrow: 'Session lookup: Bob is not in this cell' },
+      { num: 2, title: 'Cross-Cell Routing Decision', desc: 'Chat Service looks up Bob\'s home cell from the global user→cell mapping (stored in a global DynamoDB table, cached in Redis). Bob is in EU-West cell.', comp: 'Chat Service', highlight: true },
+      { arrow: 'Kafka topic: cross-cell-relay (partitioned by dest_cell)' },
+      { num: 3, title: 'Cell Router: Forward to EU-West', desc: 'Cell Router in US-East consumes the cross-cell message. Establishes gRPC stream to EU-West Cell Router over dedicated inter-region link. Forwards the message.', comp: 'Cell Router', highlight: true },
+      { arrow: 'Inter-region gRPC (~30ms network latency US↔EU)' },
+      { num: 4, title: 'EU-West Cell: Deliver to Bob', desc: 'EU-West Cell Router publishes to local Kafka. Local Chat Service picks it up, looks up Bob\'s WS server in local Redis, delivers via gRPC. Bob sees the message.', comp: 'Cell: EU-West' },
+      { num: 5, title: 'Receipt Reverse Path', desc: 'Bob\'s delivery receipt follows the reverse path: EU-West → Cell Router → US-East → Alice. Total added latency for cross-cell: ~60ms round-trip.', comp: 'Cell Router (reverse)' },
+    ]
+  },
+  flow2: {
+    fanout: [
+      { num: 1, title: 'Fan-out on Write (Simple Approach)', desc: 'When a message arrives for a 500-member group, the Group Service iterates through all 500 members and delivers to each one individually.', comp: 'Group Service' },
+      { arrow: '500 × Redis session lookups + 500 × gRPC deliver calls' },
+      { num: 2, title: 'Scale Problem', desc: 'At 35K group msgs/sec × 500 members = 17.5M delivery operations/sec. This would require 35× more WS gateway gRPC capacity. Each WS server would need to handle 350K inbound gRPC calls/sec in addition to its 500K WebSocket connections.', comp: 'WS Gateway', highlight: true },
+      { num: 3, title: 'Thundering Herd', desc: 'All 500 deliveries happen simultaneously. If the group is in one cell, this creates a burst of 500 writes to the same few WS servers. Network buffers overflow, messages queue, latency spikes.', comp: 'Network Layer', highlight: true },
+      { num: 4, title: 'Verdict', desc: 'Fan-out-on-write works for small groups (≤50 members) where the amplification is manageable. Not viable for large groups at our scale.', comp: 'Decision' },
+    ],
+    hybrid: [
+      { num: 1, title: 'Message Arrives at Group Service', desc: 'Sender sends message to group. Group Service checks membership count from Redis cache.', comp: 'Group Service' },
+      { arrow: 'if members ≤ 50: fan-out-on-write (push)' },
+      { num: 2, title: 'Small Group Path (≤50 members)', desc: 'Same as 1:1 delivery but repeated for each member. 50 Redis lookups + 50 gRPC calls. Total: 1.75M deliveries/sec for all small group messages combined. Manageable.', comp: 'Chat Service' },
+      { arrow: 'if members > 50: fan-out-on-read (pull)' },
+      { num: 3, title: 'Large Group Path (51-1024 members)', desc: 'Message written ONCE to the group\'s timeline in Cassandra (partition key = group_id). NOT pushed to individual members. Only a lightweight notification is sent: "new message in Group X".', comp: 'Chat Service', highlight: true },
+      { num: 4, title: 'Client Pull on Notification', desc: 'When a member receives the lightweight notification (or opens the group), their client fetches new messages from the group timeline. This is a Cassandra read, not a push.', comp: 'Client' },
+      { num: 5, title: 'Optimization: Active Member Push', desc: 'For members who currently have the group conversation open on screen, we still push in real-time (they\'re subscribed). For everyone else (group is in background), they pull on open. This typically means only 5-10% of members get a push.', comp: 'Presence Service + Chat Service' },
+      { num: 6, title: 'Result', desc: 'Write amplification for a 500-member group drops from 500× to ~1× (write) + ~25× (5% active members push). 95% reduction in delivery load for large groups.', comp: 'System-wide' },
+    ]
+  },
+  flow3: {
+    x3dh: [
+      { num: 1, title: 'Alice Wants to Message Bob (First Time)', desc: 'Alice has never messaged Bob before. No shared encryption session exists. Alice\'s client requests Bob\'s pre-key bundle from the Key Server.', comp: 'Client A → Key Server' },
+      { arrow: 'Key Server returns: Bob\'s identity key, signed pre-key, one-time pre-key' },
+      { num: 2, title: 'X3DH Key Agreement', desc: 'Alice performs X3DH (Extended Triple Diffie-Hellman) using her identity key + ephemeral key and Bob\'s identity key + signed pre-key + one-time pre-key. This produces a shared secret without Bob being online.', comp: 'Client A (local crypto)', highlight: true },
+      { num: 3, title: 'One-Time Pre-Key Consumed', desc: 'The Key Server atomically deletes the consumed one-time pre-key. If Bob\'s pre-key count drops below 20, server pushes a "replenish" request to Bob\'s client on next connect.', comp: 'Key Server (PostgreSQL)' },
+      { num: 4, title: 'Initial Message Sent', desc: 'Alice encrypts her first message with the derived session key. The message includes Alice\'s ephemeral public key so Bob can complete his side of X3DH. Message sent via normal Chat Service path.', comp: 'Client A → Chat Service' },
+      { arrow: 'Bob receives message with Alice\'s ephemeral key attached' },
+      { num: 5, title: 'Bob Completes X3DH', desc: 'Bob\'s client uses Alice\'s ephemeral key + his own pre-keys to derive the same shared secret. Both sides now have identical session keys. The Double Ratchet begins.', comp: 'Client B (local crypto)' },
+    ],
+    doubleratchet: [
+      { num: 1, title: 'Session Established', desc: 'After X3DH, both Alice and Bob have a shared root key. The Double Ratchet derives message keys from this root key, advancing the ratchet with every message.', comp: 'Both Clients' },
+      { num: 2, title: 'Symmetric Ratchet (Sending Chain)', desc: 'Each message uses a unique message key derived from the chain key via HMAC-SHA256. After deriving the message key, the chain key advances. Old message keys are deleted — forward secrecy: even if current key is compromised, past messages remain encrypted.', comp: 'Sender Client', highlight: true },
+      { num: 3, title: 'DH Ratchet (Key Rotation)', desc: 'Periodically (typically every reply), the sender generates a new ephemeral DH keypair and includes the public key in the message. This performs a new DH exchange, deriving a new root key. This provides future secrecy (self-healing after compromise).', comp: 'Both Clients', highlight: true },
+      { num: 4, title: 'Out-of-Order Message Handling', desc: 'The ratchet tracks message numbers. If message #5 arrives before #4, the client stores the skipped message key. When #4 eventually arrives, it can still be decrypted. Skipped keys are limited (max 1000) to prevent DoS.', comp: 'Receiver Client' },
+      { num: 5, title: 'Group Messaging (Sender Keys)', desc: 'For groups, each member distributes a "Sender Key" to all other members (via pairwise E2E channels). The sender encrypts once with their sender key; all members decrypt with it. Sender keys rotate on member add/remove.', comp: 'All Group Members' },
+    ]
+  },
+  flow4: {
+    upload: [
+      { num: 1, title: 'Client: Compress & Encrypt', desc: 'Client compresses the image/video locally (e.g., JPEG quality 85, H.264 for video). Then encrypts the compressed file with a random AES-256 key. Generates a thumbnail and encrypts it separately.', comp: 'Client' },
+      { num: 2, title: 'Request Upload URL', desc: 'Client sends POST /v1/media/upload with file size and type. Media Service generates a pre-signed S3 PUT URL (valid 15 min) and returns it along with a media_id.', comp: 'Media Service' },
+      { arrow: 'Pre-signed URL returned (~5ms)' },
+      { num: 3, title: 'Direct S3 Upload', desc: 'Client uploads the encrypted blob directly to S3 using the pre-signed URL. This bypasses all application servers — S3 handles the bandwidth. For large files, uses multipart upload.', comp: 'Client → S3', highlight: true },
+      { arrow: 'S3 event notification on upload complete' },
+      { num: 4, title: 'Send Message with Media Reference', desc: 'Client sends the chat message with media_id and the AES-256 encryption key (encrypted within the message payload via E2E encryption). Recipient will use this key to decrypt the media.', comp: 'Client → Chat Service' },
+      { num: 5, title: 'Post-Processing (Async)', desc: 'S3 event triggers processing: virus scan, generate thumbnails at multiple resolutions (if not already done client-side), video transcoding for adaptive bitrate. All operations on encrypted blobs — no content inspection.', comp: 'Media Pipeline' },
+    ],
+    download: [
+      { num: 1, title: 'Recipient Receives Message', desc: 'Bob receives the chat message containing media_id and the encrypted AES-256 media key. The message is decrypted via E2E encryption to reveal the media key.', comp: 'Client B' },
+      { num: 2, title: 'Thumbnail First', desc: 'Client immediately displays the inline thumbnail (sent as part of the message payload, ~5KB). This provides instant visual feedback while the full media loads.', comp: 'Client B' },
+      { num: 3, title: 'Full Media Download', desc: 'Client requests the full media via GET /v1/media/{media_id}. Media Service redirects to the CDN URL. CDN serves from edge cache if available (>80% cache hit rate for media <24h old).', comp: 'Client B → CDN → S3', highlight: true },
+      { num: 4, title: 'Client Decryption', desc: 'Client receives the encrypted blob from CDN, decrypts with the AES-256 key from the message, and displays the full-resolution media. The CDN and server never see the plaintext.', comp: 'Client B' },
+    ]
+  },
+  flow5: {
+    reconnect: [
+      { num: 1, title: 'Client Reconnects', desc: 'User opens app after being offline for hours. Client establishes new WebSocket connection. Sends its sync state: a map of {conversation_id → last_seen_seq_num} for all conversations.', comp: 'Client' },
+      { num: 2, title: 'WS Gateway: Register Session', desc: 'New session registered in Redis. Presence set to ONLINE. Gateway forwards sync request to Sync Service.', comp: 'WS Gateway' },
+      { num: 3, title: 'Sync Service: Calculate Delta', desc: 'For each conversation, Sync Service queries Cassandra: SELECT * FROM messages WHERE conv_id = X AND seq_num > last_seen_seq_num. Aggregates results across all conversations.', comp: 'Sync Service', highlight: true },
+      { arrow: 'Cassandra parallel reads (one per conversation with new messages)' },
+      { num: 4, title: 'Progressive Delivery', desc: 'Results sorted by conversation recency. First batch: latest 20 messages per conversation, top 50 conversations = max 1000 messages. Streamed to client as a series of NEW_MESSAGE frames.', comp: 'Sync Service' },
+      { num: 5, title: 'Client: Process & Display', desc: 'Client receives messages, decrypts each one, inserts into local SQLite database, updates conversation list UI. User sees their inbox populate in ~1-2 seconds.', comp: 'Client' },
+      { num: 6, title: 'Pagination for Older Messages', desc: 'Client can request more messages per conversation on scroll: GET /v1/conversations/{id}/messages?before={cursor}&limit=50. Server returns next page from Cassandra.', comp: 'Client → Chat Service → Cassandra' },
+      { num: 7, title: 'Delivery Receipts Batch', desc: 'Client sends batch ACK_RECEIVED for all newly received messages. Server updates delivery status in Cassandra and relays receipts to senders who are online.', comp: 'Client → Chat Service' },
+    ]
+  }
+};
+
+function setFlow(flowId, variant) {
+  const controls = document.getElementById(flowId + '-controls');
+  controls.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const steps = flows[flowId][variant];
+  const container = document.getElementById(flowId + '-steps');
+  container.innerHTML = '';
+
+  steps.forEach((step, i) => {
+    if (step.arrow) {
+      const div = document.createElement('div');
+      div.className = 'step-arrow';
+      div.textContent = '↓ ' + step.arrow;
+      container.appendChild(div);
+    } else {
+      const div = document.createElement('div');
+      div.className = 'flow-step' + (step.highlight ? ' highlight' : '');
+      div.innerHTML = `
+        <div class="step-num">${step.num}</div>
+        <div class="step-content">
+          <h5>${step.title} <span class="step-component">${step.comp}</span></h5>
+          <p>${step.desc}</p>
+        </div>
+      `;
+      div.addEventListener('click', () => {
+        container.querySelectorAll('.flow-step').forEach(s => s.classList.remove('active'));
+        div.classList.add('active');
+      });
+      container.appendChild(div);
+    }
+  });
+}
+
+// Initialize all flows
+setFlow('flow1', 'happy');
+setFlow('flow2', 'fanout');
+setFlow('flow3', 'x3dh');
+setFlow('flow4', 'upload');
+setFlow('flow5', 'reconnect');
+</script>
+
+</body>
+</html>

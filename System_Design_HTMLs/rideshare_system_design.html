@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ride-Sharing System Design — Deep Dive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --surface3: #22222f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 20% 50%, rgba(108,99,255,0.12) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 80% 20%, rgba(0,212,170,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .hero-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-tag::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--accent2);
+    display: inline-block;
+  }
+  .hero h1 {
+    font-family: var(--display);
+    font-size: clamp(36px, 5vw, 64px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero-sub {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 520px;
+    margin-bottom: 32px;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .hero-stat { text-align: left; }
+  .hero-stat-val {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .hero-stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .nav::-webkit-scrollbar { height: 2px; }
+  .nav::-webkit-scrollbar-track { background: transparent; }
+  .nav::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+  .nav-item {
+    padding: 14px 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav-item:hover { color: var(--text); }
+  .nav-item.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── LAYOUT ── */
+  .main { padding: 0; }
+  .section {
+    display: none;
+    padding: 48px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+    animation: fadeIn 0.3s ease;
+  }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-title {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 6px;
+  }
+  .section-sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 32px;
+    font-family: var(--mono);
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+  /* ── METRIC CARDS ── */
+  .metric {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .metric-val {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  .badge-blue { background: rgba(108,99,255,0.15); color: #a8a4ff; border: 1px solid rgba(108,99,255,0.3); }
+  .badge-teal { background: rgba(0,212,170,0.1); color: #00d4aa; border: 1px solid rgba(0,212,170,0.25); }
+  .badge-red { background: rgba(255,107,107,0.1); color: #ff8f8f; border: 1px solid rgba(255,107,107,0.25); }
+  .badge-yellow { background: rgba(255,209,102,0.1); color: #ffd166; border: 1px solid rgba(255,209,102,0.25); }
+  .badge-gray { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── CODE BLOCKS ── */
+  .code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 7px;
+    color: var(--accent2);
+  }
+
+  /* ── TIMELINE / STEPS ── */
+  .step-list { list-style: none; }
+  .step-item {
+    display: flex;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 12px;
+    transition: background 0.15s;
+  }
+  .step-item:hover { background: var(--surface2); }
+  .step-item:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.4);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-weight: 500;
+  }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 500; font-size: 13px; margin-bottom: 2px; }
+  .step-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .step-detail {
+    display: none;
+    margin-top: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .step-item.open .step-detail { display: block; }
+  .step-item.open .step-num { background: rgba(108,99,255,0.3); }
+
+  /* ── ARCH DIAGRAM ── */
+  .arch-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    overflow-x: auto;
+  }
+  .arch-svg { display: block; min-width: 700px; }
+
+  /* ── DATA STORE TABLE ── */
+  .ds-table { width: 100%; border-collapse: collapse; }
+  .ds-table th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ds-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    vertical-align: top;
+  }
+  .ds-table tr:last-child td { border-bottom: none; }
+  .ds-table tr:hover td { background: var(--surface2); }
+  .ds-table td:first-child { font-weight: 500; font-size: 13px; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .flow-step::before {
+    content: '';
+    position: absolute;
+    left: 27px;
+    top: 52px;
+    bottom: -16px;
+    width: 1px;
+    background: var(--border);
+  }
+  .flow-step:last-child::before { display: none; }
+  .flow-step:hover { background: var(--surface2); }
+  .flow-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+  .flow-body { flex: 1; }
+  .flow-title { font-weight: 500; margin-bottom: 3px; }
+  .flow-sub { font-size: 12px; color: var(--muted); }
+  .flow-expand {
+    display: none;
+    margin-top: 10px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .flow-step.open .flow-expand { display: block; }
+
+  /* ── COMPARISON ── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .compare-card {
+    border-radius: 10px;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+  }
+  .compare-card.good { border-color: rgba(0,212,170,0.3); background: rgba(0,212,170,0.05); }
+  .compare-card.bad { border-color: rgba(255,107,107,0.3); background: rgba(255,107,107,0.05); }
+  .compare-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .compare-card.good .compare-label { color: var(--accent2); }
+  .compare-card.bad .compare-label { color: var(--accent3); }
+
+  /* ── TABS ── */
+  .tab-row { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); border-color: var(--border2); }
+  .tab-btn.on { background: rgba(108,99,255,0.15); color: var(--accent); border-color: rgba(108,99,255,0.4); }
+  .tab-panel { display: none; }
+  .tab-panel.on { display: block; }
+
+  /* ── PROGRESS BARS ── */
+  .pbar { height: 5px; border-radius: 3px; background: var(--surface3); overflow: hidden; margin-top: 5px; }
+  .pbar-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.6s ease; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+  /* ── CANVAS ── */
+  canvas { display: block; border-radius: 8px; }
+
+  /* ── ALERT ROWS ── */
+  .alert-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 6px;
+    background: var(--surface2);
+  }
+  .alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── TIER ── */
+  .tier {
+    border-left: 3px solid;
+    padding: 14px 18px;
+    border-radius: 0 10px 10px 0;
+    margin-bottom: 10px;
+  }
+  .tier-title { font-family: var(--display); font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  .tier-items { list-style: none; }
+  .tier-items li {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.5;
+  }
+  .tier-items li:last-child { border-bottom: none; }
+  .tier-items li strong { color: var(--text); font-weight: 500; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    .hero { padding: 48px 20px 40px; }
+    .section { padding: 32px 20px; }
+    .nav { padding: 0 20px; }
+    .grid2, .grid3, .grid4, .compare-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-tag">System Design Deep Dive</div>
+  <h1>Ride-Sharing<br><span>Platform</span><br>Architecture</h1>
+  <p class="hero-sub">A Staff/Principal-level walkthrough of every component, data store, and design decision in a system like Uber or Lyft — with EM lens throughout.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="hero-stat-val">1M+</div><div class="hero-stat-label">trips / day</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">100k/s</div><div class="hero-stat-label">GPS writes</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">8</div><div class="hero-stat-label">core services</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">8</div><div class="hero-stat-label">data stores</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">&lt;500ms</div><div class="hero-stat-label">match latency</div></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-item active" onclick="showSection('architecture')">Architecture</button>
+  <button class="nav-item" onclick="showSection('matching')">Matching</button>
+  <button class="nav-item" onclick="showSection('location')">Location</button>
+  <button class="nav-item" onclick="showSection('payments')">Payments</button>
+  <button class="nav-item" onclick="showSection('surge')">Surge Pricing</button>
+  <button class="nav-item" onclick="showSection('datastores')">Data Stores</button>
+  <button class="nav-item" onclick="showSection('eventbus')">Event Bus</button>
+  <button class="nav-item" onclick="showSection('fraud')">Fraud & Analytics</button>
+  <button class="nav-item" onclick="showSection('ops')">Ops & Safety</button>
+  <button class="nav-item" onclick="showSection('em')">EM Lens</button>
+</nav>
+
+<div class="main">
+
+<!-- ═══ ARCHITECTURE ═══ -->
+<section id="architecture" class="section active">
+  <div class="section-title">High-Level Architecture</div>
+  <div class="section-sub">// three-tier system — clients → platform services → data layer</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Clients</div><div class="metric-val">3</div><div class="metric-sub">Rider · Driver · Admin</div></div>
+    <div class="metric"><div class="metric-label">Core Services</div><div class="metric-val">8</div><div class="metric-sub">Behind API Gateway</div></div>
+    <div class="metric"><div class="metric-label">Event Bus</div><div class="metric-val">Kafka</div><div class="metric-sub">~100k msg/s peak</div></div>
+    <div class="metric"><div class="metric-label">Data Stores</div><div class="metric-val">8</div><div class="metric-sub">Each purpose-built</div></div>
+  </div>
+
+  <div class="arch-wrap" style="margin-bottom:20px;">
+    <svg class="arch-svg" viewBox="0 0 820 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 2L8 5L2 8" stroke="#6c63ff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 2L8 5L2 8" stroke="#00d4aa" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 2L8 5L2 8" stroke="#ffd166" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- Client tier -->
+      <text x="10" y="36" fill="#7070a0" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">CLIENTS</text>
+      <rect x="10" y="46" width="100" height="40" rx="8" fill="#1a1a24" stroke="#6c63ff" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="60" y="70" fill="#a8a4ff" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Rider App</text>
+      <rect x="10" y="96" width="100" height="40" rx="8" fill="#1a1a24" stroke="#6c63ff" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="60" y="120" fill="#a8a4ff" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Driver App</text>
+      <rect x="10" y="146" width="100" height="40" rx="8" fill="#1a1a24" stroke="#6c63ff" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="60" y="170" fill="#a8a4ff" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Admin Web</text>
+
+      <!-- Arrows to gateway -->
+      <line x1="110" y1="66" x2="168" y2="100" stroke="#6c63ff" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+      <line x1="110" y1="116" x2="168" y2="114" stroke="#6c63ff" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+      <line x1="110" y1="166" x2="168" y2="128" stroke="#6c63ff" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+
+      <!-- API Gateway -->
+      <rect x="170" y="86" width="120" height="52" rx="10" fill="#22222f" stroke="#6c63ff" stroke-width="1.5"/>
+      <text x="230" y="108" fill="#e8e8f0" font-family="Syne,sans-serif" font-size="12" font-weight="600" text-anchor="middle">API Gateway</text>
+      <text x="230" y="124" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">Auth · Rate limit · Route</text>
+
+      <!-- Services tier label -->
+      <text x="320" y="36" fill="#7070a0" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">CORE SERVICES</text>
+
+      <!-- Services row 1 -->
+      <rect x="320" y="46" width="108" height="38" rx="8" fill="#1a1a24" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="374" y="64" fill="#00d4aa" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Matching</text>
+      <text x="374" y="77" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">batch 500ms</text>
+
+      <rect x="438" y="46" width="108" height="38" rx="8" fill="#1a1a24" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="492" y="64" fill="#00d4aa" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Location</text>
+      <text x="492" y="77" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">real-time GPS</text>
+
+      <rect x="556" y="46" width="108" height="38" rx="8" fill="#1a1a24" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="610" y="64" fill="#00d4aa" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Trip</text>
+      <text x="610" y="77" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">state machine</text>
+
+      <rect x="674" y="46" width="108" height="38" rx="8" fill="#1a1a24" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="728" y="64" fill="#00d4aa" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Payment</text>
+      <text x="728" y="77" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">auth → capture</text>
+
+      <!-- Services row 2 -->
+      <rect x="320" y="98" width="108" height="38" rx="8" fill="#1a1a24" stroke="#ffd166" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="374" y="116" fill="#ffd166" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Pricing</text>
+      <text x="374" y="129" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">surge / ETA</text>
+
+      <rect x="438" y="98" width="108" height="38" rx="8" fill="#1a1a24" stroke="#ffd166" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="492" y="116" fill="#ffd166" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Notifications</text>
+      <text x="492" y="129" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">push · SMS</text>
+
+      <rect x="556" y="98" width="108" height="38" rx="8" fill="#1a1a24" stroke="#ff6b6b" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="610" y="116" fill="#ff8f8f" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Fraud</text>
+      <text x="610" y="129" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">GBT scoring</text>
+
+      <rect x="674" y="98" width="108" height="38" rx="8" fill="#1a1a24" stroke="#ff6b6b" stroke-opacity="0.4" stroke-width="1"/>
+      <text x="728" y="116" fill="#ff8f8f" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Safety</text>
+      <text x="728" y="129" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">SOS · incidents</text>
+
+      <!-- Gateway to services arrows -->
+      <line x1="290" y1="112" x2="318" y2="70" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1" marker-end="url(#arr2)"/>
+      <line x1="290" y1="112" x2="436" y2="70" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1" marker-end="url(#arr2)"/>
+      <line x1="290" y1="112" x2="554" y2="70" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1" marker-end="url(#arr2)"/>
+      <line x1="290" y1="112" x2="672" y2="70" stroke="#00d4aa" stroke-opacity="0.4" stroke-width="1" marker-end="url(#arr2)"/>
+
+      <!-- Kafka bus -->
+      <text x="320" y="162" fill="#7070a0" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">EVENT BUS</text>
+      <rect x="320" y="170" width="462" height="44" rx="10" fill="#22222f" stroke="#ffd166" stroke-width="1.5"/>
+      <text x="551" y="188" fill="#ffd166" font-family="Syne,sans-serif" font-size="12" font-weight="600" text-anchor="middle">Kafka — Event Bus</text>
+      <text x="551" y="203" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">trip-events · location-updates · match-events · payment-events · gps-stream</text>
+
+      <!-- Services to Kafka -->
+      <line x1="374" y1="136" x2="374" y2="169" stroke="#ffd166" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="492" y1="136" x2="492" y2="169" stroke="#ffd166" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="610" y1="136" x2="610" y2="169" stroke="#ffd166" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="728" y1="136" x2="728" y2="169" stroke="#ffd166" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="3 3"/>
+
+      <!-- Data stores label -->
+      <text x="10" y="242" fill="#7070a0" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">DATA LAYER</text>
+
+      <!-- Data stores -->
+      <rect x="10" y="252" width="100" height="36" rx="8" fill="#1a1a24" stroke="#6c63ff" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="60" y="273" fill="#a8a4ff" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">PostgreSQL</text>
+
+      <rect x="120" y="252" width="100" height="36" rx="8" fill="#1a1a24" stroke="#ff6b6b" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="170" y="273" fill="#ff8f8f" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Redis GEO</text>
+
+      <rect x="230" y="252" width="100" height="36" rx="8" fill="#1a1a24" stroke="#ff6b6b" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="280" y="273" fill="#ff8f8f" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Redis Cache</text>
+
+      <rect x="340" y="252" width="100" height="36" rx="8" fill="#1a1a24" stroke="#00d4aa" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="390" y="273" fill="#00d4aa" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">PostGIS</text>
+
+      <rect x="450" y="252" width="100" height="36" rx="8" fill="#1a1a24" stroke="#a8a4ff" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="500" y="267" fill="#a8a4ff" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Timescale</text>
+      <text x="500" y="280" fill="#7070a0" font-family="DM Mono,monospace" font-size="9" text-anchor="middle">DB</text>
+
+      <rect x="560" y="252" width="100" height="36" rx="8" fill="#1a1a24" stroke="#ffd166" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="610" y="273" fill="#ffd166" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">Elasticsearch</text>
+
+      <rect x="670" y="252" width="80" height="36" rx="8" fill="#1a1a24" stroke="#7070a0" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="710" y="273" fill="#7070a0" font-family="DM Sans,sans-serif" font-size="11" font-weight="500" text-anchor="middle">S3</text>
+
+      <rect x="760" y="252" width="50" height="36" rx="8" fill="#1a1a24" stroke="#7070a0" stroke-opacity="0.5" stroke-width="1"/>
+      <text x="785" y="267" fill="#7070a0" font-family="DM Sans,sans-serif" font-size="10" font-weight="500" text-anchor="middle">DWH</text>
+
+      <!-- Kafka to stores -->
+      <line x1="430" y1="214" x2="60" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="480" y1="214" x2="170" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="510" y1="214" x2="280" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="540" y1="214" x2="390" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="570" y1="214" x2="500" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="600" y1="214" x2="610" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="650" y1="214" x2="710" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="720" y1="214" x2="785" y2="251" stroke="#ffd166" stroke-opacity="0.2" stroke-width="1" stroke-dasharray="3 3"/>
+    </svg>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Request lifecycle — rider books a trip</div>
+      <ul class="step-list">
+        <li class="step-item" onclick="toggleStep(this)">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Rider taps "Request ride"</div>
+            <div class="step-desc">App sends pickup GPS + destination to API Gateway</div>
+            <div class="step-detail">JWT validated, rate limit checked, request forwarded to Trip service. Idempotency key generated. Fare estimate computed from route + surge cache.</div>
+          </div>
+        </li>
+        <li class="step-item" onclick="toggleStep(this)">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Pricing service computes fare estimate</div>
+            <div class="step-desc">Base + distance + time + surge multiplier from Redis</div>
+            <div class="step-detail">Surge multiplier is read from Redis cache (pre-computed every 60s per H3 cell). ETA computed via road network + live traffic. Auth hold placed on payment method.</div>
+          </div>
+        </li>
+        <li class="step-item" onclick="toggleStep(this)">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Matching engine runs batch optimisation</div>
+            <div class="step-desc">500ms batch window, Hungarian algorithm</div>
+            <div class="step-detail">Open requests accumulate for 500ms. Engine queries Redis GEO for nearby drivers, scores each on ETA (50pts) + rating (15pts) + acceptance rate (15pts) + idle time (10pts) + heading (10pts). Joint optimisation minimises total ETA across all riders in batch.</div>
+          </div>
+        </li>
+        <li class="step-item" onclick="toggleStep(this)">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Offer dispatched to top-ranked driver</div>
+            <div class="step-desc">WebSocket push with 15-second timeout</div>
+            <div class="step-detail">Offer sent over existing persistent WebSocket. Driver has 15s to accept or decline. On decline/timeout, next-ranked driver receives offer. Acceptance rate tracked rolling window.</div>
+          </div>
+        </li>
+        <li class="step-item" onclick="toggleStep(this)">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <div class="step-title">Trip created — downstream events fire</div>
+            <div class="step-desc">Kafka publishes trip.matched event to all consumers</div>
+            <div class="step-detail">Trip state transitions to ACCEPTED in PostgreSQL. Kafka emits to: notification service (push to rider), location tracking begins, payment hold confirmed, safety monitoring starts.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Non-functional requirements</div>
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Latency targets</div>
+        <div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>API Gateway overhead</span><span style="font-family:var(--mono);color:var(--accent2);">< 5ms</span></div><div class="pbar"><div class="pbar-fill" style="width:5%;background:var(--accent2);"></div></div></div>
+        <div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Redis GEO lookup</span><span style="font-family:var(--mono);color:var(--accent2);">< 1ms</span></div><div class="pbar"><div class="pbar-fill" style="width:2%;background:var(--accent2);"></div></div></div>
+        <div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Match batch window</span><span style="font-family:var(--mono);color:var(--accent4);">500ms</span></div><div class="pbar"><div class="pbar-fill" style="width:25%;background:var(--accent4);"></div></div></div>
+        <div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Offer dispatch (WebSocket)</span><span style="font-family:var(--mono);color:var(--accent4);">< 100ms</span></div><div class="pbar"><div class="pbar-fill" style="width:10%;background:var(--accent4);"></div></div></div>
+        <div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Fare capture after trip</span><span style="font-family:var(--mono);color:var(--accent3);">< 2s</span></div><div class="pbar"><div class="pbar-fill" style="width:40%;background:var(--accent3);"></div></div></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Scale targets</div>
+      <div class="grid2" style="gap:8px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Daily trips</div><div style="font-family:var(--mono);font-size:14px;color:var(--accent);">1M+</div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">GPS writes/s</div><div style="font-family:var(--mono);font-size:14px;color:var(--accent);">100k</div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Concurrent WS</div><div style="font-family:var(--mono);font-size:14px;color:var(--accent);">1M+</div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Availability</div><div style="font-family:var(--mono);font-size:14px;color:var(--accent);">99.99%</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MATCHING ═══ -->
+<section id="matching" class="section">
+  <div class="section-title">Matching Service</div>
+  <div class="section-sub">// the most algorithmically complex component — runs every 500ms</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Batch window</div><div class="metric-val">500ms</div><div class="metric-sub">Accumulate before optimising</div></div>
+    <div class="metric"><div class="metric-label">Algorithm</div><div class="metric-val">Hungarian</div><div class="metric-sub">Min total ETA across batch</div></div>
+    <div class="metric"><div class="metric-label">Offer timeout</div><div class="metric-val">15s</div><div class="metric-sub">Per driver, then retry</div></div>
+    <div class="metric"><div class="metric-label">Sharding</div><div class="metric-val">By city</div><div class="metric-sub">Independent per metro area</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Why batch instead of instant match?</div>
+      <div class="compare-grid">
+        <div class="compare-card bad">
+          <div class="compare-label">Greedy (instant)</div>
+          <ul style="list-style:none;font-size:12px;color:var(--muted);">
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Each rider gets closest driver immediately</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Locally optimal per rider</li>
+            <li style="padding:4px 0;">Globally suboptimal — can leave nearby riders stranded</li>
+          </ul>
+        </div>
+        <div class="compare-card good">
+          <div class="compare-label">Batch (optimal)</div>
+          <ul style="list-style:none;font-size:12px;color:var(--muted);">
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Wait 500ms, optimise all at once</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Minimises sum of all ETAs</li>
+            <li style="padding:4px 0;">Some riders wait 200ms more — system 20–40% faster</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Driver scoring formula (0–100 pts)</div>
+      <div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>ETA to pickup <span class="badge badge-blue">primary</span></span><span style="font-family:var(--mono);color:var(--accent);">50 pts</span></div><div class="pbar"><div class="pbar-fill" style="width:100%;"></div></div></div>
+      <div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Driver rating</span><span style="font-family:var(--mono);color:var(--accent);">15 pts</span></div><div class="pbar"><div class="pbar-fill" style="width:30%;"></div></div></div>
+      <div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Acceptance rate</span><span style="font-family:var(--mono);color:var(--accent);">15 pts</span></div><div class="pbar"><div class="pbar-fill" style="width:30%;"></div></div></div>
+      <div style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Idle time in zone <span class="badge badge-teal">fairness</span></span><span style="font-family:var(--mono);color:var(--accent);">10 pts</span></div><div class="pbar"><div class="pbar-fill" style="width:20%;"></div></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Heading alignment</span><span style="font-family:var(--mono);color:var(--accent);">10 pts</span></div><div class="pbar"><div class="pbar-fill" style="width:20%;"></div></div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="card-title">Trip state machine</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-family:var(--mono);font-size:11px;">
+      <span style="background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.4);padding:5px 12px;border-radius:20px;color:#a8a4ff;">REQUESTED</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.3);padding:5px 12px;border-radius:20px;color:#ffd166;">MATCHED</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);padding:5px 12px;border-radius:20px;color:#00d4aa;">ACCEPTED</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);padding:5px 12px;border-radius:20px;color:#00d4aa;">EN_ROUTE</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);padding:5px 12px;border-radius:20px;color:#00d4aa;">ARRIVED</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.3);padding:5px 12px;border-radius:20px;color:#ffd166;">IN_PROGRESS</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="background:rgba(0,212,170,0.15);border:1px solid rgba(0,212,170,0.5);padding:5px 12px;border-radius:20px;color:#00d4aa;">COMPLETED</span>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted);">Each transition fires a Kafka event. PostgreSQL enforces valid transitions via check constraints at the DB level — no application bug can corrupt state. Redis caches the live state for sub-ms reads by the matching engine and driver app.</div>
+  </div>
+</section>
+
+<!-- ═══ LOCATION ═══ -->
+<section id="location" class="section">
+  <div class="section-title">Location Service</div>
+  <div class="section-sub">// real-time GPS pipeline — from driver phone to matching engine</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Update rate</div><div class="metric-val">4s</div><div class="metric-sub">Adaptive — 8–15s when idle</div></div>
+    <div class="metric"><div class="metric-label">Write throughput</div><div class="metric-val">100k/s</div><div class="metric-sub">Redis GEOADD</div></div>
+    <div class="metric"><div class="metric-label">Query latency</div><div class="metric-val">&lt; 1ms</div><div class="metric-sub">GEORADIUS</div></div>
+    <div class="metric"><div class="metric-label">Indexing</div><div class="metric-val">S2 cells</div><div class="metric-sub">Proximity without distance calc</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-title">GPS update pipeline</div>
+    <div class="flow">
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(108,99,255,0.15);color:#a8a4ff;">1</div>
+        <div class="flow-body">
+          <div class="flow-title">Driver app sends GPS every 4 seconds</div>
+          <div class="flow-sub">Fused Location Provider (GPS + cell + Wi-Fi) over persistent WebSocket</div>
+          <div class="flow-expand">The OS fused location provider combines GPS chip, cell tower triangulation, and Wi-Fi positioning. When the driver is stationary (detected via accelerometer), GPS polling pauses entirely to save battery. Each frame carries: driver_id, lat, lng, bearing, speed_kmh, accuracy_m.</div>
+        </div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(255,209,102,0.1);color:#ffd166;">2</div>
+        <div class="flow-body">
+          <div class="flow-title">WebSocket server → Kafka location-updates topic</div>
+          <div class="flow-sub">100k msg/s published; partitioned by driver_id</div>
+          <div class="flow-expand">WebSocket servers are stateless — driver connections are pinned via consistent hashing so all messages from one driver go to the same server instance. Kafka partitioning by driver_id ensures ordered delivery. The Kafka step decouples ingestion from storage so a slow Redis write never blocks the driver app.</div>
+        </div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(255,107,107,0.1);color:#ff8f8f;">3</div>
+        <div class="flow-body">
+          <div class="flow-title">Location consumer deduplicates and writes to Redis GEO</div>
+          <div class="flow-sub">GEOADD overwrites previous position; sub-ms</div>
+          <div class="flow-expand">The consumer checks if the position has changed by more than 5m before writing — suppressing GPS jitter for stationary drivers. GEOADD atomically updates the driver's position in the sorted set. A companion hash stores driver status (AVAILABLE / ON_TRIP) and pre-computed ETA.</div>
+        </div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(0,212,170,0.1);color:#00d4aa;">4</div>
+        <div class="flow-body">
+          <div class="flow-title">Filtered positions pushed to rider app via WebSocket</div>
+          <div class="flow-sub">Only drivers within ~5km radius; bearing included for smooth animation</div>
+          <div class="flow-expand">The server filters by the rider's S2 cell — only nearby drivers are sent. Each frame includes bearing so the car icon rotates correctly. The rider app interpolates movement between received frames using dead reckoning (extrapolate from speed + heading) so dots glide rather than teleport every 4 seconds.</div>
+        </div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(83,74,183,0.15);color:#a8a4ff;">5</div>
+        <div class="flow-body">
+          <div class="flow-title">Raw stream also consumed by TimescaleDB</div>
+          <div class="flow-sub">Source of truth for fare calculation — distance + time from GPS trace</div>
+          <div class="flow-expand">The raw GPS trace is the source of truth for the final fare — not the pre-trip route estimate. After trip completion, the fare service queries TimescaleDB for all positions during the trip, computes actual km and minutes, and uses those figures to calculate the final charge. TimescaleDB hypertable partitioned by time; old partitions auto-compressed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">S2 cells vs Geohash</div>
+      <div class="compare-grid">
+        <div class="compare-card bad">
+          <div class="compare-label">Geohash</div>
+          <ul style="list-style:none;font-size:12px;color:var(--muted);">
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Base32 string — prefix = proximity</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Simple — built into Redis natively</li>
+            <li style="padding:4px 0;">Edge distortion at cell boundaries</li>
+          </ul>
+        </div>
+        <div class="compare-card good">
+          <div class="compare-label">S2 cells (Google)</div>
+          <ul style="list-style:none;font-size:12px;color:var(--muted);">
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">64-bit integer — Hilbert curve ordering</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Numerically close = spatially close</li>
+            <li style="padding:4px 0;">Better edge properties; used by Uber</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Why adaptive GPS rate matters</div>
+      <table class="ds-table">
+        <thead><tr><th>State</th><th>Rate</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Idle / waiting</td><td><span class="code">8–15s</span></td><td>Coarse position sufficient for cell assignment</td></tr>
+          <tr><td>Matched / en route</td><td><span class="code">2–4s</span></td><td>Rider map must be smooth</td></tr>
+          <tr><td>In trip</td><td><span class="code">2–4s</span></td><td>Fare accumulation + rider tracking</td></tr>
+          <tr><td>Stationary</td><td><span class="code">0</span></td><td>Accelerometer confirms no movement — polling suppressed</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PAYMENTS ═══ -->
+<section id="payments" class="section">
+  <div class="section-title">Payment Processing</div>
+  <div class="section-sub">// auth-then-capture, three-party money flow, idempotency everywhere</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Pattern</div><div class="metric-val">Auth→Capture</div><div class="metric-sub">Hold at booking, charge after</div></div>
+    <div class="metric"><div class="metric-label">Auth buffer</div><div class="metric-val">+20%</div><div class="metric-sub">Handles surge / detours</div></div>
+    <div class="metric"><div class="metric-label">Driver payout</div><div class="metric-val">Nightly</div><div class="metric-sub">ACH / NEFT batch</div></div>
+    <div class="metric"><div class="metric-label">Safety</div><div class="metric-val">Idempotency</div><div class="metric-sub">No double-charge on retry</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-title">Payment lifecycle — 5 stages</div>
+    <div class="flow">
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(108,99,255,0.15);color:#a8a4ff;">1</div>
+        <div class="flow-body"><div class="flow-title">Auth hold placed at booking</div><div class="flow-sub">Estimated fare + 20% buffer frozen on card — no money moves yet</div><div class="flow-expand">The payment gateway is called with an authorization (not a capture) for estimated fare × 1.2. The card network reserves the amount. If the card declines, the platform tries the next saved payment method. Auth holds expire after 7 days if never captured.</div></div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(255,209,102,0.1);color:#ffd166;">2</div>
+        <div class="flow-body"><div class="flow-title">Trip runs — no payment activity</div><div class="flow-sub">Meter accumulates from GPS trace in TimescaleDB</div><div class="flow-expand">The fare meter runs server-side from the GPS trace, not a client timer. Distance and time are derived from raw positions. The auth hold remains frozen. No payment API calls during the trip.</div></div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(83,74,183,0.15);color:#a8a4ff;">3</div>
+        <div class="flow-body"><div class="flow-title">Final fare computed on trip completion</div><div class="flow-sub">Base + (km × rate) + (min × rate) × surge − promos + tax</div><div class="flow-expand">The fare service queries the GPS trace from TimescaleDB, computes actual distance and duration, applies surge and any promo codes, adds tolls as pass-through. The final amount is always ≤ the auth hold (if a detour pushed it higher, a new auth is needed).</div></div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(0,212,170,0.1);color:#00d4aa;">4</div>
+        <div class="flow-body"><div class="flow-title">Capture request sent with idempotency key</div><div class="flow-sub">Gateway converts auth to actual charge for exact final fare</div><div class="flow-expand">The idempotency key (UUID derived from trip_id + "capture") is written to Redis before the gateway call. Any retry with the same key returns the original result — preventing double-charge on network failures. Capture completes in &lt;2s after trip ends.</div></div>
+      </div>
+      <div class="flow-step" onclick="toggleFlow(this)">
+        <div class="flow-icon" style="background:rgba(0,212,170,0.15);color:#00d4aa;">5</div>
+        <div class="flow-body"><div class="flow-title">Nightly batch settles driver payout</div><div class="flow-sub">Platform retains 17–25% commission; driver gets 75–80%</div><div class="flow-expand">A nightly batch job aggregates all completed trips per driver, computes net payout after commission and tax, and initiates ACH/NEFT transfers. Suspended drivers' earnings are held. Failed payouts retry the next night; 3 consecutive failures trigger manual review. "Instant Pay" (push-to-card) available as paid feature.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Money flow (₹300 example fare)</div>
+      <table class="ds-table">
+        <thead><tr><th>Party</th><th>Amount</th><th>%</th></tr></thead>
+        <tbody>
+          <tr><td>Rider pays</td><td><span class="code">₹300</span></td><td>100%</td></tr>
+          <tr><td>Driver receives</td><td><span class="code">₹234</span></td><td>78%</td></tr>
+          <tr><td>Platform retains</td><td><span class="code">₹51</span></td><td>17%</td></tr>
+          <tr><td>GST (5%)</td><td><span class="code">₹15</span></td><td>5%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Failure handling</div>
+      <div class="alert-row"><div class="alert-dot" style="background:#ff6b6b;"></div><div><div style="font-size:12px;font-weight:500;">Card declined at auth</div><div style="font-size:11px;color:var(--muted);">Try next saved method → prompt rider to add card</div></div></div>
+      <div class="alert-row"><div class="alert-dot" style="background:#ffd166;"></div><div><div style="font-size:12px;font-weight:500;">Capture fails post-trip</div><div style="font-size:11px;color:var(--muted);">Retry 3× exponential backoff → mark unpaid → collect next trip</div></div></div>
+      <div class="alert-row"><div class="alert-dot" style="background:#ffd166;"></div><div><div style="font-size:12px;font-weight:500;">Network timeout at capture</div><div style="font-size:11px;color:var(--muted);">Idempotency key prevents double-charge on retry</div></div></div>
+      <div class="alert-row"><div class="alert-dot" style="background:var(--accent2);"></div><div><div style="font-size:12px;font-weight:500;">Driver payout fails</div><div style="font-size:11px;color:var(--muted);">Retry next night → wallet credit fallback → manual at 3× fail</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SURGE ═══ -->
+<section id="surge" class="section">
+  <div class="section-title">Surge Pricing</div>
+  <div class="section-sub">// demand/supply ratio per H3 hex cell, updated every 60 seconds</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Grid</div><div class="metric-val">H3 cells</div><div class="metric-sub">Hexagonal, equidistant</div></div>
+    <div class="metric"><div class="metric-label">Update rate</div><div class="metric-val">60s</div><div class="metric-sub">Demand/supply recomputed</div></div>
+    <div class="metric"><div class="metric-label">Multiplier cap</div><div class="metric-val">4–5×</div><div class="metric-sub">Self-limits via cancellations</div></div>
+    <div class="metric"><div class="metric-label">Dampening</div><div class="metric-val">3–5 min</div><div class="metric-sub">Held so drivers can reposition</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">How the multiplier is computed</div>
+      <ul class="step-list">
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">1</div><div class="step-content"><div class="step-title">Count demand per cell</div><div class="step-desc">Open requests + near-term forecast based on historical patterns</div><div class="step-detail">Not just current open requests — the system forecasts demand for the next few minutes using historical curves. A concert ending in 5 minutes will spike demand before riders even open the app.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">2</div><div class="step-content"><div class="step-title">Count supply per cell</div><div class="step-desc">Available drivers + drivers finishing trips nearby (forward supply)</div><div class="step-detail">Forward supply includes drivers expected to complete trips in adjacent cells within the next few minutes. This prevents over-surging a zone that will have ample supply in 2 minutes.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">3</div><div class="step-content"><div class="step-title">Compute demand/supply ratio</div><div class="step-desc">Ratio → nonlinear multiplier curve</div><div class="step-detail">Below 0.7× ratio: stay at 1×. 0.7–1.5× ratio: gentle ramp. Above 1.5×: steeper curve to send strong price signal. The curve shape is empirically calibrated — the weakest surge that reliably attracts enough drivers.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">4</div><div class="step-content"><div class="step-title">Dampen and hold the signal</div><div class="step-desc">Ramp up gradually; hold for 3–5 min minimum</div><div class="step-detail">Raw ratio is noisy. A 2-second demand burst shouldn't show riders a 3× surge that vanishes. The multiplier ramps gradually. Once activated, it's held for a minimum window so drivers who see it and start repositioning can trust it'll still be there when they arrive.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">5</div><div class="step-content"><div class="step-title">Blend adjacent cells</div><div class="step-desc">Smooth gradient — no hard cliff at cell boundary</div><div class="step-detail">A concert zone's surge radiates outward. Adjacent cells are blended using a weighted average so a driver 1.5 cells away sees an elevated (smaller) multiplier — still worth repositioning toward the zone.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">6</div><div class="step-content"><div class="step-title">Write to Redis cache; serve to rider</div><div class="step-desc">Rounded to discrete steps — 1.2×, 1.5×, 2.0× etc.</div><div class="step-detail">The multiplier is stored per H3 cell in Redis with a 90-second TTL. The fare estimate endpoint reads from Redis — never recomputes demand/supply live. The rider sees rounded discrete steps rather than "1.873×" to reduce cancellation friction.</div></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">What ops can override</div>
+      <table class="ds-table">
+        <thead><tr><th>Lever</th><th>When used</th></tr></thead>
+        <tbody>
+          <tr><td>Surge cap per zone</td><td>Regulatory requirement or PR sensitivity (stadium events)</td></tr>
+          <tr><td>Pre-emptive incentive</td><td>Predictable events — concerts, sports, rain forecast</td></tr>
+          <tr><td>Zone bonus for drivers</td><td>Ops-triggered during active supply gap</td></tr>
+          <tr><td>Extended hold window</td><td>Night hours — drivers less responsive to short holds</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:16px;" class="card-title">The most underrated surge trigger</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;">Rain. Demand spikes 40% (nobody walks to the bus) while supply drops 20% (some drivers don't like driving in rain, and traffic slows per-trip earnings). Combined effect creates the worst supply gaps. Platforms with weather API integration pre-arm surge and driver bonuses as soon as a heavy rain forecast appears — before the gap manifests.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DATA STORES ═══ -->
+<section id="datastores" class="section">
+  <div class="section-title">Data Stores</div>
+  <div class="section-sub">// 8 stores, each chosen for exactly one reason — never use a store for a problem it wasn't designed for</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">In-memory</div><div class="metric-val">2</div><div class="metric-sub">Redis clusters</div></div>
+    <div class="metric"><div class="metric-label">Disk-based</div><div class="metric-val">5</div><div class="metric-sub">PG, PostGIS, ES, TS, S3</div></div>
+    <div class="metric"><div class="metric-label">Analytical</div><div class="metric-val">1</div><div class="metric-sub">Warehouse — separate from ops</div></div>
+    <div class="metric"><div class="metric-label">Fastest reads</div><div class="metric-val">&lt;1ms</div><div class="metric-sub">Redis GEO + cache</div></div>
+  </div>
+
+  <div class="card">
+    <div class="tab-row">
+      <button class="tab-btn on" onclick="showTab('ds','all')">All stores</button>
+      <button class="tab-btn" onclick="showTab('ds','query')">Query routing</button>
+      <button class="tab-btn" onclick="showTab('ds','cap')">Consistency</button>
+    </div>
+
+    <div id="ds-all" class="tab-panel on">
+      <table class="ds-table">
+        <thead><tr><th>Store</th><th>Type</th><th>What it holds</th><th>Reads</th><th>Writes</th><th>Latency</th><th>Key tradeoff</th></tr></thead>
+        <tbody>
+          <tr><td>PostgreSQL</td><td><span class="badge badge-blue">Relational ACID</span></td><td>Users, trips, payments, ratings, drivers</td><td>50k/s</td><td>15k/s</td><td>2–10ms</td><td>Cannot absorb 100k GPS writes/s</td></tr>
+          <tr><td>Redis GEO</td><td><span class="badge badge-red">In-memory geo</span></td><td>Live driver positions per city</td><td>200k/s</td><td>100k/s</td><td>&lt;1ms</td><td>Purely ephemeral — repopulates in 4–8s on restart</td></tr>
+          <tr><td>Redis cache</td><td><span class="badge badge-red">In-memory KV</span></td><td>Sessions, rate limits, surge, idempotency keys</td><td>500k/s</td><td>50k/s</td><td>&lt;1ms</td><td>TTL management critical; stale surge causes bugs</td></tr>
+          <tr><td>PostGIS</td><td><span class="badge badge-teal">Relational + spatial</span></td><td>Zone polygons, city boundaries, airport zones</td><td>2k/s</td><td>~10/day</td><td>5–20ms</td><td>Not for real-time position tracking</td></tr>
+          <tr><td>TimescaleDB</td><td><span class="badge badge-blue">Time-series</span></td><td>Raw GPS traces, system metrics, fare meter data</td><td>10k/s</td><td>100k/s</td><td>5–30ms</td><td>No relational joins; separate query path needed</td></tr>
+          <tr><td>Elasticsearch</td><td><span class="badge badge-yellow">Inverted index</span></td><td>Places, POIs, addresses for autocomplete</td><td>30k/s</td><td>~100/hr</td><td>20–80ms</td><td>Eventually consistent — new places take seconds to appear</td></tr>
+          <tr><td>S3</td><td><span class="badge badge-gray">Object storage</span></td><td>Driver docs, receipts, audio, ML datasets, archives</td><td>5k/s</td><td>2k/s</td><td>50–200ms</td><td>Not queryable beyond key — metadata lives in Postgres</td></tr>
+          <tr><td>Data Warehouse</td><td><span class="badge badge-blue">Columnar analytical</span></td><td>Historical trips, earnings, ML training data</td><td>~100/hr</td><td>Nightly ETL</td><td>1–60s</td><td>1hr+ stale; expensive per query</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="ds-query" class="tab-panel">
+      <table class="ds-table">
+        <thead><tr><th>Query</th><th>Store</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Find drivers within 3 km</td><td><span class="code">Redis GEO · GEORADIUS</span></td><td>Sub-ms, scales to millions of drivers</td></tr>
+          <tr><td>Validate session token</td><td><span class="code">Redis cache · GET session:{id}</span></td><td>Sub-ms, TTL auto-expires sessions</td></tr>
+          <tr><td>Get fare breakdown for trip</td><td><span class="code">PostgreSQL · JOIN trips+payments</span></td><td>ACID, relational joins, durable</td></tr>
+          <tr><td>Autocomplete "Bandra Sta..."</td><td><span class="code">Elasticsearch · match_phrase_prefix</span></td><td>Edge-ngram, proximity scoring</td></tr>
+          <tr><td>GPS trace for fare calculation</td><td><span class="code">TimescaleDB · WHERE trip_id ORDER BY time</span></td><td>Time-range query, compressed partitions</td></tr>
+          <tr><td>"Is point inside Airport zone?"</td><td><span class="code">PostGIS · ST_Contains(zone, point)</span></td><td>Polygon containment + GiST index</td></tr>
+          <tr><td>Driver licence scan image</td><td><span class="code">S3 · GET docs/{driver_id}/licence</span></td><td>Binary blob, CDN-served</td></tr>
+          <tr><td>Avg wait time last 90 days by zone</td><td><span class="code">Warehouse · GROUP BY zone, hour</span></td><td>Columnar, billions of rows, historical</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="ds-cap" class="tab-panel">
+      <table class="ds-table">
+        <thead><tr><th>Data</th><th>Consistency need</th><th>Store</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Payment records</td><td><span class="badge badge-red">Strong</span></td><td>PostgreSQL</td><td>Serialisable isolation — fare must not be captured twice</td></tr>
+          <tr><td>Trip state machine</td><td><span class="badge badge-red">Strong</span></td><td>PostgreSQL</td><td>Check constraints prevent invalid transitions at DB level</td></tr>
+          <tr><td>Session tokens</td><td><span class="badge badge-red">Strong</span></td><td>Redis (primary only)</td><td>Revoked token must be immediately invalid everywhere</td></tr>
+          <tr><td>Driver positions</td><td><span class="badge badge-teal">Eventual</span></td><td>Redis GEO</td><td>4-second-old position is fine — accuracy over consistency</td></tr>
+          <tr><td>Surge multipliers</td><td><span class="badge badge-teal">Eventual</span></td><td>Redis cache</td><td>Seeing 1.2× instead of 1.3× for a few seconds is acceptable</td></tr>
+          <tr><td>Place search index</td><td><span class="badge badge-teal">Eventual</span></td><td>Elasticsearch</td><td>New place taking 30s to appear in search is fine</td></tr>
+          <tr><td>GPS trace</td><td><span class="badge badge-teal">Eventual</span></td><td>TimescaleDB</td><td>Throughput prioritised; slight out-of-order acceptable</td></tr>
+          <tr><td>Analytics aggregates</td><td><span class="badge badge-gray">None required</span></td><td>Warehouse</td><td>Always on historical data — consistency within query window enough</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ EVENT BUS ═══ -->
+<section id="eventbus" class="section">
+  <div class="section-title">Event Bus (Kafka)</div>
+  <div class="section-sub">// the backbone that decouples every service from every other</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Throughput</div><div class="metric-val">1M+/s</div><div class="metric-sub">Per broker cluster</div></div>
+    <div class="metric"><div class="metric-label">Retention</div><div class="metric-val">7 days</div><div class="metric-sub">Configurable per topic</div></div>
+    <div class="metric"><div class="metric-label">Partitioning</div><div class="metric-val">By key</div><div class="metric-sub">trip_id → same partition = ordered</div></div>
+    <div class="metric"><div class="metric-label">Recovery</div><div class="metric-val">Replay</div><div class="metric-sub">Resume from any offset</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Why async over synchronous calls?</div>
+      <div class="compare-grid">
+        <div class="compare-card bad">
+          <div class="compare-label">Synchronous chain</div>
+          <ul style="list-style:none;font-size:12px;color:var(--muted);">
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Trip svc calls 6 downstream services</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Total latency = sum of all latencies</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">One slow svc stalls the whole chain</li>
+            <li style="padding:4px 0;">Adding a consumer = modify trip svc</li>
+          </ul>
+        </div>
+        <div class="compare-card good">
+          <div class="compare-label">Async event bus</div>
+          <ul style="list-style:none;font-size:12px;color:var(--muted);">
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Trip svc publishes one event, returns</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Consumers run in parallel, independently</li>
+            <li style="padding:4px 0;border-bottom:1px solid var(--border);">Slow consumer only lags itself</li>
+            <li style="padding:4px 0;">New consumer: zero changes to producer</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Topic design</div>
+      <table class="ds-table">
+        <thead><tr><th>Topic</th><th>Volume</th><th>Retention</th></tr></thead>
+        <tbody>
+          <tr><td><span class="code">trip-events</span></td><td>~20k/s</td><td>30 days</td></tr>
+          <tr><td><span class="code">location-updates</span></td><td>~100k/s</td><td>2 days</td></tr>
+          <tr><td><span class="code">match-events</span></td><td>~15k/s</td><td>7 days</td></tr>
+          <tr><td><span class="code">payment-events</span></td><td>~5k/s</td><td>90 days</td></tr>
+          <tr><td><span class="code">safety-events</span></td><td>~500/s</td><td>90 days</td></tr>
+          <tr><td><span class="code">fraud-events</span></td><td>~2k/s</td><td>90 days</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div class="card-title">Durability: consumer offsets and replay</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px;">Every consumer tracks its own read position (offset) independently in Kafka. If the fraud detection service crashes and restarts, it resumes exactly from the last committed offset — replaying every missed event. No data is lost. No manual reconciliation. This is the critical difference from RabbitMQ, which deletes messages on consumption.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">ORDERING GUARANTEE</div>
+        <div style="font-size:12px;">All events for the same <span class="code">trip_id</span> go to the same partition. <span class="code">payment.captured</span> always processes after <span class="code">trip.completed</span>.</div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">AT-LEAST-ONCE</div>
+        <div style="font-size:12px;">Default delivery guarantee. Consumers must be idempotent. Exactly-once available via transactional producers for critical flows.</div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">SCHEMA REGISTRY</div>
+        <div style="font-size:12px;">All events serialised with Avro + schema registry. Adding a field is backward-compatible. Removing requires version bump.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FRAUD & ANALYTICS ═══ -->
+<section id="fraud" class="section">
+  <div class="section-title">Fraud Detection & Analytics</div>
+  <div class="section-sub">// two systems, one data pipeline — both consume the same Kafka stream</div>
+
+  <div class="grid4" style="margin-bottom:24px;">
+    <div class="metric"><div class="metric-label">Fraud model</div><div class="metric-val">GBT</div><div class="metric-sub">Gradient-boosted trees</div></div>
+    <div class="metric"><div class="metric-label">Score latency</div><div class="metric-val">&lt;20ms</div><div class="metric-sub">Pre-trip, real-time</div></div>
+    <div class="metric"><div class="metric-label">Block threshold</div><div class="metric-val">&gt;70</div><div class="metric-sub">/100 risk score</div></div>
+    <div class="metric"><div class="metric-label">Retrain cycle</div><div class="metric-val">Weekly</div><div class="metric-sub">On confirmed fraud labels</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Fraud attack types</div>
+      <table class="ds-table">
+        <thead><tr><th>Type</th><th>Detection signal</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>GPS spoofing</td><td>Position jumps impossible on road network; speed &gt;250 km/h</td><td>Block driver; flag for review</td></tr>
+          <tr><td>Phantom trips</td><td>No accelerometer movement; GPS trace doesn't match declared route</td><td>Block payout; fraud review</td></tr>
+          <tr><td>Promo abuse</td><td>Same device fingerprint across multiple new accounts</td><td>Block promo; link accounts</td></tr>
+          <tr><td>Account takeover</td><td>New device + new location + high-value trip immediately</td><td>Step-up auth; block trip</td></tr>
+          <tr><td>Payment fraud</td><td>Stolen card: velocity, BIN analysis, device fingerprint mismatch</td><td>Block; flag for chargeback</td></tr>
+          <tr><td>Rating fraud</td><td>Coordinated ratings from linked accounts (same IP / device)</td><td>Null ratings; account review</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Analytics time horizons</div>
+      <div class="tier" style="border-color:var(--accent3);background:rgba(255,107,107,0.05);">
+        <div class="tier-title" style="color:var(--accent3);">Real-time (&lt;1s)</div>
+        <ul class="tier-items">
+          <li><strong>Live trip count</strong> per zone — ops dashboard heartbeat</li>
+          <li><strong>Driver availability</strong> heatmap — supply gap detection</li>
+          <li><strong>Surge computation</strong> — demand/supply per cell</li>
+        </ul>
+      </div>
+      <div class="tier" style="border-color:var(--accent4);background:rgba(255,209,102,0.05);">
+        <div class="tier-title" style="color:var(--accent4);">Near-real-time (1min–1hr)</div>
+        <ul class="tier-items">
+          <li><strong>Demand forecast</strong> — feeds surge pricing engine</li>
+          <li><strong>Driver earnings</strong> summaries — shown in driver app</li>
+          <li><strong>ETA model retraining</strong> features — actual vs predicted</li>
+        </ul>
+      </div>
+      <div class="tier" style="border-color:var(--accent2);background:rgba(0,212,170,0.05);">
+        <div class="tier-title" style="color:var(--accent2);">Batch (daily/weekly)</div>
+        <ul class="tier-items">
+          <li><strong>Finance reconciliation</strong> — fare breakdown by tax category</li>
+          <li><strong>Driver cohort retention</strong> — churn prediction</li>
+          <li><strong>ML training datasets</strong> — fraud, matching, ETA models</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ OPS & SAFETY ═══ -->
+<section id="ops" class="section">
+  <div class="section-title">Ops & Safety</div>
+  <div class="section-sub">// supply gap response playbook + safety feature architecture</div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Supply gap response — work tiers in order</div>
+      <div class="tier" style="border-color:var(--accent2);background:rgba(0,212,170,0.05);">
+        <div class="tier-title" style="color:var(--accent2);">Tier 1 — Automatic (0–2 min) · Zero cost</div>
+        <ul class="tier-items">
+          <li><strong>Surge rises</strong> — price signal pulls idle drivers online (takes 3–5 min to show effect)</li>
+          <li><strong>Match radius expands</strong> — offers sent to drivers up to 8km away (vs 3km default)</li>
+          <li><strong>Forward dispatch</strong> — drivers finishing nearby trips pre-matched into gap zone</li>
+        </ul>
+      </div>
+      <div class="tier" style="border-color:var(--accent4);background:rgba(255,209,102,0.05);">
+        <div class="tier-title" style="color:var(--accent4);">Tier 2 — Ops-triggered (2–8 min) · Low cost</div>
+        <ul class="tier-items">
+          <li><strong>Push to offline drivers</strong> — targets drivers offline &lt;2hr, within 5km (still nearby)</li>
+          <li><strong>Zone bonus</strong> — ₹50–100/trip for 30 min window (direct budget cost)</li>
+          <li><strong>Redirect from surplus zones</strong> — widen offer radius in adjacent areas</li>
+        </ul>
+      </div>
+      <div class="tier" style="border-color:var(--accent3);background:rgba(255,107,107,0.05);">
+        <div class="tier-title" style="color:var(--accent3);">Tier 3 — Escalation (8+ min) · High cost / risk</div>
+        <ul class="tier-items">
+          <li><strong>Emergency incentive blast</strong> — city-wide; trains drivers to wait for blasts</li>
+          <li><strong>Rider expectation management</strong> — in-app message reduces cancellations</li>
+          <li><strong>Engineering escalation</strong> — persistent gap despite Tier 1+2 = structural problem</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Safety feature architecture</div>
+      <table class="ds-table">
+        <thead><tr><th>Feature</th><th>How it works</th></tr></thead>
+        <tbody>
+          <tr><td>SOS button</td><td>One-tap calls emergency services + shares live GPS with emergency contacts + alerts safety agent</td></tr>
+          <tr><td>Route deviation</td><td>Trip service compares GPS trace against expected route every 30s. &gt;500m deviation triggers alert to rider and safety team</td></tr>
+          <tr><td>Silent alarm</td><td>Inconspicuous trigger pattern — alerts safety team without visible change in app that could provoke the driver</td></tr>
+          <tr><td>Driver photo check</td><td>App shows driver's registered photo — rider must confirm match before trip begins. Prevents account sharing.</td></tr>
+          <tr><td>Masked calling</td><td>All calls routed through platform proxy. Neither party ever sees the other's real number.</td></tr>
+          <tr><td>Share live trip</td><td>Browser link with live driver position — recipient needs no app. Updated every 4s from same WebSocket feed.</td></tr>
+          <tr><td>Audio recording</td><td>Opt-in. Encrypted, stored in S3 for 24h, deleted unless incident reported within that window.</td></tr>
+          <tr><td>Trusted contacts</td><td>Up to 5 people auto-notified with live tracking link when any trip begins.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ EM LENS ═══ -->
+<section id="em" class="section">
+  <div class="section-title">Engineering Manager Lens</div>
+  <div class="section-sub">// staffing, rollout, incidents, and operational readiness</div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Staffing model — how to build this</div>
+      <table class="ds-table">
+        <thead><tr><th>Team</th><th>Size</th><th>Owns</th></tr></thead>
+        <tbody>
+          <tr><td>Core platform</td><td>6–8 engineers</td><td>API Gateway, Auth, rate limiting, service mesh</td></tr>
+          <tr><td>Matching & location</td><td>4–6 engineers</td><td>Matching engine, GPS pipeline, WebSocket infra</td></tr>
+          <tr><td>Payments</td><td>4–5 engineers</td><td>Payment service, gateway integrations, payouts</td></tr>
+          <tr><td>Pricing</td><td>3–4 engineers + 1 ML</td><td>Surge pricing, fare calculation, ETA service</td></tr>
+          <tr><td>Safety & trust</td><td>3–4 engineers</td><td>Fraud detection, safety features, incident tooling</td></tr>
+          <tr><td>Data platform</td><td>3–4 engineers</td><td>Kafka, warehouse, analytics pipelines</td></tr>
+          <tr><td>Mobile</td><td>4–6 engineers</td><td>iOS + Android rider + driver apps</td></tr>
+          <tr><td>SRE / Infra</td><td>3–4 engineers</td><td>Kubernetes, monitoring, on-call, runbooks</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Rollout strategy — every component</div>
+      <ul class="step-list">
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">1</div><div class="step-content"><div class="step-title">Feature flags first</div><div class="step-desc">No change goes to production without a flag</div><div class="step-detail">LaunchDarkly or internal flag service. Every new feature starts OFF. Rollout is a config change, not a deployment. Instant rollback without any code change.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">2</div><div class="step-content"><div class="step-title">Canary deployment via API Gateway</div><div class="step-desc">1% → 5% → 20% → 100% with automated gates</div><div class="step-detail">The API Gateway splits traffic by weight between stable and canary versions. Automated gates compare error rate, p99 latency, and business metrics between cohorts. Gate fails → instant rollback to 0% canary, no human needed at 3am.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">3</div><div class="step-content"><div class="step-title">Shadow mode for critical services</div><div class="step-desc">Run new version alongside old — compare outputs</div><div class="step-detail">For matching engine changes: run the new algorithm in shadow mode, comparing its assignments against the live engine. No rider or driver is affected. Statistical significance testing before any traffic switch.</div></div></li>
+        <li class="step-item" onclick="toggleStep(this)"><div class="step-num">4</div><div class="step-content"><div class="step-title">Database migrations zero-downtime</div><div class="step-desc">Expand → migrate → contract pattern</div><div class="step-detail">Adding a column: deploy code that writes both old and new column (expand). Run migration to backfill. Deploy code that reads new column only. Drop old column (contract). Never lock the table. Never require downtime.</div></div></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Incident handling — the on-call playbook</div>
+      <div class="alert-row" style="margin-bottom:8px;"><div class="alert-dot" style="background:#ff6b6b;"></div><div><div style="font-size:12px;font-weight:500;">P0 — Matching down city-wide</div><div style="font-size:11px;color:var(--muted);">Page matching team lead + SRE + EM immediately. War room in 5 min. All other P2+ pages suppressed during P0.</div></div></div>
+      <div class="alert-row" style="margin-bottom:8px;"><div class="alert-dot" style="background:#ffd166;"></div><div><div style="font-size:12px;font-weight:500;">P1 — Payment capture failure rate &gt;5%</div><div style="font-size:11px;color:var(--muted);">Page payments on-call. 15-min response SLA. Check gateway status page first — often third-party issue.</div></div></div>
+      <div class="alert-row" style="margin-bottom:8px;"><div class="alert-dot" style="background:#ffd166;"></div><div><div style="font-size:12px;font-weight:500;">P1 — Wait time &gt;8min city-wide for 10+ min</div><div style="font-size:11px;color:var(--muted);">Ops team executes supply gap playbook Tier 1→2→3. Engineering on standby.</div></div></div>
+      <div class="alert-row"><div class="alert-dot" style="background:var(--accent2);"></div><div><div style="font-size:12px;font-weight:500;">Post-incident — required within 24hr</div><div style="font-size:11px;color:var(--muted);">Blameless postmortem: timeline, root cause, action items with owners and due dates. No finger-pointing.</div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">SLOs and monitoring</div>
+      <table class="ds-table">
+        <thead><tr><th>SLO</th><th>Target</th><th>Alert at</th></tr></thead>
+        <tbody>
+          <tr><td>API Gateway p99 latency</td><td>&lt;200ms</td><td>&gt;500ms for 5min</td></tr>
+          <tr><td>Match success rate</td><td>&gt;98%</td><td>&lt;95%</td></tr>
+          <tr><td>City-wide avg wait time</td><td>&lt;5min</td><td>&gt;7min for 10min</td></tr>
+          <tr><td>Payment capture success</td><td>&gt;99.5%</td><td>&lt;98%</td></tr>
+          <tr><td>Trip completion rate</td><td>&gt;96%</td><td>&lt;93%</td></tr>
+          <tr><td>SOS response time</td><td>&lt;2min</td><td>&gt;3min</td></tr>
+          <tr><td>GPS update freshness</td><td>&lt;8s stale</td><td>&gt;15s stale</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted);">All SLOs tracked via Prometheus + Grafana with 30-day error budgets. When error budget &lt;20% remaining, feature freeze kicks in — only reliability work ships until the budget recovers.</div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo({ top: document.querySelector('.nav').offsetTop - 10, behavior: 'smooth' });
+}
+
+function toggleStep(el) {
+  el.classList.toggle('open');
+}
+
+function toggleFlow(el) {
+  el.classList.toggle('open');
+}
+
+function showTab(group, id) {
+  const panels = document.querySelectorAll(`[id^="${group}-"]`);
+  panels.forEach(p => p.classList.remove('on'));
+  document.getElementById(`${group}-${id}`).classList.add('on');
+
+  const parent = document.getElementById(`${group}-${id}`).closest('.card');
+  parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  event.target.classList.add('on');
+}
+
+// Animate metric values on load
+document.addEventListener('DOMContentLoaded', () => {
+  const bars = document.querySelectorAll('.pbar-fill');
+  bars.forEach(bar => {
+    const width = bar.style.width;
+    bar.style.width = '0';
+    setTimeout(() => { bar.style.width = width; }, 300);
+  });
+});
+</script>
+</body>
+</html>

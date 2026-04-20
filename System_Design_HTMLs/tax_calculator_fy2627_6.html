@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>India Tax Calculator — FY 2026-27</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0f0a;
+  --bg2: #141810;
+  --bg3: #1c2118;
+  --bg4: #222a1e;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8ede2;
+  --text2: #8a9480;
+  --text3: #4e5848;
+  --green: #7fcf6e;
+  --green2: #4a9e3a;
+  --green-bg: rgba(127,207,110,0.08);
+  --green-bg2: rgba(127,207,110,0.16);
+  --amber: #e8b84b;
+  --amber-bg: rgba(232,184,75,0.09);
+  --amber-border: rgba(232,184,75,0.25);
+  --red: #e87070;
+  --red-bg: rgba(232,112,112,0.09);
+  --blue: #6eaecf;
+  --blue-bg: rgba(110,174,207,0.09);
+  --mono: 'DM Mono', monospace;
+  --serif: 'DM Serif Display', serif;
+  --sans: 'Outfit', sans-serif;
+  --radius: 12px;
+  --radius-sm: 7px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ─── HEADER ─── */
+.header {
+  padding: 36px 48px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(127,207,110,0.04) 0%, transparent 100%);
+}
+.header h1 {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+}
+.header h1 em { color: var(--green); font-style: italic; }
+.header p { color: var(--text2); font-size: 13px; margin-top: 4px; font-weight: 300; }
+.header-badge {
+  background: var(--green-bg);
+  border: 1px solid rgba(127,207,110,0.2);
+  color: var(--green);
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 6px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* ─── LAYOUT ─── */
+.main {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 100px);
+}
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 28px 24px;
+  overflow-y: auto;
+  background: var(--bg2);
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 100px);
+}
+.content {
+  padding: 28px 32px;
+  overflow-y: auto;
+}
+
+/* ─── SECTION LABELS ─── */
+.sec-label {
+  font-size: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── INPUT GROUPS ─── */
+.input-group { margin-bottom: 20px; }
+.input-group:last-child { margin-bottom: 0; }
+.field { margin-bottom: 10px; }
+.field label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 5px;
+  font-weight: 400;
+}
+.field label span {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+}
+.field input[type=number] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.field input[type=number]::-webkit-outer-spin-button,
+.field input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+.field input[type=number]:focus { border-color: rgba(127,207,110,0.4); }
+
+/* slider + number combo */
+.slider-combo { display: flex; gap: 8px; align-items: center; }
+.slider-combo input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 99px;
+  outline: none;
+  cursor: pointer;
+}
+.slider-combo input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--green);
+  cursor: pointer;
+  border: 2px solid var(--bg2);
+  transition: transform 0.1s;
+}
+.slider-combo input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.slider-combo input[type=number] {
+  width: 120px;
+  flex-shrink: 0;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  -moz-appearance: textfield;
+  text-align: right;
+}
+.slider-combo input[type=number]::-webkit-outer-spin-button,
+.slider-combo input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+.slider-combo input[type=number]:focus { border-color: rgba(127,207,110,0.4); }
+
+/* toggle buttons */
+.toggle-group { display: flex; gap: 6px; margin-top: 2px; }
+.toggle-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--sans);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.toggle-btn.active {
+  background: var(--green-bg2);
+  border-color: rgba(127,207,110,0.35);
+  color: var(--green);
+}
+.toggle-btn:hover:not(.active) { border-color: var(--border2); background: var(--bg3); }
+
+/* divider */
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ─── WINNER BANNER ─── */
+.winner-banner {
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  transition: all 0.3s;
+}
+.winner-banner.new-wins {
+  background: var(--green-bg2);
+  border: 1px solid rgba(127,207,110,0.25);
+}
+.winner-banner.old-wins {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-border);
+}
+.winner-label { font-size: 12px; color: var(--text2); font-weight: 300; margin-bottom: 3px; }
+.winner-text { font-family: var(--serif); font-size: 22px; line-height: 1.2; }
+.winner-banner.new-wins .winner-text { color: var(--green); }
+.winner-banner.old-wins .winner-text { color: var(--amber); }
+.winner-saving { text-align: right; }
+.winner-saving .save-amt {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+}
+.winner-banner.new-wins .save-amt { color: var(--green); }
+.winner-banner.old-wins .save-amt { color: var(--amber); }
+.winner-saving .save-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+/* ─── SIDE BY SIDE REGIME CARDS ─── */
+.regime-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.regime-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+.regime-card.winner-card { border-color: rgba(127,207,110,0.3); }
+.regime-header {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.regime-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text2);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.regime-tax {
+  font-family: var(--serif);
+  font-size: 28px;
+  line-height: 1;
+  transition: color 0.3s;
+}
+.regime-card.winner-card .regime-tax { color: var(--green); }
+.regime-card:not(.winner-card) .regime-tax { color: var(--text); }
+.regime-monthly {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+.regime-badge {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.badge-win { background: var(--green-bg2); color: var(--green); border: 1px solid rgba(127,207,110,0.3); }
+.badge-neu { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.sc-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-family: var(--mono);
+  margin-left: 5px;
+}
+.sc-0 { background: var(--green-bg2); color: var(--green); }
+.sc-10 { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+.sc-15 { background: var(--red-bg); color: var(--red); border: 1px solid rgba(232,112,112,0.25); }
+.sc-25 { background: var(--red-bg); color: var(--red); border: 1px solid rgba(232,112,112,0.3); }
+
+/* ─── BREAKDOWN TABLE inside regime card ─── */
+.regime-body { padding: 14px 20px; }
+.bk-table { width: 100%; border-collapse: collapse; }
+.bk-table tr td {
+  padding: 5px 0;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.bk-table tr:last-child td { border-bottom: none; }
+.bk-table td:last-child { text-align: right; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.bk-table .row-label { color: var(--text2); }
+.bk-table .row-sub td { font-size: 11.5px; color: var(--text3); padding: 3px 0; }
+.bk-table .row-sub td:first-child { padding-left: 10px; }
+.bk-table .row-hl td { font-weight: 500; background: var(--bg3); padding: 6px 8px; border-radius: 5px; border: none; color: var(--text); }
+.bk-table .row-hl td:first-child { border-radius: 5px 0 0 5px; }
+.bk-table .row-hl td:last-child { border-radius: 0 5px 5px 0; }
+.bk-table .row-total td { font-weight: 600; color: var(--text); padding-top: 8px; }
+.bk-table .deduct { color: var(--red); }
+.bk-table .add { color: var(--amber); }
+.bk-table .final-tax { color: var(--green); font-family: var(--mono); font-size: 14px; }
+.not-allowed { color: var(--text3); font-style: italic; font-family: var(--sans); font-size: 11px; }
+
+/* ─── HRA SECTION ─── */
+.hra-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.hra-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.hra-card .hra-title {
+  font-size: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── SLAB TABLE ─── */
+.slab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.slab-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.slab-card-title {
+  font-size: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.slab-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.slab-row:last-child { border-bottom: none; }
+.slab-row .slab-range { color: var(--text2); }
+.slab-row .slab-rate { font-family: var(--mono); color: var(--text); font-size: 11px; }
+.slab-row.active-slab { background: var(--green-bg); padding: 5px 8px; border-radius: 5px; border-color: transparent; margin: 2px -8px; }
+.slab-row.active-slab .slab-range { color: var(--green); }
+.slab-row.active-slab .slab-rate { color: var(--green); }
+
+/* ─── SURCHARGE TABLE ─── */
+.surcharge-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.sc-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.sc-row:last-child { border-bottom: none; }
+.sc-row .sc-thresh { color: var(--text2); flex: 1; }
+.sc-row .sc-rate { font-family: var(--mono); font-size: 11px; text-align: center; width: 60px; }
+.sc-row .sc-rate2 { font-family: var(--mono); font-size: 11px; text-align: center; width: 60px; }
+.sc-row.sc-active { background: var(--amber-bg); padding: 5px 8px; border-radius: 5px; border-color: transparent; margin: 2px -8px; }
+.sc-row.sc-active .sc-thresh { color: var(--amber); }
+.sc-head { display: flex; justify-content: space-between; font-size: 10px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.08em; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); gap: 12px; }
+.sc-head span { text-align: center; width: 60px; }
+.sc-head span:first-child { flex: 1; text-align: left; }
+
+/* ─── INCOME SUMMARY ─── */
+.income-summary {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.income-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.inc-item { }
+.inc-item .inc-label { font-size: 11px; color: var(--text3); margin-bottom: 2px; }
+.inc-item .inc-val { font-family: var(--mono); font-size: 13px; color: var(--text); }
+
+/* ─── ALERT ─── */
+.alert-box {
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  display: none;
+}
+.alert-box.show { display: block; }
+.alert-warn { background: var(--amber-bg); border: 1px solid var(--amber-border); color: var(--amber); }
+.alert-good { background: var(--green-bg); border: 1px solid rgba(127,207,110,0.2); color: var(--green); }
+.alert-info { background: var(--blue-bg); border: 1px solid rgba(110,174,207,0.2); color: var(--blue); }
+
+/* ─── CHART ─── */
+.chart-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chart-title {
+  font-size: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+}
+.chart-legend { display: flex; gap: 16px; }
+.chart-legend span {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text2);
+}
+.legend-dot { width: 20px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+.chart-wrap { position: relative; width: 100%; height: 220px; }
+.chart-axis-label { font-size: 11px; color: var(--text3); text-align: center; margin-top: 6px; font-family: var(--mono); }
+
+/* ─── FOOTER ─── */
+.footer {
+  padding: 20px 48px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1000px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .regime-grid { grid-template-columns: 1fr; }
+  .slab-grid { grid-template-columns: 1fr; }
+  .hra-grid { grid-template-columns: 1fr; }
+  .income-grid { grid-template-columns: 1fr 1fr; }
+  .header { padding: 24px; }
+}
+@media (max-width: 600px) {
+  .header { padding: 20px; }
+  .content { padding: 20px; }
+  .sidebar { padding: 20px; }
+  .income-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <h1>India Tax Calculator<br><em>FY 2026-27</em></h1>
+    <p>Old Regime vs New Regime — Real-time calculation with surcharge & marginal relief</p>
+  </div>
+  <div class="header-badge">AY 2027-28 · No budget changes</div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+  <!-- ══════════════════ SIDEBAR ══════════════════ -->
+  <div class="sidebar">
+
+    <!-- Fixed Salary -->
+    <div class="sec-label">Fixed salary components</div>
+    <div class="input-group">
+      <div class="field">
+        <label>Basic Salary (annual) <span id="lv-basic">₹41,40,852</span></label>
+        <input type="number" id="basic" value="4140852" step="1000">
+      </div>
+      <div class="field">
+        <label>HRA Received (annual) <span id="lv-hra_recv">₹20,70,432</span></label>
+        <input type="number" id="hra_recv" value="2070432" step="1000">
+      </div>
+      <div class="field">
+        <label>Special Allowance (annual) <span id="lv-special">₹19,38,696</span></label>
+        <input type="number" id="special" value="1938696" step="1000">
+      </div>
+      <div class="field">
+        <label>
+          Meal Coupons (annual, max ₹96,000)
+          <span style="display:inline-flex;align-items:center;gap:5px;">
+            <span id="lv-meal" style="color:var(--green)">₹0</span>
+            <span style="font-size:10px;background:var(--green-bg);color:var(--green);border:1px solid rgba(127,207,110,0.2);padding:1px 6px;border-radius:10px;font-family:var(--mono);">old only</span>
+          </span>
+        </label>
+        <div class="slider-combo">
+          <input type="range" id="meal_s" min="0" max="96000" step="1000" value="0">
+          <input type="number" id="meal_n" value="0" step="1000" max="96000">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5;">Exempt from special allowance in old regime only. New regime: always ₹0 benefit.</div>
+      </div>
+      <div class="field">
+        <label>Mobile & Broadband (annual) <span id="lv-mobile">₹15,300</span></label>
+        <input type="number" id="mobile" value="15300" step="100">
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Variable - LTIP -->
+    <div class="sec-label">Variable components</div>
+    <div class="input-group">
+      <div class="field">
+        <label>LTIP / Performance Bonus <span id="lv-ltip">₹7,84,195</span></label>
+        <div class="slider-combo">
+          <input type="range" id="ltip_s" min="0" max="3000000" step="5000" value="784195">
+          <input type="number" id="ltip_n" value="784195" step="5000">
+        </div>
+      </div>
+      <div class="field">
+        <label>ESOP / Stock Option Perquisite <span id="lv-esop">₹18,33,975</span></label>
+        <div class="slider-combo">
+          <input type="range" id="esop_s" min="0" max="5000000" step="10000" value="1833975">
+          <input type="number" id="esop_n" value="1833975" step="10000">
+        </div>
+      </div>
+      <div class="field">
+        <label>
+          Employer NPS — 80CCD(2)
+          <span style="display:inline-flex;align-items:center;gap:5px;">
+            <span id="lv-empnps" style="color:var(--green)">₹5,79,719</span>
+            <span style="font-size:10px;background:var(--green-bg);color:var(--green);border:1px solid rgba(127,207,110,0.2);padding:1px 6px;border-radius:10px;font-family:var(--mono);">both regimes</span>
+          </span>
+        </label>
+        <div class="slider-combo">
+          <input type="range" id="empnps_s" min="0" max="1500000" step="5000" value="579719">
+          <input type="number" id="empnps_n" value="579719" step="5000">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5;">
+          14% of basic = ₹5,79,719. Deductible under 80CCD(2) in <strong style="color:var(--green)">both old &amp; new regime</strong>. Max allowed: 14% of basic for private sector.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- HRA & Rent -->
+    <div class="sec-label">HRA & Rent</div>
+    <div class="input-group">
+      <div class="field">
+        <label>Actual Rent Paid (annual) <span id="lv-rent">₹7,20,000</span></label>
+        <input type="number" id="rent" value="720000" step="1000">
+      </div>
+      <div class="field">
+        <label>City Type</label>
+        <div class="toggle-group" id="city-tog">
+          <button class="toggle-btn active" data-val="0.5">Metro (50%)</button>
+          <button class="toggle-btn" data-val="0.4">Non-Metro (40%)</button>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Deductions -->
+    <div class="sec-label">Deductions (Old Regime only)</div>
+    <div class="input-group">
+      <div class="field">
+        <label>80C — PF + VPF + others <span id="lv-c80c">₹1,50,000</span></label>
+        <input type="number" id="c80c" value="150000" step="1000" max="150000">
+      </div>
+      <div class="field">
+        <label>80CCD(1B) — NPS Self <span id="lv-nps">₹50,000</span></label>
+        <input type="number" id="nps" value="50000" step="1000" max="50000">
+      </div>
+      <div class="field">
+        <label>80D — Health Insurance <span id="lv-c80d">₹75,000</span></label>
+        <input type="number" id="c80d" value="75000" step="1000" max="75000">
+      </div>
+      <div class="field">
+        <label>Professional Tax <span id="lv-ptax">₹2,500</span></label>
+        <input type="number" id="ptax" value="2500" step="100">
+      </div>
+    </div>
+
+  </div>
+  <!-- END SIDEBAR -->
+
+  <!-- ══════════════════ CONTENT ══════════════════ -->
+  <div class="content">
+
+    <!-- ALERT -->
+    <div id="alert-box" class="alert-box"></div>
+
+    <!-- WINNER BANNER -->
+    <div class="winner-banner" id="winner-banner">
+      <div>
+        <div class="winner-label">Recommended regime for FY 2026-27</div>
+        <div class="winner-text" id="winner-text">New Regime wins</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="winner-sub"></div>
+      </div>
+      <div class="winner-saving">
+        <div class="save-amt" id="save-amt">—</div>
+        <div class="save-sub">annual tax saving</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--mono);" id="save-monthly"></div>
+      </div>
+    </div>
+
+    <!-- INCOME SUMMARY -->
+    <div class="income-summary">
+      <div class="sec-label" style="margin-bottom:0">Income summary</div>
+      <div class="income-grid">
+        <div class="inc-item"><div class="inc-label">Gross salary (excl. ESOP)</div><div class="inc-val" id="s-gross">—</div></div>
+        <div class="inc-item"><div class="inc-label">ESOP perquisite</div><div class="inc-val" id="s-esop">—</div></div>
+        <div class="inc-item"><div class="inc-label">Total gross income</div><div class="inc-val" id="s-total">—</div></div>
+        <div class="inc-item"><div class="inc-label">Old regime taxable</div><div class="inc-val" id="s-old-tax">—</div></div>
+        <div class="inc-item"><div class="inc-label">New regime taxable</div><div class="inc-val" id="s-new-tax">—</div></div>
+        <div class="inc-item"><div class="inc-label">Old deductions claimed</div><div class="inc-val" id="s-deductions">—</div></div>
+        <div class="inc-item"><div class="inc-label" style="color:var(--blue);">ESOP tax (old) — paid separately</div><div class="inc-val" style="color:var(--blue);" id="s-esop-tax-old">—</div></div>
+        <div class="inc-item"><div class="inc-label" style="color:var(--blue);">ESOP tax (new) — paid separately</div><div class="inc-val" style="color:var(--blue);" id="s-esop-tax-new">—</div></div>
+        <div class="inc-item"><div class="inc-label" style="color:var(--green);">Net salary TDS (old, excl. ESOP)</div><div class="inc-val" style="color:var(--green);" id="s-net-tds-old">—</div></div>
+        <div class="inc-item"><div class="inc-label" style="color:var(--green);">Employer NPS tax saving (old)</div><div class="inc-val" style="color:var(--green);" id="s-nps-save-old">—</div></div>
+        <div class="inc-item"><div class="inc-label" style="color:var(--green);">Employer NPS tax saving (new)</div><div class="inc-val" style="color:var(--green);" id="s-nps-save-new">—</div></div>
+      </div>
+    </div>
+
+    <!-- SIDE BY SIDE REGIME BREAKDOWN -->
+    <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.12em;color:var(--text3);text-transform:uppercase;margin-bottom:12px;">Detailed calculation — side by side</div>
+    <div class="regime-grid">
+
+      <!-- OLD REGIME CARD -->
+      <div class="regime-card" id="old-card">
+        <div class="regime-header">
+          <div>
+            <div class="regime-name">Old Regime</div>
+            <div class="regime-tax" id="old-tax-total">—</div>
+            <div class="regime-monthly" id="old-monthly">—</div>
+          </div>
+          <div style="text-align:right;">
+            <span class="regime-badge" id="old-badge">Old Regime</span>
+            <div style="margin-top:8px;font-size:11px;" id="old-sc-tag"></div>
+          </div>
+        </div>
+        <div class="regime-body">
+          <table class="bk-table">
+            <tr><td class="row-label">Gross salary (excl. ESOP)</td><td id="o-gross">—</td></tr>
+            <tr class="row-sub"><td>↳ Meal coupon exemption</td><td class="deduct" id="o-meal">—</td></tr>
+            <tr class="row-sub"><td>↳ HRA exempt (least of 3)</td><td class="deduct" id="o-hra">—</td></tr>
+            <tr class="row-sub"><td>↳ Standard deduction</td><td class="deduct">−₹50,000</td></tr>
+            <tr class="row-sub"><td>↳ Professional tax</td><td class="deduct" id="o-ptax">—</td></tr>
+            <tr class="row-sub"><td>↳ 80C investments</td><td class="deduct" id="o-80c">—</td></tr>
+            <tr class="row-sub"><td>↳ 80CCD(1B) NPS self</td><td class="deduct" id="o-nps">—</td></tr>
+            <tr class="row-sub"><td>↳ 80CCD(2) Employer NPS</td><td class="deduct" id="o-empnps">—</td></tr>
+            <tr class="row-sub"><td>↳ 80D health insurance</td><td class="deduct" id="o-80d">—</td></tr>
+            <tr class="row-hl"><td>Taxable salary + LTIP</td><td id="o-taxsal">—</td></tr>
+            <tr><td class="row-label">Add: ESOP perquisite</td><td class="add" id="o-esop">—</td></tr>
+            <tr class="row-hl"><td>Total taxable income</td><td id="o-taxable">—</td></tr>
+            <tr><td class="row-label" style="padding-top:10px;">Slab tax (old slabs)</td><td id="o-slab">—</td></tr>
+            <tr><td class="row-label">Surcharge</td><td id="o-sc">—</td></tr>
+            <tr><td class="row-label">Marginal relief</td><td class="deduct" id="o-mr">—</td></tr>
+            <tr><td class="row-label">Health & Education cess (4%)</td><td id="o-cess">—</td></tr>
+            <tr class="row-total"><td>Total Tax Payable</td><td class="final-tax" id="o-final">—</td></tr>
+            <tr class="row-sub"><td>↳ of which: ESOP perq tax (paid separately)</td><td style="font-family:var(--mono);font-size:12px;color:var(--blue);text-align:right;" id="o-esop-tax">—</td></tr>
+            <tr class="row-sub"><td>↳ Net salary TDS (excl. ESOP tax)</td><td style="font-family:var(--mono);font-size:12px;color:var(--green);text-align:right;" id="o-salary-tds">—</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- NEW REGIME CARD -->
+      <div class="regime-card" id="new-card">
+        <div class="regime-header">
+          <div>
+            <div class="regime-name">New Regime</div>
+            <div class="regime-tax" id="new-tax-total">—</div>
+            <div class="regime-monthly" id="new-monthly">—</div>
+          </div>
+          <div style="text-align:right;">
+            <span class="regime-badge" id="new-badge">New Regime</span>
+            <div style="margin-top:8px;font-size:11px;" id="new-sc-tag"></div>
+          </div>
+        </div>
+        <div class="regime-body">
+          <table class="bk-table">
+            <tr><td class="row-label">Gross salary (excl. ESOP)</td><td id="n-gross">—</td></tr>
+            <tr class="row-sub"><td>↳ Standard deduction</td><td class="deduct">−₹75,000</td></tr>
+            <tr class="row-sub"><td>↳ 80CCD(2) Employer NPS</td><td class="deduct" id="n-empnps">—</td></tr>
+            <tr class="row-sub"><td>↳ Meal coupon exemption</td><td class="not-allowed">not allowed</td></tr>
+            <tr class="row-sub"><td>↳ HRA exemption</td><td class="not-allowed">not allowed</td></tr>
+            <tr class="row-sub"><td>↳ Professional tax</td><td class="not-allowed">not allowed</td></tr>
+            <tr class="row-sub"><td>↳ 80C / 80D / NPS self</td><td class="not-allowed">not allowed</td></tr>
+            <tr class="row-sub"><td>&nbsp;</td><td></td></tr>
+            <tr class="row-hl"><td>Taxable salary + LTIP</td><td id="n-taxsal">—</td></tr>
+            <tr><td class="row-label">Add: ESOP perquisite</td><td class="add" id="n-esop">—</td></tr>
+            <tr class="row-hl"><td>Total taxable income</td><td id="n-taxable">—</td></tr>
+            <tr><td class="row-label" style="padding-top:10px;">Slab tax (new slabs)</td><td id="n-slab">—</td></tr>
+            <tr><td class="row-label">Surcharge</td><td id="n-sc">—</td></tr>
+            <tr><td class="row-label">Marginal relief</td><td class="deduct" id="n-mr">—</td></tr>
+            <tr><td class="row-label">Health & Education cess (4%)</td><td id="n-cess">—</td></tr>
+            <tr class="row-total"><td>Total Tax Payable</td><td class="final-tax" id="n-final">—</td></tr>
+            <tr class="row-sub"><td>↳ of which: ESOP perq tax (paid separately)</td><td style="font-family:var(--mono);font-size:12px;color:var(--blue);text-align:right;" id="n-esop-tax">—</td></tr>
+            <tr class="row-sub"><td>↳ Net salary TDS (excl. ESOP tax)</td><td style="font-family:var(--mono);font-size:12px;color:var(--green);text-align:right;" id="n-salary-tds">—</td></tr>
+          </table>
+        </div>
+      </div>
+
+    </div>
+    <!-- END REGIME GRID -->
+
+    <!-- HRA DETAIL -->
+    <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.12em;color:var(--text3);text-transform:uppercase;margin-bottom:12px;">HRA exemption breakdown (old regime)</div>
+    <div class="hra-grid">
+      <div class="hra-card">
+        <div class="hra-title">Three rules — least is exempt</div>
+        <table class="bk-table">
+          <tr><td class="row-label">1. Actual HRA received</td><td id="h1">—</td></tr>
+          <tr><td class="row-label">2. Rent paid − 10% of Basic</td><td id="h2">—</td></tr>
+          <tr><td class="row-label" id="h3-label">3. 50% of Basic (metro)</td><td id="h3">—</td></tr>
+          <tr class="row-hl"><td>HRA Exempt (least of 3)</td><td id="h-exempt">—</td></tr>
+          <tr><td class="row-label">HRA taxable balance</td><td id="h-taxable">—</td></tr>
+        </table>
+      </div>
+      <div class="hra-card">
+        <div class="hra-title">Key insight</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7;" id="hra-insight">—</div>
+      </div>
+    </div>
+
+    <!-- SLAB-WISE TAX CALCULATION SIDE BY SIDE -->
+    <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.12em;color:var(--text3);text-transform:uppercase;margin-bottom:12px;">Slab-wise tax calculation — side by side</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;">
+      <!-- Header row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);">
+        <div style="padding:12px 16px;border-right:1px solid var(--border);">
+          <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;margin-bottom:2px;">Old Regime</div>
+          <div style="font-size:11px;color:var(--text2);">Taxable: <span id="sw-old-taxable" style="color:var(--text);font-family:var(--mono);">—</span></div>
+        </div>
+        <div style="padding:12px 16px;">
+          <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;margin-bottom:2px;">New Regime</div>
+          <div style="font-size:11px;color:var(--text2);">Taxable: <span id="sw-new-taxable" style="color:var(--text);font-family:var(--mono);">—</span></div>
+        </div>
+      </div>
+      <!-- Column sub-headers -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;background:var(--bg3);border-bottom:1px solid var(--border);">
+        <div style="display:grid;grid-template-columns:1.6fr 0.5fr 0.7fr 0.7fr;padding:6px 16px;border-right:1px solid var(--border);gap:4px;">
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;">SLAB</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-align:center;">RATE</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-align:right;">INCOME IN SLAB</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-align:right;">TAX</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.6fr 0.5fr 0.7fr 0.7fr;padding:6px 16px;gap:4px;">
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;">SLAB</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-align:center;">RATE</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-align:right;">INCOME IN SLAB</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text3);text-align:right;">TAX</span>
+        </div>
+      </div>
+      <!-- Dynamic slab rows -->
+      <div id="sw-rows"></div>
+      <!-- Reconciliation footer rows - dynamically injected -->
+      <div id="sw-footer"></div>
+    </div>
+
+    <!-- SURCHARGE TABLE -->
+    <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.12em;color:var(--text3);text-transform:uppercase;margin-bottom:12px;">Surcharge brackets (same for both regimes up to ₹2Cr)</div>
+    <div class="surcharge-section">
+      <div class="sc-head">
+        <span>Total Income</span>
+        <span>Surcharge</span>
+        <span>Old Max</span>
+      </div>
+      <div class="sc-row" id="sc-0">
+        <span class="sc-thresh">Up to ₹50 lakh</span>
+        <span class="sc-rate">Nil</span>
+        <span class="sc-rate2">Nil</span>
+      </div>
+      <div class="sc-row" id="sc-1">
+        <span class="sc-thresh">₹50L – ₹1Cr</span>
+        <span class="sc-rate">10%</span>
+        <span class="sc-rate2">10%</span>
+      </div>
+      <div class="sc-row" id="sc-2">
+        <span class="sc-thresh">₹1Cr – ₹2Cr</span>
+        <span class="sc-rate">15%</span>
+        <span class="sc-rate2">15%</span>
+      </div>
+      <div class="sc-row" id="sc-3">
+        <span class="sc-thresh">₹2Cr – ₹5Cr</span>
+        <span class="sc-rate">25%</span>
+        <span class="sc-rate2">25%</span>
+      </div>
+      <div class="sc-row" id="sc-4">
+        <span class="sc-thresh">Above ₹5Cr</span>
+        <span class="sc-rate" style="color:var(--green)">25% cap</span>
+        <span class="sc-rate2" style="color:var(--red)">37%</span>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text3);line-height:1.6;">
+        Marginal relief applies at each threshold — ensures extra tax never exceeds extra income earned above the threshold.
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Tax vs ESOP value (LTIP fixed at current)</div>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:var(--red);"></span>Old regime</span>
+          <span><span class="legend-dot" style="background:var(--green);border-top:2px dashed var(--green);height:0;"></span>New regime</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="taxChart" role="img" aria-label="Line chart comparing old and new regime tax as ESOP value changes"></canvas>
+      </div>
+      <div class="chart-axis-label">ESOP value →</div>
+    </div>
+
+  </div>
+  <!-- END CONTENT -->
+
+</div>
+<!-- END MAIN -->
+
+<div class="footer">
+  India Tax Calculator · FY 2026-27 (AY 2027-28) · Budget 2026 — no slab changes · For reference only, consult a CA for filing
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const fmt = v => '₹' + Math.round(v).toLocaleString('en-IN');
+const fmtL = v => '₹' + (Math.round(v)/100000).toFixed(2) + 'L';
+const fmtSh = v => { const l = Math.round(v)/100000; return l >= 100 ? '₹'+(l/100).toFixed(2)+'Cr' : '₹'+l.toFixed(2)+'L'; };
+let cityPct = 0.5;
+let chart;
+
+function g(id){ return document.getElementById(id); }
+function set(id, val){ const el = g(id); if(el) el.textContent = val; }
+function setHTML(id, val){ const el = g(id); if(el) el.innerHTML = val; }
+
+function oldSlabTax(inc){
+  if(inc <= 0) return 0;
+  let t = 0;
+  if(inc > 1000000){ t += (inc - 1000000) * 0.30; inc = 1000000; }
+  if(inc > 500000){ t += (inc - 500000) * 0.20; inc = 500000; }
+  if(inc > 250000){ t += (inc - 250000) * 0.05; }
+  return t;
+}
+
+function newSlabTax(inc){
+  if(inc <= 400000) return 0;
+  let t = 0;
+  const slabs = [[400000,800000,0.05],[800000,1200000,0.10],[1200000,1600000,0.15],[1600000,2000000,0.20],[2000000,2400000,0.25]];
+  for(const [lo,hi,r] of slabs) if(inc > lo) t += (Math.min(inc,hi) - lo) * r;
+  if(inc > 2400000) t += (inc - 2400000) * 0.30;
+  return t;
+}
+
+function getScRate(inc, isOld){
+  if(inc <= 5000000) return 0;
+  if(inc <= 10000000) return 0.10;
+  if(inc <= 20000000) return 0.15;
+  if(inc <= 50000000) return 0.25;
+  return isOld ? 0.37 : 0.25;
+}
+
+function getPrevScRate(threshold){
+  if(threshold <= 5000000) return 0;
+  if(threshold <= 10000000) return 0.10;
+  if(threshold <= 20000000) return 0.15;
+  return 0.25;
+}
+
+function calcTaxFull(baseTax, inc, isOld){
+  const scRate = getScRate(inc, isOld);
+  const sc = baseTax * scRate;
+  let mr = 0;
+  if(scRate > 0){
+    const thresholds = [5000000, 10000000, 20000000, 50000000];
+    const thresh = thresholds.find(t => inc > t && inc <= (t === 5000000 ? 10000000 : t === 10000000 ? 20000000 : t === 20000000 ? 50000000 : Infinity)) || thresholds[thresholds.length-1];
+    const prevScRate = getPrevScRate(thresh);
+    const baseAtThresh = isOld ? oldSlabTax(thresh) : newSlabTax(thresh);
+    const taxAtThresh = baseAtThresh * (1 + prevScRate) * 1.04;
+    const taxCurrent = (baseTax + sc) * 1.04;
+    const excessInc = inc - thresh;
+    if(taxCurrent - taxAtThresh > excessInc){
+      mr = Math.max(0, (taxCurrent - taxAtThresh - excessInc) / 1.04);
+    }
+  }
+  const net = baseTax + sc - mr;
+  const cess = net * 0.04;
+  return { baseTax, sc, scRate, mr, cess, total: Math.round(net + cess) };
+}
+
+// ESOP perquisite tax = tax on (totalIncome) minus tax on (totalIncome - esopValue)
+// This gives the exact marginal tax attributable to the ESOP slice
+function calcEsopTax(totalInc, esop, isOld){
+  if(esop <= 0) return 0;
+  const slabFn = isOld ? oldSlabTax : newSlabTax;
+  const incWithout = Math.max(0, totalInc - esop);
+  const taxWith    = calcTaxFull(slabFn(totalInc),    totalInc,    isOld);
+  const taxWithout = calcTaxFull(slabFn(incWithout),  incWithout,  isOld);
+  return Math.max(0, Math.round(taxWith.total - taxWithout.total));
+}
+
+function computeAll(){
+  const basic    = parseFloat(g('basic').value)    || 0;
+  const hra_recv = parseFloat(g('hra_recv').value) || 0;
+  const special  = parseFloat(g('special').value)  || 0;
+  const mobile   = parseFloat(g('mobile').value)   || 0;
+  const ltip     = parseFloat(g('ltip_n').value)   || 0;
+  const esop     = parseFloat(g('esop_n').value)   || 0;
+  const empnps   = Math.min(parseFloat(g('empnps_n').value)||0, basic * 0.14); // max 14% of basic
+  const rent     = parseFloat(g('rent').value)     || 0;
+  const meal     = Math.min(parseFloat(g('meal_n').value)||0, 96000);
+  const c80c     = Math.min(parseFloat(g('c80c').value)||0, 150000);
+  const nps      = Math.min(parseFloat(g('nps').value)||0, 50000);
+  const c80d     = Math.min(parseFloat(g('c80d').value)||0, 75000);
+  const ptax     = parseFloat(g('ptax').value)     || 0;
+
+  // Meal coupon: exempt from special allowance in old regime only
+  const mealExemptOld = meal;
+  const mealExemptNew = 0;
+
+  // Update sidebar labels
+  set('lv-basic', fmt(basic));
+  set('lv-hra_recv', fmt(hra_recv));
+  set('lv-special', fmt(special));
+  set('lv-meal', fmt(meal));
+  set('lv-mobile', fmt(mobile));
+  set('lv-ltip', fmt(ltip));
+  set('lv-esop', fmt(esop));
+  set('lv-empnps', fmt(empnps));
+  set('lv-rent', fmt(rent));
+  set('lv-c80c', fmt(c80c));
+  set('lv-nps', fmt(nps));
+  set('lv-c80d', fmt(c80d));
+  set('lv-ptax', fmt(ptax));
+
+  // HRA
+  const h1 = hra_recv;
+  const h2 = Math.max(0, rent - 0.10 * basic);
+  const h3 = cityPct * basic;
+  const hraExempt = Math.min(h1, h2, h3);
+  const hraTaxable = hra_recv - hraExempt;
+
+  // Gross (same for both — employer NPS is NOT part of gross salary, it's a separate deduction)
+  const grossSal = basic + hra_recv + special + mobile + ltip;
+  const totalGross = grossSal + esop;
+
+  // OLD regime — empnps deductible under 80CCD(2) + all other deductions
+  const oldTaxSal = grossSal - mealExemptOld - hraExempt - 50000 - ptax - c80c - nps - c80d - empnps;
+  const oldTaxable = oldTaxSal + esop;
+  const oldBase = oldSlabTax(Math.max(0, oldTaxable));
+  const old = calcTaxFull(oldBase, Math.max(0, oldTaxable), true);
+
+  // NEW regime — empnps deductible under 80CCD(2) ONLY (self NPS, HRA, 80C, 80D not allowed)
+  const newTaxSal = grossSal - 75000 - empnps;
+  const newTaxable = newTaxSal + esop;
+  const newBase = newSlabTax(Math.max(0, newTaxable));
+  const nw = calcTaxFull(newBase, Math.max(0, newTaxable), false);
+
+  // ── ESOP perquisite tax (marginal — diff between total tax with and without ESOP) ──
+  const oldEsopTax = calcEsopTax(Math.max(0, oldTaxable), esop, true);
+  const newEsopTax = calcEsopTax(Math.max(0, newTaxable), esop, false);
+  const oldEsopRate = esop > 0 ? (oldEsopTax / esop * 100).toFixed(1) : 0;
+  const newEsopRate = esop > 0 ? (newEsopTax / esop * 100).toFixed(1) : 0;
+  const oldSalaryTds = old.total - oldEsopTax;
+  const newSalaryTds = nw.total  - newEsopTax;
+
+  const oldWins = old.total < nw.total;
+  const saving = Math.abs(old.total - nw.total);
+  const oldDeds = mealExemptOld + hraExempt + 50000 + ptax + c80c + nps + c80d + empnps;
+
+  // ── Income summary ──
+  set('s-gross', fmtSh(grossSal));
+  set('s-esop', fmtSh(esop));
+  set('s-total', fmtSh(totalGross));
+  set('s-old-tax', fmtSh(Math.max(0,oldTaxable)));
+  set('s-new-tax', fmtSh(Math.max(0,newTaxable)));
+  set('s-deductions', fmtSh(oldDeds));
+  set('s-esop-tax-old', esop > 0 ? fmtSh(oldEsopTax) + ` (${oldEsopRate}%)` : '—');
+  set('s-esop-tax-new', esop > 0 ? fmtSh(newEsopTax) + ` (${newEsopRate}%)` : '—');
+  set('s-net-tds-old', fmtSh(oldSalaryTds));
+
+  // NPS employer tax saving = marginal tax saved by the 80CCD(2) deduction
+  const oldWithoutNps  = calcTaxFull(oldSlabTax(Math.max(0, oldTaxable + empnps)),  Math.max(0, oldTaxable + empnps),  true);
+  const newWithoutNps  = calcTaxFull(newSlabTax(Math.max(0, newTaxable + empnps)),  Math.max(0, newTaxable + empnps),  false);
+  const npsOldSaving   = Math.max(0, oldWithoutNps.total - old.total);
+  const npsNewSaving   = Math.max(0, newWithoutNps.total - nw.total);
+  set('s-nps-save-old', empnps > 0 ? fmtSh(npsOldSaving) + '/yr saved' : '—');
+  set('s-nps-save-new', empnps > 0 ? fmtSh(npsNewSaving) + '/yr saved' : '—');
+
+  // ── Winner banner ──
+  const wb = g('winner-banner');
+  wb.className = 'winner-banner ' + (oldWins ? 'old-wins' : 'new-wins');
+  set('winner-text', (oldWins ? 'Old Regime' : 'New Regime') + ' wins');
+  set('winner-sub', `You save ${fmtSh(saving)} annually by choosing the ${oldWins?'old':'new'} regime`);
+  set('save-amt', fmtSh(saving));
+  set('save-monthly', `≈ ${fmtSh(Math.round(saving/12))} / month`);
+
+  // ── Alert ──
+  const abox = g('alert-box');
+  const maxTax = Math.max(oldTaxable, newTaxable);
+  if(oldTaxable > 10000000 && newTaxable > 10000000){
+    abox.className = 'alert-box show alert-warn';
+    abox.textContent = '⚠ Both regimes exceed ₹1Cr — 15% surcharge applies in both. ESOP is the primary driver. Consider timing your ESOP exercise to reduce the surcharge burden.';
+  } else if(oldTaxable > 5000000 && newTaxable > 5000000){
+    abox.className = 'alert-box show alert-warn';
+    abox.textContent = '⚠ Both regimes exceed ₹50L — 10% surcharge applies in both.';
+  } else if(oldTaxable <= 10000000 && newTaxable > 10000000){
+    abox.className = 'alert-box show alert-good';
+    abox.textContent = '✓ Old regime stays below ₹1Cr (10% surcharge only) while new regime crosses ₹1Cr (15% surcharge). Surcharge advantage strongly favours old regime here.';
+  } else if(oldTaxable <= 5000000 && newTaxable > 5000000){
+    abox.className = 'alert-box show alert-good';
+    abox.textContent = '✓ Old regime stays below ₹50L (no surcharge) while new regime crosses ₹50L. Significant surcharge advantage for old regime.';
+  } else {
+    abox.className = 'alert-box';
+  }
+
+  // ── Old regime card ──
+  const scLabelOld = old.scRate === 0 ? 'No surcharge' : (Math.round(old.scRate*100)+'% surcharge');
+  const scClassOld = old.scRate === 0 ? 'sc-0' : old.scRate === 0.10 ? 'sc-10' : old.scRate === 0.15 ? 'sc-15' : 'sc-25';
+  g('old-card').className = 'regime-card' + (oldWins ? ' winner-card' : '');
+  set('old-tax-total', fmt(old.total));
+  set('old-monthly', `≈ ${fmt(Math.round(old.total/12))} / month`);
+  g('old-badge').className = 'regime-badge ' + (oldWins ? 'badge-win' : 'badge-neu');
+  g('old-badge').textContent = oldWins ? '✓ Better for you' : 'Old Regime';
+  setHTML('old-sc-tag', `<span class="sc-badge ${scClassOld}">${scLabelOld}</span>`);
+
+  set('o-gross', fmt(grossSal));
+  set('o-meal', mealExemptOld > 0 ? '−'+fmt(mealExemptOld) : '—');
+  set('o-hra', hraExempt > 0 ? '−'+fmt(hraExempt) : '—');
+  set('o-ptax', ptax > 0 ? '−'+fmt(ptax) : '—');
+  set('o-80c', c80c > 0 ? '−'+fmt(c80c) : '—');
+  set('o-nps', nps > 0 ? '−'+fmt(nps) : '—');
+  set('o-empnps', empnps > 0 ? '−'+fmt(empnps) : '—');
+  set('o-80d', c80d > 0 ? '−'+fmt(c80d) : '—');
+  set('o-taxsal', fmt(Math.max(0, oldTaxSal)));
+  set('o-esop', '+'+fmt(esop));
+  set('o-taxable', fmt(Math.max(0, oldTaxable)));
+  set('o-slab', fmt(old.baseTax));
+  set('o-sc', old.sc > 0 ? fmt(old.sc) + ' ('+Math.round(old.scRate*100)+'%)' : 'Nil');
+  set('o-mr', old.mr > 0 ? '−'+fmt(old.mr) : 'Nil');
+  set('o-cess', fmt(old.cess));
+  set('o-final', fmt(old.total));
+  set('o-esop-tax', esop > 0 ? fmt(oldEsopTax) + ` (${oldEsopRate}%)` : '—');
+  set('o-salary-tds', fmt(oldSalaryTds));
+
+  // ── New regime card ──
+  const scLabelNew = nw.scRate === 0 ? 'No surcharge' : (Math.round(nw.scRate*100)+'% surcharge');
+  const scClassNew = nw.scRate === 0 ? 'sc-0' : nw.scRate === 0.10 ? 'sc-10' : nw.scRate === 0.15 ? 'sc-15' : 'sc-25';
+  g('new-card').className = 'regime-card' + (!oldWins ? ' winner-card' : '');
+  set('new-tax-total', fmt(nw.total));
+  set('new-monthly', `≈ ${fmt(Math.round(nw.total/12))} / month`);
+  g('new-badge').className = 'regime-badge ' + (!oldWins ? 'badge-win' : 'badge-neu');
+  g('new-badge').textContent = !oldWins ? '✓ Better for you' : 'New Regime';
+  setHTML('new-sc-tag', `<span class="sc-badge ${scClassNew}">${scLabelNew}</span>`);
+
+  set('n-gross', fmt(grossSal));
+  set('n-empnps', empnps > 0 ? '−'+fmt(empnps) : '—');
+  set('n-taxsal', fmt(Math.max(0, newTaxSal)));
+  set('n-esop', '+'+fmt(esop));
+  set('n-taxable', fmt(Math.max(0, newTaxable)));
+  set('n-slab', fmt(nw.baseTax));
+  set('n-sc', nw.sc > 0 ? fmt(nw.sc) + ' ('+Math.round(nw.scRate*100)+'%)' : 'Nil');
+  set('n-mr', nw.mr > 0 ? '−'+fmt(nw.mr) : 'Nil');
+  set('n-cess', fmt(nw.cess));
+  set('n-final', fmt(nw.total));
+  set('n-esop-tax', esop > 0 ? fmt(newEsopTax) + ` (${newEsopRate}%)` : '—');
+  set('n-salary-tds', fmt(newSalaryTds));
+
+  // ── HRA detail ──
+  set('h1', fmt(h1));
+  set('h2', fmt(h2));
+  g('h3-label').textContent = `3. ${Math.round(cityPct*100)}% of Basic (${cityPct===0.5?'metro':'non-metro'})`;
+  set('h3', fmt(h3));
+  set('h-exempt', fmt(hraExempt));
+  set('h-taxable', fmt(hraTaxable));
+
+  const limitingRule = hraExempt === h1 ? 'Actual HRA received (Rule 1) is limiting' :
+                       hraExempt === h2 ? `Rent − 10% Basic (Rule 2) is limiting — your rent of ${fmt(rent)}/yr gives only ${fmtSh(h2)} exemption out of ${fmtSh(h1)} HRA received` :
+                                          `${Math.round(cityPct*100)}% of Basic (Rule 3) is limiting`;
+  const hraEff = hra_recv > 0 ? Math.round(hraExempt/hra_recv*100) : 0;
+  setHTML('hra-insight', `<strong style="color:var(--text)">${limitingRule}.</strong><br><br>Only <strong style="color:var(--green)">${hraEff}%</strong> of your HRA received (${fmtSh(hra_recv)}) is actually exempt. To maximise HRA under old regime, you'd need rent ≥ <strong style="color:var(--text)">₹${Math.round((hra_recv + 0.10*basic)/12).toLocaleString('en-IN')}/month</strong>.`);
+
+  // ── Slab-wise calculation side by side ──
+  const oldSlabs = [
+    { label: 'Up to ₹2.5L',  lo: 0,        hi: 250000,  rate: 0    },
+    { label: '₹2.5L – ₹5L',  lo: 250000,   hi: 500000,  rate: 0.05 },
+    { label: '₹5L – ₹10L',   lo: 500000,   hi: 1000000, rate: 0.20 },
+    { label: 'Above ₹10L',   lo: 1000000,  hi: Infinity, rate: 0.30 },
+  ];
+  const newSlabs = [
+    { label: 'Up to ₹4L',    lo: 0,        hi: 400000,  rate: 0    },
+    { label: '₹4L – ₹8L',    lo: 400000,   hi: 800000,  rate: 0.05 },
+    { label: '₹8L – ₹12L',   lo: 800000,   hi: 1200000, rate: 0.10 },
+    { label: '₹12L – ₹16L',  lo: 1200000,  hi: 1600000, rate: 0.15 },
+    { label: '₹16L – ₹20L',  lo: 1600000,  hi: 2000000, rate: 0.20 },
+    { label: '₹20L – ₹24L',  lo: 2000000,  hi: 2400000, rate: 0.25 },
+    { label: 'Above ₹24L',   lo: 2400000,  hi: Infinity, rate: 0.30 },
+  ];
+
+  const oInc = Math.max(0, oldTaxable);
+  const nInc = Math.max(0, newTaxable);
+
+  function slabBreakdown(inc, slabs) {
+    return slabs.map(s => {
+      const inSlab = Math.max(0, Math.min(inc, s.hi === Infinity ? inc : s.hi) - s.lo);
+      const tax    = inSlab * s.rate;
+      const active = inc > s.lo;
+      return { ...s, inSlab, tax, active };
+    });
+  }
+
+  const oldBreakdown = slabBreakdown(oInc, oldSlabs);
+  const newBreakdown = slabBreakdown(nInc, newSlabs);
+  const maxRows = Math.max(oldBreakdown.length, newBreakdown.length);
+
+  set('sw-old-taxable', fmtSh(oInc));
+  set('sw-new-taxable', fmtSh(nInc));
+
+  function renderSlabCell(s) {
+    const dimStyle  = s.active ? '' : 'opacity:0.28;';
+    const rowBg     = (s.active && s.rate > 0 && s.inSlab > 0) ? 'background:var(--green-bg);' : '';
+    const taxColor  = s.tax > 0 ? 'color:var(--amber);' : 'color:var(--text3);';
+    const lblColor  = s.inSlab > 0 ? 'color:var(--text);' : 'color:var(--text3);';
+    const rateColor = (s.rate > 0 && s.inSlab > 0) ? 'color:var(--text);' : 'color:var(--text3);';
+    return `
+      <div style="display:grid;grid-template-columns:1.6fr 0.5fr 0.7fr 0.7fr;padding:7px 16px;gap:4px;align-items:center;${rowBg}${dimStyle}border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;${lblColor}">${s.label}</span>
+        <span style="font-family:var(--mono);font-size:11px;${rateColor}text-align:center;">${Math.round(s.rate*100)}%</span>
+        <span style="font-family:var(--mono);font-size:11px;${s.inSlab>0?'color:var(--text);':'color:var(--text3);'}text-align:right;">${s.inSlab > 0 ? fmtSh(s.inSlab) : '—'}</span>
+        <span style="font-family:var(--mono);font-size:11px;${taxColor}text-align:right;">${s.tax > 0 ? fmtSh(s.tax) : '—'}</span>
+      </div>`;
+  }
+
+  function renderEmptyCell() {
+    return `<div style="padding:7px 16px;border-bottom:1px solid var(--border);min-height:33px;"></div>`;
+  }
+
+  let rowsHtml = '';
+  for (let i = 0; i < maxRows; i++) {
+    const oRow = i < oldBreakdown.length ? renderSlabCell(oldBreakdown[i]) : renderEmptyCell();
+    const nRow = i < newBreakdown.length ? renderSlabCell(newBreakdown[i]) : renderEmptyCell();
+    rowsHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;">
+      <div style="border-right:1px solid var(--border);">${oRow}</div>
+      <div>${nRow}</div>
+    </div>`;
+  }
+  g('sw-rows').innerHTML = rowsHtml;
+
+  // ── Full reconciliation footer ──
+  const oldSlabTot = oldBreakdown.reduce((s, r) => s + r.tax, 0);
+  const newSlabTot = newBreakdown.reduce((s, r) => s + r.tax, 0);
+
+  function footerRow(labelO, valO, labelN, valN, opts = {}) {
+    const bold   = opts.bold   ? 'font-weight:600;' : 'font-weight:400;';
+    const bgO    = opts.bgO    || '';
+    const bgN    = opts.bgN    || '';
+    const colO   = opts.colO   || 'var(--text2)';
+    const colN   = opts.colN   || 'var(--text2)';
+    const sz     = opts.big    ? 'font-size:13px;' : 'font-size:12px;';
+    const border = opts.noBorder ? '' : 'border-top:1px solid var(--border);';
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;${border}">
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:${opts.big?'10px':'7px'} 16px;gap:4px;align-items:center;border-right:1px solid var(--border);${bgO}">
+        <span style="${sz}color:var(--text2);">${labelO}</span>
+        <span style="font-family:var(--mono);${sz}${bold}color:${colO};text-align:right;">${valO}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:${opts.big?'10px':'7px'} 16px;gap:4px;align-items:center;${bgN}">
+        <span style="${sz}color:var(--text2);">${labelN}</span>
+        <span style="font-family:var(--mono);${sz}${bold}color:${colN};text-align:right;">${valN}</span>
+      </div>
+    </div>`;
+  }
+
+  const oScAmt  = old.sc;
+  const oMrAmt  = old.mr;
+  const oCessAmt = old.cess;
+  const nScAmt  = nw.sc;
+  const nMrAmt  = nw.mr;
+  const nCessAmt = nw.cess;
+
+  const oScLabel = old.scRate > 0 ? `Surcharge (${Math.round(old.scRate*100)}%)` : 'Surcharge';
+  const nScLabel = nw.scRate  > 0 ? `Surcharge (${Math.round(nw.scRate*100)}%)`  : 'Surcharge';
+
+  let footer = '';
+  footer += footerRow(
+    'Total slab tax', fmt(Math.round(oldSlabTot)),
+    'Total slab tax', fmt(Math.round(newSlabTot)),
+    { bgO:'background:var(--bg3);', bgN:'background:var(--bg3);', colO:'var(--amber)', colN:'var(--amber)', bold:true }
+  );
+  footer += footerRow(
+    oScLabel, oScAmt > 0 ? '+'+fmt(Math.round(oScAmt)) : 'Nil',
+    nScLabel, nScAmt > 0 ? '+'+fmt(Math.round(nScAmt)) : 'Nil',
+    { colO: oScAmt > 0 ? 'var(--red)' : 'var(--text3)', colN: nScAmt > 0 ? 'var(--red)' : 'var(--text3)' }
+  );
+  footer += footerRow(
+    'Marginal relief', oMrAmt > 0 ? '−'+fmt(Math.round(oMrAmt)) : 'Nil',
+    'Marginal relief', nMrAmt > 0 ? '−'+fmt(Math.round(nMrAmt)) : 'Nil',
+    { colO: oMrAmt > 0 ? 'var(--green)' : 'var(--text3)', colN: nMrAmt > 0 ? 'var(--green)' : 'var(--text3)' }
+  );
+  footer += footerRow(
+    'H&E Cess (4%)', '+'+fmt(Math.round(oCessAmt)),
+    'H&E Cess (4%)', '+'+fmt(Math.round(nCessAmt)),
+    { colO:'var(--text2)', colN:'var(--text2)' }
+  );
+  footer += footerRow(
+    'Total Tax Payable', fmt(old.total),
+    'Total Tax Payable', fmt(nw.total),
+    { bgO:'background:var(--bg3);', bgN:'background:var(--bg3);',
+      colO: oldWins ? 'var(--green)' : 'var(--text)',
+      colN: !oldWins ? 'var(--green)' : 'var(--text)',
+      bold:true, big:true }
+  );
+
+  // ── ESOP tax split-out block ──
+  if(esop > 0){
+    const sepStyle = 'border-top:2px solid var(--border2);';
+    footer += `<div style="display:grid;grid-template-columns:1fr 1fr;${sepStyle}background:rgba(110,174,207,0.05);">
+      <div style="padding:8px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.08em;color:var(--blue);text-transform:uppercase;margin-bottom:2px;">ESOP Perquisite Tax — Paid Separately</div>
+      </div>
+      <div style="padding:8px 16px;border-bottom:1px solid var(--border);">
+        <div style="font-size:10px;font-family:var(--mono);letter-spacing:0.08em;color:var(--blue);text-transform:uppercase;margin-bottom:2px;">ESOP Perquisite Tax — Paid Separately</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;background:rgba(110,174,207,0.05);">
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:7px 16px;gap:4px;align-items:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--text2);">ESOP value</span>
+        <span style="font-family:var(--mono);font-size:12px;color:var(--text);text-align:right;">${fmt(esop)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:7px 16px;gap:4px;align-items:center;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--text2);">ESOP value</span>
+        <span style="font-family:var(--mono);font-size:12px;color:var(--text);text-align:right;">${fmt(esop)}</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;background:rgba(110,174,207,0.05);">
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:7px 16px;gap:4px;align-items:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--text2);">Effective rate (marginal)</span>
+        <span style="font-family:var(--mono);font-size:12px;color:var(--blue);text-align:right;">${oldEsopRate}%</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:7px 16px;gap:4px;align-items:center;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--text2);">Effective rate (marginal)</span>
+        <span style="font-family:var(--mono);font-size:12px;color:var(--blue);text-align:right;">${newEsopRate}%</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;background:rgba(110,174,207,0.05);">
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:9px 16px;gap:4px;align-items:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;font-weight:500;color:var(--text);">ESOP tax payable</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--blue);text-align:right;">${fmt(oldEsopTax)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:9px 16px;gap:4px;align-items:center;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;font-weight:500;color:var(--text);">ESOP tax payable</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--blue);text-align:right;">${fmt(newEsopTax)}</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;background:var(--bg3);">
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:10px 16px;gap:4px;align-items:center;border-right:1px solid var(--border);">
+        <span style="font-size:13px;font-weight:600;color:var(--text);">Net salary TDS</span>
+        <span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--green);text-align:right;">${fmt(oldSalaryTds)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1.4fr;padding:10px 16px;gap:4px;align-items:center;">
+        <span style="font-size:13px;font-weight:600;color:var(--text);">Net salary TDS</span>
+        <span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--green);text-align:right;">${fmt(newSalaryTds)}</span>
+      </div>
+    </div>`;
+  }
+
+  g('sw-footer').innerHTML = footer;
+
+  // ── Highlight active surcharge rows ──
+  ['sc-0','sc-1','sc-2','sc-3','sc-4'].forEach(id => g(id).classList.remove('sc-active'));
+  const maxT = Math.max(Math.max(0,oldTaxable), Math.max(0,newTaxable));
+  if(maxT > 50000000) g('sc-4').classList.add('sc-active');
+  else if(maxT > 20000000) g('sc-3').classList.add('sc-active');
+  else if(maxT > 10000000) g('sc-2').classList.add('sc-active');
+  else if(maxT > 5000000) g('sc-1').classList.add('sc-active');
+  else g('sc-0').classList.add('sc-active');
+
+  // ── Chart ──
+  buildChart(basic, hra_recv, special, mobile, ltip, rent, c80c, nps, c80d, ptax, hraExempt, mealExemptOld, empnps);
+}
+
+function buildChart(basic, hra_recv, special, mobile, ltip, rent, c80c, nps, c80d, ptax, hraExempt, mealExemptOld, empnps){
+  const labels = [], oldD = [], newD = [];
+  const grossBase = basic + hra_recv + special + mobile + ltip;
+  for(let e = 0; e <= 5000000; e += 100000){
+    labels.push(e === 0 ? '₹0' : '₹'+(e/100000)+'L');
+    const oT = Math.max(0, grossBase - mealExemptOld - hraExempt - 50000 - ptax - c80c - nps - c80d - empnps + e);
+    const nT = Math.max(0, grossBase - 75000 - empnps + e);
+    oldD.push(calcTaxFull(oldSlabTax(oT), oT, true).total);
+    newD.push(calcTaxFull(newSlabTax(nT), nT, false).total);
+  }
+  if(chart) chart.destroy();
+  chart = new Chart(g('taxChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'Old Regime', data:oldD, borderColor:'#e87070', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.3 },
+        { label:'New Regime', data:newD, borderColor:'#7fcf6e', backgroundColor:'transparent', borderWidth:2, pointRadius:0, borderDash:[6,4], tension:0.3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1c2118',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#8a9480',
+          bodyColor: '#e8ede2',
+          callbacks: { label: c => c.dataset.label + ': ' + fmt(c.parsed.y) }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 11, color:'#4e5848', font:{ family:"'DM Mono', monospace", size:10 } },
+          grid: { color:'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          ticks: { color:'#4e5848', font:{ family:"'DM Mono', monospace", size:10 }, callback: v => '₹'+(v/100000).toFixed(0)+'L' },
+          grid: { color:'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// ── Event listeners ──
+['basic','hra_recv','special','mobile','rent','c80c','nps','c80d','ptax'].forEach(id =>
+  g(id).addEventListener('input', computeAll)
+);
+
+g('meal_s').addEventListener('input', e => { g('meal_n').value = e.target.value; computeAll(); });
+g('meal_n').addEventListener('input', e => { g('meal_s').value = Math.min(+e.target.value||0, 96000); computeAll(); });
+
+g('empnps_s').addEventListener('input', e => { g('empnps_n').value = e.target.value; computeAll(); });
+g('empnps_n').addEventListener('input', e => { g('empnps_s').value = Math.min(+e.target.value||0, 1500000); computeAll(); });
+
+g('ltip_s').addEventListener('input', e => { g('ltip_n').value = e.target.value; computeAll(); });
+g('ltip_n').addEventListener('input', e => { g('ltip_s').value = Math.min(+e.target.value||0, 3000000); computeAll(); });
+g('esop_s').addEventListener('input', e => { g('esop_n').value = e.target.value; computeAll(); });
+g('esop_n').addEventListener('input', e => { g('esop_s').value = Math.min(+e.target.value||0, 5000000); computeAll(); });
+
+g('city-tog').addEventListener('click', e => {
+  if(!e.target.dataset.val) return;
+  cityPct = parseFloat(e.target.dataset.val);
+  g('city-tog').querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.val === e.target.dataset.val));
+  computeAll();
+});
+
+computeAll();
+</script>
+</body>
+</html>

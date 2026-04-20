@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics Pipeline — YouTube Scale</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #111118;
+  --surface2: #1a1a24;
+  --surface3: #22222f;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e6f0;
+  --text2: #9896a8;
+  --text3: #5c5a6e;
+  --accent: #7c6af7;
+  --accent2: #4ecdc4;
+  --accent3: #ff6b6b;
+  --amber: #f7c94b;
+  --green: #56cfb2;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+/* NOISE TEXTURE */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 40px;
+  position: relative;
+  z-index: 1;
+}
+
+/* HERO */
+.hero {
+  padding: 80px 0 60px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hero-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-label::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.hero h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(42px, 6vw, 72px);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+  color: var(--text);
+}
+
+.hero h1 em {
+  font-style: italic;
+  color: var(--accent2);
+}
+
+.hero-sub {
+  font-size: 16px;
+  color: var(--text2);
+  max-width: 640px;
+  line-height: 1.7;
+}
+
+/* STATS BAR */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 48px 0;
+}
+
+.stat-item {
+  background: var(--surface);
+  padding: 24px 28px;
+  transition: background 0.2s;
+}
+
+.stat-item:hover { background: var(--surface2); }
+
+.stat-num {
+  font-family: 'Fraunces', serif;
+  font-size: 36px;
+  font-weight: 300;
+  color: var(--accent2);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+}
+
+/* SECTION */
+.section {
+  padding: 64px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+
+.section-lead {
+  font-size: 15px;
+  color: var(--text2);
+  max-width: 700px;
+  margin-bottom: 40px;
+  line-height: 1.75;
+}
+
+/* PIPELINE DIAGRAM */
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pipeline-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.pipeline-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-transform: uppercase;
+  padding-top: 18px;
+  text-align: right;
+}
+
+.pipeline-node {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  position: relative;
+  transition: all 0.2s;
+  cursor: default;
+}
+
+.pipeline-node:hover {
+  border-color: var(--border2);
+  background: var(--surface2);
+  transform: translateX(4px);
+}
+
+.pipeline-node.accent-purple { border-left: 3px solid var(--accent); }
+.pipeline-node.accent-teal { border-left: 3px solid var(--accent2); }
+.pipeline-node.accent-amber { border-left: 3px solid var(--amber); }
+.pipeline-node.accent-green { border-left: 3px solid var(--green); }
+.pipeline-node.accent-red { border-left: 3px solid var(--accent3); }
+
+.node-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.node-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.pipeline-connector {
+  display: flex;
+  align-items: center;
+  padding: 4px 0 4px 120px;
+  padding-left: calc(120px + 16px);
+}
+
+.connector-line {
+  width: 1px;
+  height: 20px;
+  background: linear-gradient(to bottom, var(--border2), var(--border));
+  margin-left: 28px;
+}
+
+.connector-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  margin-left: 12px;
+  letter-spacing: 0.05em;
+}
+
+/* EVENT SCHEMAS */
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.schema-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.schema-card:hover { border-color: var(--border2); }
+
+.schema-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.schema-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--accent2);
+}
+
+.schema-rate {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.schema-body {
+  padding: 14px 18px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--text2);
+}
+
+.schema-key { color: var(--accent); }
+.schema-val { color: var(--accent2); }
+.schema-comment { color: var(--text3); font-style: italic; }
+
+/* FLINK WINDOWS */
+.windows-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.window-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  transition: all 0.2s;
+}
+
+.window-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+.window-type {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.window-title {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  font-weight: 300;
+  margin-bottom: 8px;
+}
+
+.window-desc {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.65;
+}
+
+.window-vis {
+  display: flex;
+  gap: 3px;
+  margin: 14px 0;
+  height: 20px;
+  align-items: stretch;
+}
+
+.wv-seg {
+  border-radius: 3px;
+  flex: 1;
+}
+
+/* FLINK JOBS */
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.job-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: 280px 1fr auto;
+  gap: 24px;
+  align-items: start;
+  transition: all 0.2s;
+}
+
+.job-row:hover { border-color: var(--border2); background: var(--surface2); }
+
+.job-name {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+
+.job-window {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.job-desc {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+.job-latency {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--amber);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* BIGQUERY */
+.bq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.bq-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  transition: all 0.2s;
+}
+
+.bq-card:hover { border-color: var(--border2); }
+
+.bq-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.bq-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.bq-body {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.65;
+}
+
+/* A/B TESTING */
+.ab-flow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-top: 32px;
+}
+
+.ab-step {
+  background: var(--surface);
+  padding: 28px 24px;
+  position: relative;
+}
+
+.ab-step-num {
+  font-family: 'Fraunces', serif;
+  font-size: 56px;
+  font-weight: 300;
+  color: var(--surface3);
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.ab-step-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.ab-step-body {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.65;
+}
+
+.ab-pitfalls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.pitfall-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent3);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.pitfall-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--accent3);
+}
+
+.pitfall-body {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* EM SECTION */
+.em-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.em-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+}
+
+.em-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 10px;
+  color: var(--accent2);
+}
+
+.em-card-body {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+/* FAILURE MODES */
+.failure-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 32px;
+  font-size: 13px;
+}
+
+.failure-table th {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border2);
+}
+
+.failure-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text2);
+  vertical-align: top;
+  line-height: 1.6;
+}
+
+.failure-table tr:last-child td { border-bottom: none; }
+.failure-table tr:hover td { background: var(--surface); }
+.failure-table td:first-child {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.sev {
+  display: inline-block;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+.sev-p0 { background: rgba(255,107,107,0.15); color: var(--accent3); }
+.sev-p1 { background: rgba(247,201,75,0.1); color: var(--amber); }
+.sev-p2 { background: rgba(78,205,196,0.1); color: var(--accent2); }
+
+/* CODE */
+code {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  background: var(--surface2);
+  color: var(--accent2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* FOOTER */
+.footer {
+  padding: 48px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-brand {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--text3);
+}
+
+.footer-note {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+}
+
+/* NAV */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10,10,15,0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+}
+
+.nav-links a {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--accent2); }
+
+/* HIGHLIGHT BOX */
+.highlight-box {
+  background: linear-gradient(135deg, rgba(124,106,247,0.08), rgba(78,205,196,0.05));
+  border: 1px solid rgba(124,106,247,0.2);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-top: 28px;
+}
+
+.highlight-box p {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+.highlight-box strong { color: var(--text); font-weight: 500; }
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero { animation: fadeUp 0.6s ease both; }
+.stats-bar { animation: fadeUp 0.6s ease 0.1s both; }
+
+@media (max-width: 768px) {
+  .container { padding: 0 20px; }
+  .stats-bar { grid-template-columns: repeat(2,1fr); }
+  .schema-grid, .windows-grid, .ab-flow, .ab-pitfalls, .bq-grid, .em-grid { grid-template-columns: 1fr; }
+  .job-row { grid-template-columns: 1fr; }
+  .pipeline-row { grid-template-columns: 80px 1fr; }
+  .nav-links { display: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <span class="nav-brand">SYSTEM DESIGN / ANALYTICS PIPELINE</span>
+    <div class="nav-links">
+      <a href="#collection">Collection</a>
+      <a href="#flink">Flink</a>
+      <a href="#warehouse">Warehouse</a>
+      <a href="#ab">A/B Testing</a>
+      <a href="#ops">Operations</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-label">Deep Dive · YouTube-Scale Platform</div>
+    <h1>Analytics Pipeline —<br><em>Clickstream, Flink,</em><br>Data Warehouse & A/B Testing</h1>
+    <p class="hero-sub">The system that turns 1 billion daily events into decisions. Without it, you're shipping features blind — you don't know if the new recommendation algorithm increased watch time or destroyed it.</p>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">1B</div>
+      <div class="stat-label">events / day</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">11.5K</div>
+      <div class="stat-label">events / second</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">&lt;5s</div>
+      <div class="stat-label">event → Redis latency</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">60s</div>
+      <div class="stat-label">event → BigQuery</div>
+    </div>
+  </div>
+
+  <!-- LAYER 1: COLLECTION -->
+  <section class="section" id="collection">
+    <div class="section-num">Layer 01</div>
+    <h2 class="section-title">Event Collection &amp;<br>The Clickstream</h2>
+    <p class="section-lead">Every meaningful user action produces an event. The challenge is not collecting events — that's easy. The challenge is doing it without adding latency to the user-facing critical path, and without losing events when services restart.</p>
+
+    <div class="pipeline">
+
+      <div class="pipeline-row">
+        <div class="pipeline-label">Client</div>
+        <div class="pipeline-node accent-purple">
+          <div class="node-title">Player SDK + UI event layer</div>
+          <div class="node-sub">web · iOS · Android · TV — local IndexedDB/SQLite queue, batched every 10s or 20 events</div>
+        </div>
+      </div>
+
+      <div class="pipeline-connector">
+        <div class="connector-line"></div>
+        <div class="connector-label">batch POST over HTTPS · retry on failure</div>
+      </div>
+
+      <div class="pipeline-row">
+        <div class="pipeline-label">Collector</div>
+        <div class="pipeline-node accent-teal">
+          <div class="node-title">Event collector service</div>
+          <div class="node-sub">schema validation · timestamp correction · IP geolocation enrichment · Redis bloom filter dedup</div>
+        </div>
+      </div>
+
+      <div class="pipeline-connector">
+        <div class="connector-line"></div>
+        <div class="connector-label">Kafka producer · acks=1 for high volume · acks=all for critical events</div>
+      </div>
+
+      <div class="pipeline-row">
+        <div class="pipeline-label">Bus</div>
+        <div class="pipeline-node accent-amber">
+          <div class="node-title">Kafka analytics topics</div>
+          <div class="node-sub">view.event · ui.event · perf.event · error.event · experiment.exposure</div>
+        </div>
+      </div>
+
+      <div class="pipeline-connector">
+        <div class="connector-line"></div>
+        <div class="connector-label">three independent consumer paths — same events, different latency SLAs</div>
+      </div>
+
+      <div class="pipeline-row">
+        <div class="pipeline-label">Sinks</div>
+        <div class="pipeline-node accent-green">
+          <div class="node-title">Flink · BigQuery · Real-time dashboards</div>
+          <div class="node-sub">seconds latency · 60s latency · Parquet/GCS batch → warehouse</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="highlight-box" style="margin-top:32px">
+      <p>The most important engineering decision here is the <strong>local event queue on the client</strong>. Events are not sent immediately — they're written to IndexedDB on web or SQLite on mobile, then flushed in batches. This means: if the user loses connectivity for 30 seconds while watching, events accumulate locally and are sent when connectivity returns. The analytics pipeline <strong>never loses events to network blips</strong>. The critical playback path is never blocked waiting for an analytics write.</p>
+    </div>
+
+    <!-- EVENT SCHEMAS -->
+    <h3 style="font-family:'Fraunces',serif;font-weight:300;font-size:24px;margin:48px 0 8px;letter-spacing:-0.02em">Event schemas — the contract</h3>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:0">Every event carries <code>experiment_ids</code> — which A/B experiments the user was in. This is what enables causal analysis.</p>
+
+    <div class="schema-grid">
+      <div class="schema-card">
+        <div class="schema-header">
+          <span class="schema-name">view.event</span>
+          <span class="schema-rate">~11,500 / sec</span>
+        </div>
+        <div class="schema-body">
+          <span class="schema-key">"event_id"</span>: <span class="schema-val">"evt_a1b2c3"</span><br>
+          <span class="schema-key">"user_id"</span>: <span class="schema-val">"u456"</span><br>
+          <span class="schema-key">"video_id"</span>: <span class="schema-val">"abc123"</span><br>
+          <span class="schema-key">"watch_pct"</span>: <span class="schema-val">0.73</span><br>
+          <span class="schema-key">"stall_ms"</span>: <span class="schema-val">0</span><br>
+          <span class="schema-key">"startup_ms"</span>: <span class="schema-val">180</span><br>
+          <span class="schema-key">"cdn_pop"</span>: <span class="schema-val">"mumbai-1"</span><br>
+          <span class="schema-key">"experiment_ids"</span>: <span class="schema-val">["rec_v2"]</span><br>
+          <span class="schema-key">"server_ts"</span>: <span class="schema-val">1714001003000</span> <span class="schema-comment">// authoritative</span>
+        </div>
+      </div>
+
+      <div class="schema-card">
+        <div class="schema-header">
+          <span class="schema-name">perf.event</span>
+          <span class="schema-rate">every 30s per session</span>
+        </div>
+        <div class="schema-body">
+          <span class="schema-key">"event_id"</span>: <span class="schema-val">"evt_g7h8i9"</span><br>
+          <span class="schema-key">"video_id"</span>: <span class="schema-val">"abc123"</span><br>
+          <span class="schema-key">"current_quality"</span>: <span class="schema-val">"720p"</span><br>
+          <span class="schema-key">"stall_ms_window"</span>: <span class="schema-val">0</span><br>
+          <span class="schema-key">"buffered_ahead_ms"</span>: <span class="schema-val">24000</span><br>
+          <span class="schema-key">"latency_ms"</span>: <span class="schema-val">38</span><br>
+          <span class="schema-key">"cdn_pop"</span>: <span class="schema-val">"mumbai-1"</span><br>
+          <span class="schema-key">"cdn_provider"</span>: <span class="schema-val">"fastly"</span><br>
+          <span class="schema-key">"network_type"</span>: <span class="schema-val">"4G"</span>
+        </div>
+      </div>
+
+      <div class="schema-card">
+        <div class="schema-header">
+          <span class="schema-name">ui.event</span>
+          <span class="schema-rate">impression · click · scroll</span>
+        </div>
+        <div class="schema-body">
+          <span class="schema-key">"event_type"</span>: <span class="schema-val">"impression"</span><br>
+          <span class="schema-key">"surface"</span>: <span class="schema-val">"homepage_feed"</span><br>
+          <span class="schema-key">"element_type"</span>: <span class="schema-val">"video_card"</span><br>
+          <span class="schema-key">"video_id"</span>: <span class="schema-val">"abc123"</span><br>
+          <span class="schema-key">"position"</span>: <span class="schema-val">3</span><br>
+          <span class="schema-key">"visible_ms"</span>: <span class="schema-val">2400</span><br>
+          <span class="schema-key">"viewport_pct"</span>: <span class="schema-val">0.85</span><br>
+          <span class="schema-comment">// CTR = clicks / impressions per position<br>// controls for position bias in experiments</span>
+        </div>
+      </div>
+
+      <div class="schema-card">
+        <div class="schema-header">
+          <span class="schema-name">experiment.exposure</span>
+          <span class="schema-rate">on experiment surface render</span>
+        </div>
+        <div class="schema-body">
+          <span class="schema-key">"experiment_id"</span>: <span class="schema-val">"rec_v7"</span><br>
+          <span class="schema-key">"variant"</span>: <span class="schema-val">"treatment"</span><br>
+          <span class="schema-key">"bucketing_key"</span>: <span class="schema-val">"u456"</span><br>
+          <span class="schema-key">"surface"</span>: <span class="schema-val">"homepage_feed"</span><br>
+          <span class="schema-key">"triggered_by"</span>: <span class="schema-val">"page_load"</span><br>
+          <span class="schema-comment">// emitted when user SEES the experiment<br>// not when assigned — critical distinction<br>// only exposed users included in analysis</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAYER 2: FLINK -->
+  <section class="section" id="flink">
+    <div class="section-num">Layer 02</div>
+    <h2 class="section-title">Apache Flink —<br>Real-time Stream Processing</h2>
+    <p class="section-lead">Flink reads from Kafka and produces aggregated results in seconds to minutes. It solves three hard problems that naive Kafka consumers get wrong every time: windowing, late data, and durable state.</p>
+
+    <!-- WINDOWS -->
+    <h3 style="font-family:'Fraunces',serif;font-weight:300;font-size:22px;margin-bottom:8px;letter-spacing:-0.01em">Window types</h3>
+
+    <div class="windows-grid">
+      <div class="window-card">
+        <div class="window-type" style="color:var(--accent)">Tumbling</div>
+        <div class="window-title">Fixed non-overlapping buckets</div>
+        <div class="window-vis">
+          <div class="wv-seg" style="background:rgba(124,106,247,0.3);border:1px solid rgba(124,106,247,0.4)"></div>
+          <div class="wv-seg" style="background:rgba(124,106,247,0.2);border:1px solid rgba(124,106,247,0.3)"></div>
+          <div class="wv-seg" style="background:rgba(124,106,247,0.3);border:1px solid rgba(124,106,247,0.4)"></div>
+        </div>
+        <div class="window-desc">Each event belongs to exactly one window. Used for: view counts per minute, hourly active users, daily upload totals. Output fires once at window close. Predictable, simple, lowest overhead.</div>
+      </div>
+
+      <div class="window-card">
+        <div class="window-type" style="color:var(--accent2)">Sliding</div>
+        <div class="window-title">Overlapping rolling windows</div>
+        <div class="window-vis">
+          <div style="flex:3;background:rgba(78,205,196,0.25);border-radius:3px;border:1px solid rgba(78,205,196,0.3)"></div>
+          <div style="position:relative;flex:0.1"></div>
+          <div style="flex:3;background:rgba(78,205,196,0.15);border-radius:3px;border:1px solid rgba(78,205,196,0.2);margin-left:-30px"></div>
+        </div>
+        <div class="window-desc">60s wide, slides every 10s. Each event belongs to multiple windows. Used for: CDN stall rate monitoring, trending score. More expensive but gives fresher signal for automated failover alerting.</div>
+      </div>
+
+      <div class="window-card">
+        <div class="window-type" style="color:var(--amber)">Session</div>
+        <div class="window-title">Dynamic gap-based windows</div>
+        <div class="window-vis">
+          <div style="flex:2;background:rgba(247,201,75,0.25);border-radius:3px;border:1px solid rgba(247,201,75,0.3)"></div>
+          <div style="flex:0.4;border-top:1px dashed rgba(255,255,255,0.1);align-self:center"></div>
+          <div style="flex:1.5;background:rgba(247,201,75,0.2);border-radius:3px;border:1px solid rgba(247,201,75,0.25)"></div>
+          <div style="flex:0.6;border-top:1px dashed rgba(255,255,255,0.1);align-self:center"></div>
+          <div style="flex:1;background:rgba(247,201,75,0.25);border-radius:3px;border:1px solid rgba(247,201,75,0.3)"></div>
+        </div>
+        <div class="window-desc">Closes after 30 min of inactivity. Groups all events from one browsing session. Dynamic window size based on engagement. Used for: session length, funnel completion, entry surface attribution.</div>
+      </div>
+
+      <div class="window-card">
+        <div class="window-type" style="color:var(--green)">Global + Trigger</div>
+        <div class="window-title">Threshold-based unbounded window</div>
+        <div class="window-vis">
+          <div style="flex:1;background:linear-gradient(to right,rgba(86,207,178,0.1),rgba(86,207,178,0.4));border-radius:3px;border:1px solid rgba(86,207,178,0.3)"></div>
+          <div style="width:2px;background:var(--green);align-self:stretch;margin:0 4px;border-radius:1px"></div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--green);align-self:center">FIRE</div>
+        </div>
+        <div class="window-desc">Accumulates views since publish. Fires when velocity crosses 10K / 100K / 1M threshold. Used for trending detection. Window stays open as long as the video exists — not time-bounded.</div>
+      </div>
+    </div>
+
+    <!-- WATERMARKS -->
+    <div class="highlight-box" style="margin-top:32px">
+      <p><strong>Watermarks — handling late events.</strong> Events don't arrive in order. A view from a user on a plane arrives hours late. We use <code>forBoundedOutOfOrderness(Duration.ofMinutes(2))</code> with <code>server_ts</code> (not client_ts — client clocks can be wrong by hours). A window covering [10:00, 10:01] closes when the watermark reaches 10:03:00. Events arriving after that go to a <code>view.event.late</code> side output — a slower correction job issues BigQuery updates. Real-time dashboards undercount slightly; warehouse is eventually correct.</p>
+    </div>
+
+    <!-- JOBS -->
+    <h3 style="font-family:'Fraunces',serif;font-weight:300;font-size:22px;margin:40px 0 8px;letter-spacing:-0.01em">Production Flink jobs</h3>
+
+    <div class="jobs-list">
+      <div class="job-row">
+        <div>
+          <div class="job-name">view-counter-realtime</div>
+          <div class="job-window">tumbling 60s · keyed by video_id · 32 task managers</div>
+        </div>
+        <div class="job-desc">Reads view.event. Writes <code>INCRBY video:views:60s:{id}</code> to Redis. Drives the live view counter visible on the video page. State: 800M keys × 8 bytes = 6.4 GB across task managers.</div>
+        <div class="job-latency">~5s latency</div>
+      </div>
+
+      <div class="job-row">
+        <div>
+          <div class="job-name">cdn-health-monitor</div>
+          <div class="job-window">sliding 60s/10s · keyed by cdn_pop × provider</div>
+        </div>
+        <div class="job-desc">Reads perf.event. Computes avg stall_ms, P95 startup_ms per PoP. If avg stall &gt;500ms: publishes <code>cdn.degraded</code> → CDN orchestrator shifts traffic weight automatically. Automated CDN failover driven by real QoE.</div>
+        <div class="job-latency">&lt;15s action</div>
+      </div>
+
+      <div class="job-row">
+        <div>
+          <div class="job-name">trending-detector</div>
+          <div class="job-window">global window + trigger · keyed by video_id</div>
+        </div>
+        <div class="job-desc">Accumulates views since publish. Fires when velocity_score = views_last_60m / max(1, views_prev_60m) exceeds 10×. Publishes <code>video.trending</code> → recommendation boost + creator notification.</div>
+        <div class="job-latency">5 min refresh</div>
+      </div>
+
+      <div class="job-row">
+        <div>
+          <div class="job-name">experiment-metrics-realtime</div>
+          <div class="job-window">tumbling 5-min · keyed by experiment × variant</div>
+        </div>
+        <div class="job-desc">Joins view.event + experiment.exposure on user_id. Computes avg watch_pct, CTR, stall_ms per variant. Writes to experiment dashboard. Gives owners live signal within 10 min of launch — early harm detection.</div>
+        <div class="job-latency">&lt;10 min</div>
+      </div>
+
+      <div class="job-row">
+        <div>
+          <div class="job-name">feature-store-updater</div>
+          <div class="job-window">session window · keyed by user_id · 64 task managers</div>
+        </div>
+        <div class="job-desc">Maintains rolling feature vector per user: avg_watch_pct_7d, topic_affinity_vector, creator_affinity_map, recent_searches. Writes to Redis Feature Store every 5 min. Feeds recommendation deep ranker. State: ~1 TB with RocksDB.</div>
+        <div class="job-latency">&lt;6 min</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAYER 3: BIGQUERY -->
+  <section class="section" id="warehouse">
+    <div class="section-num">Layer 03</div>
+    <h2 class="section-title">BigQuery —<br>The Data Warehouse</h2>
+    <p class="section-lead">Where everything lands for deep analysis — the kind that takes seconds to minutes because it's scanning billions of rows across months of history. Columnar storage means you only read the columns you query.</p>
+
+    <div class="bq-grid">
+      <div class="bq-card">
+        <div class="bq-icon" style="background:rgba(78,205,196,0.1);color:var(--accent2)">RT</div>
+        <div class="bq-title">Real-time path</div>
+        <div class="bq-body">Flink sink writes micro-batches every 30s to BigQuery streaming inserts. Events queryable within ~60s of arriving. Used for <code>experiment.exposure</code> — experiment analysts need data within minutes of launching a test. Higher cost (per-row billing).</div>
+      </div>
+
+      <div class="bq-card">
+        <div class="bq-icon" style="background:rgba(124,106,247,0.1);color:var(--accent)">BT</div>
+        <div class="bq-title">Batch path</div>
+        <div class="bq-body">Kafka → GCS (Parquet files every 5 min via Kafka Connect) → BigQuery external table → nightly <code>INSERT INTO</code> job. Used for high-volume <code>view.event</code>. Cheaper — no per-row streaming billing. Events queryable with up to 6h lag.</div>
+      </div>
+
+      <div class="bq-card">
+        <div class="bq-icon" style="background:rgba(247,201,75,0.1);color:var(--amber)">P+C</div>
+        <div class="bq-title">Partitioning + clustering</div>
+        <div class="bq-body">Partitioned by <code>DATE(server_ts)</code>. Clustered by <code>(country, device_type)</code>. Without: query over one day scans 11B rows. With: same query scans ~200M rows. <strong>50× cost and speed improvement</strong> — the single most impactful schema decision.</div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>Query governance.</strong> At 11B events/day, storage is manageable (~$50K/month) but ad-hoc queries without proper partition filters can cost thousands of dollars per query. The solution: require all production queries to include a <code>WHERE DATE(server_ts) BETWEEN</code> clause, enforced through a query linting tool in the SQL IDE analysts use. One engineer forgetting a filter can cost $5,000 in a single query.</p>
+    </div>
+  </section>
+
+  <!-- LAYER 4: A/B TESTING -->
+  <section class="section" id="ab">
+    <div class="section-num">Layer 04</div>
+    <h2 class="section-title">A/B Testing —<br>The Decision Engine</h2>
+    <p class="section-lead">Where the analytics pipeline pays for itself. Every major product decision is validated through controlled experiment before full rollout. Does the new recommendation algorithm increase watch time? Does the dark theme reduce session churn?</p>
+
+    <div class="ab-flow">
+      <div class="ab-step">
+        <div class="ab-step-num">01</div>
+        <div class="ab-step-title">Assignment</div>
+        <div class="ab-step-body">When a user loads the app, experiment service hashes <code>user_id + experiment_id</code>. Hash maps to bucket 0–999. Bucket &lt;500 → control. Bucket ≥500 → treatment. Same user always gets same bucket — deterministic, no coordination needed across servers. Every server independently computes the same assignment.</div>
+      </div>
+      <div class="ab-step">
+        <div class="ab-step-num">02</div>
+        <div class="ab-step-title">Exposure logging</div>
+        <div class="ab-step-body"><code>experiment.exposure</code> event fires when user actually sees the experimental surface — not when assigned. This is the <em>intent-to-treat vs as-treated</em> distinction. A user assigned to "new search ranking" who never searches during the experiment period is excluded from analysis. Dilution avoided.</div>
+      </div>
+      <div class="ab-step">
+        <div class="ab-step-num">03</div>
+        <div class="ab-step-title">Analysis</div>
+        <div class="ab-step-body">Join <code>experiment.exposure</code> with <code>view_events</code> on user_id. Group by variant. Compute metric (avg watch_pct, P95 stall_ms, CTR). Run two-sample t-test or Mann-Whitney U test. Ship if p &lt;0.05 AND effect is practically meaningful — statistical significance alone is not sufficient.</div>
+      </div>
+    </div>
+
+    <h3 style="font-family:'Fraunces',serif;font-weight:300;font-size:20px;margin:40px 0 16px;letter-spacing:-0.01em">Three pitfalls that break naive A/B testing</h3>
+
+    <div class="ab-pitfalls">
+      <div class="pitfall-card">
+        <div class="pitfall-title">Novelty effect</div>
+        <div class="pitfall-body">Users behave differently when they first see new UI. First 3–7 days show inflated positive metrics — users engage because it's new, not because it's better. The dashboard flags early results as provisional and shows a separate "steady state" metric excluding the novelty period.</div>
+      </div>
+      <div class="pitfall-card">
+        <div class="pitfall-title">Network effects</div>
+        <div class="pitfall-body">If the experiment changes recommendations and user A shares a video with user B, the experiment has spread beyond the treatment group — violating the independence assumption. For experiments with potential network effects, use <strong>geo-based randomization</strong>: entire cities assigned to control or treatment.</div>
+      </div>
+      <div class="pitfall-card">
+        <div class="pitfall-title">Multiple comparisons</div>
+        <div class="pitfall-body">Run 100 simultaneous experiments with p&lt;0.05 → expect 5 false positives by chance alone. The platform applies Bonferroni correction (divide threshold by number of concurrent experiments) and enforces a maximum of 30 concurrent experiments per surface.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAILURE MODES -->
+  <section class="section">
+    <div class="section-num">Reliability</div>
+    <h2 class="section-title">Failure Modes</h2>
+
+    <table class="failure-table">
+      <thead>
+        <tr>
+          <th>Failure</th>
+          <th>Sev</th>
+          <th>Immediate effect</th>
+          <th>Recovery</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Event collector down</td>
+          <td><span class="sev sev-p1">P1</span></td>
+          <td>Client events queue locally (IndexedDB/SQLite). No data lost — flush when collector recovers. Analytics lag grows.</td>
+          <td>Stateless service — restart instances. Clients retry automatically. Usually &lt;60s to full recovery.</td>
+        </tr>
+        <tr>
+          <td>Flink task manager crash</td>
+          <td><span class="sev sev-p1">P1</span></td>
+          <td>Partitions reassigned to surviving managers. Checkpoint recovery restores state from last GCS snapshot. Kafka replay covers the gap.</td>
+          <td>30–90s recovery. Exactly-once semantics — no double-counting. Consumer lag spike resolved as TM catches up.</td>
+        </tr>
+        <tr>
+          <td>cdn-health-monitor job down</td>
+          <td><span class="sev sev-p0">P0</span></td>
+          <td>Automated CDN failover stops. A degraded PoP continues serving traffic — users in that region experience elevated stall. No automatic recovery.</td>
+          <td>Manual CDN weight shift while Flink job restarts. P0 because impact is user-facing and invisible without the automated signal.</td>
+        </tr>
+        <tr>
+          <td>BigQuery partition scan runaway</td>
+          <td><span class="sev sev-p2">P2</span></td>
+          <td>Analyst query without partition filter scans full history. Single query can cost $2,000–5,000 and slow down the warehouse.</td>
+          <td>Query cancelled after cost threshold. Linting rule enforced at submission — prevents the query from running at all.</td>
+        </tr>
+        <tr>
+          <td>Kafka consumer lag spike on view.event</td>
+          <td><span class="sev sev-p1">P1</span></td>
+          <td>View counts stale. Trending detector fires late. Real-time dashboard shows old data.</td>
+          <td>Scale up Flink task managers (up to partition count limit). Fix slow downstream. Alert at 100K message lag threshold.</td>
+        </tr>
+        <tr>
+          <td>Experiment analysis query returns wrong results</td>
+          <td><span class="sev sev-p1">P1</span></td>
+          <td>Team ships experiment based on incorrect data. Feature deployed broadly — could harm user experience at scale.</td>
+          <td>All experiment queries logged. Replay from Kafka and recompute. Offset reset makes reprocessing straightforward. Peer review required before ship decision.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- EM VIEW -->
+  <section class="section" id="ops">
+    <div class="section-num">EM Perspective</div>
+    <h2 class="section-title">Staffing, Cost &amp;<br>Operations</h2>
+
+    <div class="em-grid">
+      <div class="em-card">
+        <div class="em-card-title">Team structure (6–8 engineers)</div>
+        <div class="em-card-body">Platform team (3–4): Flink jobs, Kafka infrastructure, BigQuery schema, data reliability. Product analytics (2–3): experiment design, analysis tooling, dashboards, metric frameworks. Data science (1–2): ML feature engineering, model evaluation infrastructure. The hardest hire: stream processing engineers who also understand statistics and experiment design — these three disciplines rarely overlap.</div>
+      </div>
+
+      <div class="em-card">
+        <div class="em-card-title">Cost profile</div>
+        <div class="em-card-body">BigQuery storage at 11B events/day: ~$50K/month manageable. Flink cluster for 5 production jobs: ~$30K/month (GCP c2 instances, RocksDB on local SSD). Kafka cluster: shared with pipeline, ~$15K/month. Total analytics infrastructure: ~$100K/month. Main cost lever: Flink over/under-provisioning. Autoscale based on consumer lag — idle compute is the biggest waste.</div>
+      </div>
+
+      <div class="em-card">
+        <div class="em-card-title">Flink cluster sizing</div>
+        <div class="em-card-body">The most frequent source of analytics incidents. Under-provisioned task managers run out of RocksDB state space — job falls behind, cdn-health-monitor stops firing, CDN problems go undetected. Over-provisioned clusters waste $100K/year in idle compute. Right approach: continuous autoscaling based on Kafka consumer lag. If lag on any input topic &gt;100K messages: add task managers. If lag is consistently zero: scale down.</div>
+      </div>
+
+      <div class="em-card">
+        <div class="em-card-title">On-call responsibilities</div>
+        <div class="em-card-body">Analytics on-call has two classes of alert. Operational (Flink job down, consumer lag, BigQuery write failure) — wake-up-at-3am severity. Data quality (experiment metrics diverged, view counts anomalous, session attribution broken) — next-business-day severity. The key operational discipline: never let a data quality issue ship to production without a peer review. One wrong experiment decision can mean rolling back a feature that 500M users already have.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-brand">Analytics Pipeline — YouTube Scale</div>
+    <div class="footer-note">System Design Deep Dive · Google EM Interview Prep</div>
+  </div>
+
+</div>
+
+</body>
+</html>

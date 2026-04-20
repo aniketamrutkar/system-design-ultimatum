@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design — Google Maps</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#fafaf8;--bg2:#f2f1ee;--bg3:#e8e7e3;
+  --fg:#1a1a1a;--fg2:#5f5e5a;--fg3:#9a9990;
+  --blue:#1a73e8;--blue-bg:#e8f0fe;--blue-dk:#174ea6;
+  --teal:#0d9373;--teal-bg:#e1f5ee;--teal-dk:#085041;
+  --coral:#d85a30;--coral-bg:#faece7;--coral-dk:#712b13;
+  --purple:#6b5ce7;--purple-bg:#eeedfe;--purple-dk:#3c3489;
+  --amber:#ba7517;--amber-bg:#faeeda;--amber-dk:#633806;
+  --red:#e24b4a;--red-bg:#fcebeb;
+  --green:#34a853;--green-bg:#e6f4ea;
+  --card-bg:#fff;--border:#e0dfdb;
+  --font:'DM Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --radius:12px;--radius-sm:8px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a1a;--bg2:#242422;--bg3:#2e2e2b;
+    --fg:#e8e7e3;--fg2:#b4b2a9;--fg3:#888780;
+    --blue:#85b7eb;--blue-bg:#1c2d3f;--blue-dk:#b5d4f4;
+    --teal:#5dcaa5;--teal-bg:#0c2a22;--teal-dk:#9fe1cb;
+    --coral:#f0997b;--coral-bg:#2e1a10;--coral-dk:#f5c4b3;
+    --purple:#afa9ec;--purple-bg:#26215c;--purple-dk:#cecbf6;
+    --amber:#fac775;--amber-bg:#2a1e08;--amber-dk:#faeeda;
+    --red:#f09595;--red-bg:#2e1313;
+    --green:#97c459;--green-bg:#1a2a0c;
+    --card-bg:#222220;--border:#3a3a37;
+  }
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);line-height:1.7;-webkit-font-smoothing:antialiased}
+
+.container{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+
+/* Header */
+.header{margin-bottom:48px;padding-bottom:32px;border-bottom:1px solid var(--border)}
+.header h1{font-size:32px;font-weight:700;letter-spacing:-0.5px;margin-bottom:8px}
+.header .subtitle{font-size:15px;color:var(--fg2);margin-bottom:20px}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg2)}
+.tag.blue{background:var(--blue-bg);color:var(--blue)}
+.tag.teal{background:var(--teal-bg);color:var(--teal)}
+.tag.coral{background:var(--coral-bg);color:var(--coral)}
+
+/* Navigation */
+.nav{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);margin:0 -24px;padding:0 24px;display:flex;gap:0;overflow-x:auto}
+.nav a{display:block;padding:12px 16px;font-size:13px;font-weight:500;color:var(--fg3);text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s}
+.nav a:hover{color:var(--fg)}
+.nav a.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* Sections */
+section{margin-top:48px}
+section h2{font-size:22px;font-weight:700;letter-spacing:-0.3px;margin-bottom:8px}
+section h3{font-size:17px;font-weight:600;margin:32px 0 12px;color:var(--fg)}
+section p{color:var(--fg2);font-size:15px;margin-bottom:16px}
+
+/* Architecture diagram */
+.arch-diagram{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:32px 24px;margin:24px 0;overflow-x:auto}
+.arch-row{display:flex;justify-content:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.arch-box{padding:14px 20px;border-radius:var(--radius-sm);text-align:center;font-size:13px;font-weight:500;min-width:120px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative}
+.arch-box:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.arch-box small{display:block;font-size:11px;font-weight:400;margin-top:4px;opacity:.7}
+.arch-box.blue{background:var(--blue-bg);color:var(--blue-dk);border:1px solid rgba(26,115,232,.15)}
+.arch-box.teal{background:var(--teal-bg);color:var(--teal-dk);border:1px solid rgba(13,147,115,.15)}
+.arch-box.coral{background:var(--coral-bg);color:var(--coral-dk);border:1px solid rgba(216,90,48,.15)}
+.arch-box.purple{background:var(--purple-bg);color:var(--purple-dk);border:1px solid rgba(107,92,231,.15)}
+.arch-box.gray{background:var(--bg2);color:var(--fg2);border:1px solid var(--border)}
+.arch-box.amber{background:var(--amber-bg);color:var(--amber-dk);border:1px solid rgba(186,117,23,.15)}
+.arch-arrow{text-align:center;color:var(--fg3);font-size:18px;margin:4px 0}
+.arch-label{text-align:center;font-size:11px;color:var(--fg3);text-transform:uppercase;letter-spacing:1px;margin:8px 0}
+
+/* Cards */
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+.card h4{font-size:15px;font-weight:600;margin-bottom:8px}
+.card p{font-size:14px;color:var(--fg2);margin-bottom:0}
+
+/* Deep dive panels */
+.deep-dive{border-left:3px solid var(--blue);background:var(--card-bg);border-radius:0 var(--radius) var(--radius) 0;padding:20px 24px;margin:20px 0}
+.deep-dive.teal{border-left-color:var(--teal)}
+.deep-dive.coral{border-left-color:var(--coral)}
+.deep-dive.purple{border-left-color:var(--purple)}
+.deep-dive.amber{border-left-color:var(--amber)}
+.deep-dive h4{font-size:14px;font-weight:600;margin-bottom:8px}
+.deep-dive p,.deep-dive li{font-size:14px;color:var(--fg2)}
+.deep-dive ul{padding-left:20px;margin:8px 0}
+.deep-dive li{margin-bottom:6px}
+
+/* Code blocks */
+.code-block{background:var(--bg2);border-radius:var(--radius-sm);padding:16px;font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:auto;margin:12px 0;color:var(--fg2);white-space:pre}
+
+/* Tradeoff table */
+.tradeoff-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+.tradeoff-table th{text-align:left;padding:10px 12px;background:var(--bg2);font-weight:600;font-size:13px;border-bottom:1px solid var(--border)}
+.tradeoff-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--fg2)}
+.tradeoff-table tr:last-child td{border-bottom:none}
+
+/* NFR badges */
+.nfr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:16px 0}
+.nfr-item{background:var(--bg2);border-radius:var(--radius-sm);padding:14px;font-size:13px}
+.nfr-item strong{display:block;font-size:14px;font-weight:600;color:var(--fg);margin-bottom:4px}
+.nfr-item span{color:var(--fg2)}
+
+/* Scale callout */
+.scale-callout{display:flex;gap:16px;margin:20px 0;flex-wrap:wrap}
+.scale-num{background:var(--blue-bg);border-radius:var(--radius-sm);padding:16px;flex:1;min-width:140px;text-align:center}
+.scale-num .num{font-size:24px;font-weight:700;color:var(--blue);display:block}
+.scale-num .label{font-size:12px;color:var(--fg2);margin-top:4px}
+
+/* Interactive tabs for subsystems */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px}
+.tab-btn{padding:10px 20px;font-size:14px;font-weight:500;color:var(--fg3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;font-family:var(--font)}
+.tab-btn:hover{color:var(--fg)}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* EM angle box */
+.em-box{background:var(--amber-bg);border:1px solid rgba(186,117,23,.15);border-radius:var(--radius);padding:20px 24px;margin:24px 0}
+.em-box h4{font-size:14px;font-weight:600;color:var(--amber-dk);margin-bottom:8px}
+.em-box p{font-size:14px;color:var(--amber-dk);opacity:.85}
+
+/* Rubric mapping */
+.rubric-map{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.rubric-item{background:var(--green-bg);border-radius:var(--radius-sm);padding:12px 16px}
+.rubric-item strong{font-size:13px;color:var(--green);display:block;margin-bottom:4px}
+.rubric-item span{font-size:13px;color:var(--fg2)}
+
+@media(max-width:600px){
+  .container{padding:24px 16px 60px}
+  .header h1{font-size:24px}
+  .arch-row{flex-direction:column;align-items:center}
+  .scale-callout{flex-direction:column}
+  .rubric-map{grid-template-columns:1fr}
+  .nfr-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Design Google Maps</h1>
+    <p class="subtitle">Navigation + map tile serving + search — full system design at Google scale</p>
+    <div class="tags">
+      <span class="tag blue">System design</span>
+      <span class="tag teal">Location & routing</span>
+      <span class="tag coral">Read-heavy</span>
+      <span class="tag">60 min interview</span>
+      <span class="tag">Google EM</span>
+    </div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <a href="#requirements" class="active">Requirements</a>
+    <a href="#scale">Scale</a>
+    <a href="#api">API design</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#tiles">Tile serving</a>
+    <a href="#routing">Routing</a>
+    <a href="#search">Search</a>
+    <a href="#traffic">Traffic</a>
+    <a href="#tradeoffs">Tradeoffs</a>
+    <a href="#em-angle">EM angle</a>
+  </nav>
+
+  <!-- REQUIREMENTS -->
+  <section id="requirements">
+    <h2>1. Requirements & scope</h2>
+    <p>Start by clarifying scope with the interviewer. Google Maps is enormous — you can't design all of it in 60 minutes. Anchor on the three core workloads.</p>
+
+    <h3>Functional requirements</h3>
+    <div class="card">
+      <h4>Must have (scope for this interview)</h4>
+      <p>• Display map tiles at various zoom levels (z=0 to z=21)<br>
+      • Turn-by-turn navigation from A to B (driving, walking, transit)<br>
+      • Search for places by name, category, or address (geocoding)<br>
+      • Show real-time traffic conditions on the map</p>
+    </div>
+    <div class="card">
+      <h4>Out of scope (mention but don't design)</h4>
+      <p>• Street View imagery, satellite imagery layers<br>
+      • Offline maps and downloaded regions<br>
+      • User-contributed data (reviews, photos, corrections)<br>
+      • Business listings management (Google My Business)</p>
+    </div>
+
+    <h3>Non-functional requirements</h3>
+    <div class="nfr-grid">
+      <div class="nfr-item"><strong>Latency</strong><span>Tile load &lt;200ms, route calc &lt;500ms, search &lt;200ms</span></div>
+      <div class="nfr-item"><strong>Availability</strong><span>99.99% — navigation failures have real-world safety impact</span></div>
+      <div class="nfr-item"><strong>Throughput</strong><span>~20M tile req/s, ~500K route req/s, ~2M search req/s globally</span></div>
+      <div class="nfr-item"><strong>Durability</strong><span>Map data is the source of truth — must survive regional outages</span></div>
+      <div class="nfr-item"><strong>Freshness</strong><span>Traffic: real-time (minutes). Map data: weekly/monthly updates</span></div>
+      <div class="nfr-item"><strong>Global</strong><span>Multi-region deployment, geo-routed to nearest data center</span></div>
+    </div>
+  </section>
+
+  <!-- SCALE -->
+  <section id="scale">
+    <h2>2. Scale estimation</h2>
+    <p>Back-of-envelope numbers to anchor the design. These drive every architectural decision.</p>
+
+    <div class="scale-callout">
+      <div class="scale-num"><span class="num">1B+</span><span class="label">Monthly active users</span></div>
+      <div class="scale-num"><span class="num">~20M/s</span><span class="label">Tile requests at peak</span></div>
+      <div class="scale-num"><span class="num">~500K/s</span><span class="label">Routing queries at peak</span></div>
+      <div class="scale-num"><span class="num">~50PB</span><span class="label">Total map data stored</span></div>
+    </div>
+
+    <div class="deep-dive">
+      <h4>Tile math</h4>
+      <p>At zoom level 15 (street-level), the world is divided into 4<sup>15</sup> ≈ 1.07 billion tiles. But only ~5% cover populated areas (~53M tiles). Each vector tile is ~20KB, so the hot dataset is ~1TB — easily cacheable across CDN edge nodes. A user panning across a city viewport loads ~12 tiles per interaction, and with 1B daily users making ~10 interactions each, that's ~120B tile loads/day → ~1.4M/s average, ~20M/s at peak.</p>
+    </div>
+  </section>
+
+  <!-- API DESIGN -->
+  <section id="api">
+    <h2>3. API design</h2>
+    <p>Three independent API surfaces — each optimized for its access pattern.</p>
+
+    <div class="code-block">GET /tiles/v3/{z}/{x}/{y}.pbf
+→ 200 OK | Content-Type: application/x-protobuf
+→ Cache-Control: public, max-age=604800, immutable
+→ ETag: "v2024w15-z15-x16384-y10924"</div>
+
+    <div class="code-block">POST /directions/v1/route
+{
+  "origin": { "lat": 37.7749, "lng": -122.4194 },
+  "destination": { "lat": 37.3382, "lng": -121.8863 },
+  "mode": "driving",
+  "alternatives": true,
+  "depart_at": "2026-04-15T08:00:00Z"
+}
+→ { "routes": [{ "polyline": "...", "duration_s": 3240,
+     "distance_m": 77400, "steps": [...] }] }</div>
+
+    <div class="code-block">GET /places/v1/search?q=coffee+near+me
+    &lat=37.7749&lng=-122.4194&radius=2000
+→ { "results": [{ "place_id": "ChIJ...", "name": "Blue Bottle",
+     "lat": 37.7821, "lng": -122.4093, "rating": 4.5 }] }</div>
+
+    <div class="deep-dive">
+      <h4>Why these API choices matter</h4>
+      <p>Tile API uses GET with immutable cache headers — CDN can serve 95%+ of requests without hitting origin. The tile key (z/x/y) is deterministic, so cache invalidation is a simple version bump in the URL prefix. Route API uses POST because the request body can be complex (waypoints, avoid tolls, departure time). Search API uses GET because results are cacheable for short TTLs (popular queries like "gas station near [highway exit]" are highly repetitive).</p>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <h2>4. High-level architecture</h2>
+    <p>Three independent services behind a shared API gateway — each scales differently because their workloads are fundamentally different.</p>
+
+    <div class="arch-diagram">
+      <div class="arch-label">Client tier</div>
+      <div class="arch-row">
+        <div class="arch-box blue">Mobile app<small>iOS / Android</small></div>
+        <div class="arch-box blue">Web client<small>maps.google.com</small></div>
+        <div class="arch-box blue">3rd-party APIs<small>Embed, Directions</small></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row">
+        <div class="arch-box gray" style="min-width:300px">API gateway + load balancer<small>Geo-routed to nearest DC</small></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-label">Service tier</div>
+      <div class="arch-row">
+        <div class="arch-box teal" onclick="document.getElementById('tiles').scrollIntoView({behavior:'smooth'})">Tile serving<small>Raster + vector</small></div>
+        <div class="arch-box coral" onclick="document.getElementById('routing').scrollIntoView({behavior:'smooth'})">Routing engine<small>A* + contraction</small></div>
+        <div class="arch-box purple" onclick="document.getElementById('search').scrollIntoView({behavior:'smooth'})">Search / geocode<small>Places + addresses</small></div>
+        <div class="arch-box amber" onclick="document.getElementById('traffic').scrollIntoView({behavior:'smooth'})">Traffic service<small>Real-time + historical</small></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-label">Data tier</div>
+      <div class="arch-row">
+        <div class="arch-box teal">Tile cache<small>CDN + blob store</small></div>
+        <div class="arch-box coral">Road graph<small>Partitioned graph DB</small></div>
+        <div class="arch-box purple">Places index<small>Inverted + spatial</small></div>
+        <div class="arch-box amber">Traffic store<small>Time-series DB</small></div>
+      </div>
+    </div>
+
+    <div class="deep-dive">
+      <h4>Why separate services?</h4>
+      <p>Tile serving is 99% cache reads — it scales horizontally by adding CDN edge nodes. Routing is CPU-bound graph computation — it scales by partitioning the world graph. Search is index-lookup heavy — it scales like a search engine (sharded inverted indexes). Coupling them would mean scaling expensive routing compute to handle tile traffic, wasting money. Each service has its own SLO, on-call rotation, and deploy cadence.</p>
+    </div>
+  </section>
+
+  <!-- TILE SERVING DEEP DIVE -->
+  <section id="tiles">
+    <h2>5. Deep dive — tile serving</h2>
+    <p>The highest-traffic component. At ~20M req/s, this is fundamentally a caching and CDN optimization problem.</p>
+
+    <h3>Tile addressing: the quadtree</h3>
+    <div class="card">
+      <p>The world map is recursively divided into 4 quadrants at each zoom level. Zoom 0 = 1 tile (the whole world). Zoom 1 = 4 tiles. Zoom z = 4<sup>z</sup> tiles. At zoom 21 (building level), there are ~4.4 trillion possible tiles, but only ~5% over populated areas are ever requested. The tile key <code>z/x/y</code> deterministically identifies any tile — this is what makes caching trivial.</p>
+    </div>
+
+    <h3>Vector vs raster tiles</h3>
+    <table class="tradeoff-table">
+      <tr><th>Dimension</th><th>Vector tiles (protobuf)</th><th>Raster tiles (PNG)</th></tr>
+      <tr><td>Size</td><td>~20KB per tile</td><td>~200KB per tile</td></tr>
+      <tr><td>Rendering</td><td>Client-side (GPU)</td><td>Server-side (pre-rendered)</td></tr>
+      <tr><td>Styling</td><td>Dynamic (dark mode, overlays)</td><td>Fixed per tile set</td></tr>
+      <tr><td>Smooth zoom</td><td>Yes (geometry scales)</td><td>No (snaps between levels)</td></tr>
+      <tr><td>Client CPU</td><td>Higher (must render)</td><td>Lower (just display)</td></tr>
+      <tr><td>Decision</td><td colspan="2"><strong>Default to vector. Fall back to raster for low-end devices and static embed previews.</strong></td></tr>
+    </table>
+
+    <h3>Request flow</h3>
+    <div class="deep-dive teal">
+      <h4>Three-tier caching strategy</h4>
+      <p><strong>L1 — CDN edge (95% hit rate):</strong> Tiles are immutable per version. Cache-Control: immutable with ~7-day TTL. On map data update, version in URL path bumps, old tiles naturally expire. ~200 edge PoPs globally.</p>
+      <p style="margin-top:8px"><strong>L2 — Regional cache (4% hit rate):</strong> Shared cache at the data center level. Catches requests that miss at a specific CDN PoP but are popular regionally. Redis or Memcached cluster, ~10TB per region.</p>
+      <p style="margin-top:8px"><strong>L3 — Origin render (~1% of requests):</strong> On a complete cache miss, the tile renderer reads raw map data (roads, buildings, labels from the map data store), generates the vector tile on demand, caches it, and returns. Rendering takes ~50ms per tile — acceptable for the 1% that reaches origin.</p>
+    </div>
+
+    <div class="deep-dive">
+      <h4>Pre-rendering vs on-demand</h4>
+      <p>Pre-rendering all tiles would take ~1TB storage × periodic rebuilds. Instead, Google uses <strong>on-demand rendering with aggressive caching</strong>. Popular tiles (cities at common zoom levels) warm up in CDN within minutes of a version bump. Obscure tiles (rural zoom-21) render on first request and stay cached until the next version.</p>
+    </div>
+  </section>
+
+  <!-- ROUTING DEEP DIVE -->
+  <section id="routing">
+    <h2>6. Deep dive — routing engine</h2>
+    <p>The algorithmically hardest component. The world road network has ~1 billion nodes and ~2 billion edges. Naive Dijkstra would take minutes per query. Google returns routes in &lt;100ms.</p>
+
+    <h3>Contraction hierarchies (CH)</h3>
+    <div class="card">
+      <h4>The core insight</h4>
+      <p>During offline preprocessing, rank every node by "importance" — interstate highway intersections rank highest, residential cul-de-sacs rank lowest. Then iteratively remove low-importance nodes, adding "shortcut edges" that preserve shortest-path distances. At query time, run bidirectional Dijkstra where both searches only traverse "upward" in the hierarchy. The two search frontiers meet at a highway-level node after visiting ~1000 nodes instead of millions.</p>
+    </div>
+
+    <div class="deep-dive coral">
+      <h4>Preprocessing pipeline</h4>
+      <p><strong>Input:</strong> Raw road network (~2B edges with distance, speed limit, road class, turn restrictions).</p>
+      <p><strong>Step 1 — Node ordering:</strong> Rank nodes by edge difference (how many shortcuts needed), number of contracted neighbors, and geographic reach. This takes ~2-4 hours on a cluster.</p>
+      <p><strong>Step 2 — Contraction:</strong> Remove nodes in rank order, adding shortcut edges where needed. Result: the original graph + ~3B shortcut edges. Total graph size ~5B edges.</p>
+      <p><strong>Step 3 — Partitioning:</strong> Divide the global graph into ~1000 cells using S2 geometry cells (or administrative regions). Each cell fits in memory (~1-2 GB). Cross-cell routing uses "boundary nodes" — the highway exits at cell borders.</p>
+      <p><strong>Frequency:</strong> Full rebuild weekly (with map data updates). Incremental updates for new road segments daily.</p>
+    </div>
+
+    <div class="deep-dive coral">
+      <h4>Query-time routing</h4>
+      <p><strong>Local routes (within one cell):</strong> Single-partition CH query. Load the cell's graph into memory, run bidirectional upward-Dijkstra. ~2ms.</p>
+      <p><strong>Cross-region routes:</strong> Identify origin cell and destination cell. Route from origin to the nearest boundary nodes, route between boundary nodes using a pre-computed overlay graph (only ~50K highway nodes globally), then route from boundary nodes to destination. Total: ~10-20ms.</p>
+      <p><strong>With traffic:</strong> Apply a sparse "traffic overlay" — weight multipliers for congested edges (~5% of edges at any time). This means re-running CH with adjusted weights, slightly slower (~15ms) but within budget.</p>
+    </div>
+
+    <h3>Alternative approaches considered</h3>
+    <table class="tradeoff-table">
+      <tr><th>Algorithm</th><th>Preprocess time</th><th>Query time</th><th>Live traffic?</th><th>Verdict</th></tr>
+      <tr><td>Dijkstra</td><td>None</td><td>~10s</td><td>Easy</td><td>Too slow at scale</td></tr>
+      <tr><td>A* with haversine</td><td>None</td><td>~1s</td><td>Easy</td><td>Still too slow for 500K qps</td></tr>
+      <tr><td>Contraction hierarchies</td><td>~4 hours</td><td>~2-15ms</td><td>Moderate</td><td><strong>Best balance</strong></td></tr>
+      <tr><td>Transit node routing</td><td>~8 hours</td><td>~0.01ms</td><td>Hard</td><td>Fastest but inflexible</td></tr>
+    </table>
+  </section>
+
+  <!-- SEARCH DEEP DIVE -->
+  <section id="search">
+    <h2>7. Deep dive — search & geocoding</h2>
+    <p>Two entry points, same infrastructure: "coffee near me" (place search) and "123 Main Street" (geocoding).</p>
+
+    <h3>Dual-index architecture</h3>
+    <div class="deep-dive purple">
+      <h4>Text inverted index</h4>
+      <p>Standard search engine architecture. Every place has a document: name, category, address, keywords. The inverted index maps tokens → posting lists of place IDs. Sharded by geography (one index shard per region) so a query for "coffee" only searches the user's region, not globally. ~200M places worldwide, ~50GB index per regional shard.</p>
+    </div>
+
+    <div class="deep-dive purple">
+      <h4>S2 spatial index</h4>
+      <p>Google's S2 geometry library maps the Earth's surface to a Hilbert curve. Every lat/lng maps to an S2 cell ID at various levels. Nearby points → nearby cell IDs. A "near me" query becomes: find my S2 cell → expand to neighboring cells → retrieve all place IDs in those cells → intersect with text index results → rank.</p>
+      <p style="margin-top:8px">Why S2 over geohash? S2 cells have uniform area at each level (geohash cells distort near poles), the Hilbert curve preserves locality better, and S2 supports arbitrary polygonal region queries (not just rectangles).</p>
+    </div>
+
+    <h3>Ranking model</h3>
+    <div class="card">
+      <h4>Score = f(text_relevance, distance, place_quality, personalization)</h4>
+      <p>• <strong>Text relevance:</strong> BM25 on name/category match<br>
+      • <strong>Distance decay:</strong> Exponential decay from user location, weighted by place category (restaurants = tight radius, hospitals = wider)<br>
+      • <strong>Place quality:</strong> Rating, number of reviews, photo count, claimed business status<br>
+      • <strong>Personalization:</strong> Past visits, search history, time of day (coffee shops rank higher in morning)</p>
+    </div>
+
+    <h3>Geocoding path</h3>
+    <div class="deep-dive">
+      <h4>Address parsing → structured lookup</h4>
+      <p>"123 Main Street, San Jose, CA" is parsed into components: house number, street name, city, state. The lookup then does a hierarchical search: state → city → street → interpolate house number from address ranges stored per street segment. This is a different code path from place search — it's a structured tree traversal, not a ranked retrieval.</p>
+    </div>
+  </section>
+
+  <!-- TRAFFIC SERVICE -->
+  <section id="traffic">
+    <h2>8. Traffic service</h2>
+    <p>The system that makes routes dynamic rather than static. Combines real-time crowdsourced data with historical patterns.</p>
+
+    <div class="deep-dive amber">
+      <h4>Data collection</h4>
+      <p><strong>Real-time signals:</strong> Anonymized location pings from ~1B Android devices and Google Maps users. Each ping: lat/lng, speed, heading, timestamp. Map-matched to the nearest road segment. Aggregated per segment into a speed reading every ~60 seconds.</p>
+      <p style="margin-top:8px"><strong>Historical patterns:</strong> Years of aggregated traffic data per road segment, bucketed by day-of-week × time-of-day. "Highway 101 southbound is typically 35 mph at 5:30 PM on Tuesdays."</p>
+    </div>
+
+    <div class="deep-dive amber">
+      <h4>Serving layer</h4>
+      <p><strong>Traffic tiles:</strong> Color-coded polylines (green/yellow/red) overlaid on map tiles. Generated per-segment, aggregated into regional tiles, cached with 60-second TTL.</p>
+      <p style="margin-top:8px"><strong>ETA prediction:</strong> ML model combining real-time speed, historical patterns, time of day, weather, events. The model predicts per-segment travel time for the next 30-60 minutes, which the routing engine uses as edge weights.</p>
+    </div>
+  </section>
+
+  <!-- TRADEOFFS -->
+  <section id="tradeoffs">
+    <h2>9. Tradeoffs & alternatives</h2>
+    <p>Key decisions and what you'd discuss unprompted to hit "Outstanding" on the rubric.</p>
+
+    <div class="card">
+      <h4>Vector tiles vs raster tiles</h4>
+      <p><strong>Chose vector</strong> for 10x bandwidth savings and dynamic styling. <strong>Tradeoff:</strong> requires capable GPU on client. Mitigation: serve raster as a fallback for low-end devices and embed previews. If you detect a slow client (via User-Agent or client-reported metrics), redirect to the raster tile CDN.</p>
+    </div>
+
+    <div class="card">
+      <h4>Contraction hierarchies vs transit node routing</h4>
+      <p><strong>Chose CH</strong> because it supports live traffic updates with moderate overhead. Transit node routing is 100x faster at query time but assumes static edge weights — rebuilding the transit node set on every traffic update is prohibitively expensive. For the rare "I need sub-1ms routing" case (embedded nav in cars), pre-compute the top-N corridor routes between major cities using transit nodes as a complement.</p>
+    </div>
+
+    <div class="card">
+      <h4>On-demand tile rendering vs full pre-render</h4>
+      <p><strong>Chose on-demand</strong> because 95% of tiles are never requested. Pre-rendering 1B+ tiles at every zoom level would take days and waste storage. On-demand + aggressive caching means you only pay render cost for tiles users actually view. Tradeoff: first user to view an obscure tile gets ~50ms extra latency. Mitigation: pre-warm popular tiles (top 100 cities at zoom levels 0-16) after each data update.</p>
+    </div>
+
+    <div class="card">
+      <h4>S2 geometry vs geohash for spatial indexing</h4>
+      <p><strong>Chose S2</strong> for uniform cell area (geohash distorts near poles), better Hilbert-curve locality, and support for polygonal queries. Tradeoff: S2 is more complex to implement and less widely understood by the team. Mitigation: wrap S2 in a clean library interface so most engineers interact with "find places in radius" and never touch cell math directly.</p>
+    </div>
+
+    <div class="card">
+      <h4>Graph partitioning strategy</h4>
+      <p><strong>Chose S2 cell-based partitioning</strong> over admin-region partitioning because S2 cells have predictable, uniform sizes. Admin regions (countries, states) vary wildly — Russia is one partition while Luxembourg is another, creating massive imbalance. Tradeoff: S2 cells can split cities that straddle cell boundaries. Mitigation: allow ~10% overlap at boundaries so cross-boundary local routes don't require multi-partition queries.</p>
+    </div>
+  </section>
+
+  <!-- EM ANGLE -->
+  <section id="em-angle">
+    <h2>10. EM-specific angles</h2>
+    <p>What differentiates your answer as an EM vs an IC — weave these into your design naturally.</p>
+
+    <div class="em-box">
+      <h4>Staffing & team structure</h4>
+      <p>"I'd organize this as 4 teams: Tile Platform (3 backend + 1 SRE), Routing Core (4 backend + 1 ML for ETA), Search & Geocoding (3 backend + 1 ML), and Traffic (2 backend + 1 data eng + 1 ML). The routing team needs the most senior engineers — contraction hierarchies is the hardest algorithm. I'd hire for graph algorithm expertise specifically."</p>
+    </div>
+
+    <div class="em-box">
+      <h4>Rollout plan</h4>
+      <p>"Phased rollout for any map data or algorithm change: canary → 1% → 10% → 50% → 100%, with automated rollback on SLO breach. For routing algorithm changes specifically, I'd run shadow traffic (new algorithm alongside old, compare results) for 2 weeks before any user-facing rollout. Bad routes have real-world safety impact."</p>
+    </div>
+
+    <div class="em-box">
+      <h4>Incident readiness</h4>
+      <p>"On-call rotation per team. Top 3 runbooks: (1) CDN cache purge gone wrong — fallback to L2/origin, scale origin fleet 5x temporarily. (2) Stale traffic data — disable real-time overlay, fall back to historical. (3) Routing returning absurd ETAs — circuit-break the traffic overlay, serve static-weight routes. Each has an automated detection + pager trigger."</p>
+    </div>
+
+    <div class="em-box">
+      <h4>Cross-team coordination</h4>
+      <p>"This system touches the Maps Data team (raw road network), the ML Platform team (ETA model training infra), the Ads team (local business search results), and the Android/iOS platform teams (client rendering). I'd set up a shared design doc + bi-weekly sync with each adjacent team, and a quarterly roadmap alignment for the full Maps org."</p>
+    </div>
+
+    <h3>Rubric mapping — how this design hits "Outstanding"</h3>
+    <div class="rubric-map">
+      <div class="rubric-item">
+        <strong>Systems thinking</strong>
+        <span>Discussed full lifecycle: build (CH preprocessing), deploy (phased rollout), monitor (SLO dashboards), evolve (weekly data updates). Identified adjacent system impact (Ads, ML Platform).</span>
+      </div>
+      <div class="rubric-item">
+        <strong>Systems architecture</strong>
+        <span>Drove the conversation proactively. Proposed 3 alternative routing algorithms and justified CH. Adjusted design when traffic requirements surfaced. Showed breadth (tiles, routing, search) and depth (CH internals, S2 geometry).</span>
+      </div>
+      <div class="rubric-item">
+        <strong>Risk management</strong>
+        <span>Identified operational risks (CDN purge failure, stale traffic), product risks (bad routes = safety), and compliance risks (location data privacy). Proposed concrete mitigations with runbooks.</span>
+      </div>
+      <div class="rubric-item">
+        <strong>Code & system health</strong>
+        <span>Discussed tech debt strategy: CH preprocessing is "planned tech debt" (hardcoded algorithms today, ML-based ranking later). Proposed monitoring before optimization — instrument first, then tune.</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// Nav highlighting on scroll
+const sections = document.querySelectorAll('section');
+const navLinks = document.querySelectorAll('.nav a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`.nav a[href="#${entry.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>News Feed System Design — 50M DAU</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+  
+  :root {
+    --bg: #08080e;
+    --bg2: #0d0d18;
+    --bg3: #12121f;
+    --border: #1e1e30;
+    --text: #c8c8d8;
+    --text-dim: #666680;
+    --blue: #5b9cf5;
+    --blue-dim: #2a3a5a;
+    --green: #4ecb8a;
+    --green-dim: #1a3a2a;
+    --orange: #f0a050;
+    --orange-dim: #3a2a1a;
+    --red: #f06060;
+    --red-dim: #3a1a1a;
+    --purple: #a78bfa;
+    --purple-dim: #2a1a4a;
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 32px; }
+  
+  /* Navigation */
+  .nav {
+    display: flex;
+    gap: 2px;
+    background: var(--bg2);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+  }
+  .nav-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 7px;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--bg3); }
+  .nav-btn.active { color: var(--blue); background: var(--blue-dim); }
+  
+  /* Sections */
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  
+  h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    color: var(--blue);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    color: #fff;
+    margin: 24px 0 12px;
+  }
+  
+  p { margin-bottom: 12px; font-size: 14px; }
+  
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #2a2a50; }
+  
+  .card-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--blue);
+    margin-bottom: 10px;
+  }
+  
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  
+  .metric {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--green); }
+  .metric-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  
+  .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 4px; margin: 2px; }
+  .tag-blue { background: var(--blue-dim); color: var(--blue); }
+  .tag-green { background: var(--green-dim); color: var(--green); }
+  .tag-orange { background: var(--orange-dim); color: var(--orange); }
+  .tag-red { background: var(--red-dim); color: var(--red); }
+  .tag-purple { background: var(--purple-dim); color: var(--purple); }
+  
+  .hl { color: var(--blue); }
+  .hlg { color: var(--green); }
+  .hlo { color: var(--orange); }
+  .hlr { color: var(--red); }
+  
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--green);
+  }
+  
+  pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #151525;
+    color: var(--text);
+  }
+  tr:hover td { background: var(--bg3); }
+  
+  /* Interactive Flow Diagrams */
+  .flow-container {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  
+  .flow-steps {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    min-width: max-content;
+  }
+  
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;
+    cursor: pointer;
+    position: relative;
+  }
+  
+  .flow-node {
+    width: 100px;
+    height: 60px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    padding: 4px;
+    transition: all 0.2s;
+    background: var(--bg3);
+    color: var(--text);
+  }
+  
+  .flow-step:hover .flow-node,
+  .flow-step.active .flow-node {
+    border-color: var(--blue);
+    background: var(--blue-dim);
+    color: var(--blue);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(91,156,245,0.15);
+  }
+  
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 18px;
+    padding: 0 4px;
+    margin-top: 16px;
+  }
+  
+  .flow-detail {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    display: none;
+    animation: fadeIn 0.2s ease;
+  }
+  .flow-detail.show { display: block; }
+  .flow-detail-title { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--blue); margin-bottom: 8px; font-weight: 600; }
+  
+  /* Architecture Boxes */
+  .arch-layer {
+    margin-bottom: 12px;
+  }
+  .arch-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .arch-boxes { display: flex; gap: 10px; flex-wrap: wrap; }
+  .arch-box {
+    flex: 1;
+    min-width: 140px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .arch-box:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(91,156,245,0.1); }
+  .arch-box-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: #ddd; }
+  .arch-box-tech { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .arch-box-scale { font-size: 11px; color: var(--green); margin-top: 2px; }
+  .arch-arrows { text-align: center; color: var(--text-dim); padding: 4px 0; font-size: 14px; letter-spacing: 20px; }
+  
+  /* Toggle Comparison */
+  .toggle-group {
+    display: flex;
+    gap: 2px;
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 3px;
+    margin: 12px 0;
+    border: 1px solid var(--border);
+    width: fit-content;
+  }
+  .toggle-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .toggle-btn.active { background: var(--blue-dim); color: var(--blue); }
+  .toggle-content { display: none; }
+  .toggle-content.active { display: block; }
+  
+  /* Deep Dive Panel */
+  .deep-dive {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: 0 10px 10px 0;
+    padding: 20px;
+    margin: 16px 0;
+  }
+  .deep-dive h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  
+  .em-callout {
+    background: var(--purple-dim);
+    border: 1px solid #3a2a6a;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .em-callout::before {
+    content: "🎯 EM PERSPECTIVE";
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--purple);
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 8px;
+  }
+  
+  .failure-callout {
+    background: var(--red-dim);
+    border: 1px solid #4a1a1a;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .failure-callout::before {
+    content: "⚠️ FAILURE MODE";
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 8px;
+  }
+  
+  .tradeoff-callout {
+    background: var(--orange-dim);
+    border: 1px solid #4a3a1a;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .tradeoff-callout::before {
+    content: "⚖️ TRADEOFF";
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--orange);
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 8px;
+  }
+  
+  .scroll-hint { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+  
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin-bottom: 6px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📡 News Feed System Design</h1>
+  <p class="subtitle">50M DAU · 150K reads/sec peak · Hybrid fanout · Staff/Principal depth · Click each section below</p>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+    <button class="nav-btn" onclick="showSection('requirements')">Requirements</button>
+    <button class="nav-btn" onclick="showSection('architecture')">Architecture</button>
+    <button class="nav-btn" onclick="showSection('write-flow')">Write Path</button>
+    <button class="nav-btn" onclick="showSection('read-flow')">Read Path</button>
+    <button class="nav-btn" onclick="showSection('fanout')">Fanout Deep Dive</button>
+    <button class="nav-btn" onclick="showSection('ranking')">Ranking / ML</button>
+    <button class="nav-btn" onclick="showSection('datastores')">Data Stores</button>
+    <button class="nav-btn" onclick="showSection('failures')">Failure Modes</button>
+    <button class="nav-btn" onclick="showSection('em')">EM Angle</button>
+    <button class="nav-btn" onclick="showSection('scale')">Scale Math</button>
+  </nav>
+
+  <!-- ===== OVERVIEW ===== -->
+  <div class="section active" id="sec-overview">
+    <h2>System Overview</h2>
+    <p>We're designing a <span class="hl">personalized news feed</span> (Twitter/X style) where 50M daily active users read a feed of posts from people they follow, create posts, and interact with content. The defining engineering challenge is the <span class="hlo">fanout problem</span>: when a user with millions of followers posts, how do we efficiently deliver that post to every follower's feed?</p>
+    
+    <div class="grid3" style="margin: 20px 0;">
+      <div class="metric">
+        <div class="metric-value">50M</div>
+        <div class="metric-label">Daily Active Users</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">150K/s</div>
+        <div class="metric-label">Peak Feed Reads</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">5K/s</div>
+        <div class="metric-label">Peak Writes</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">&lt;300ms</div>
+        <div class="metric-label">Feed p99 Latency</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">99.99%</div>
+        <div class="metric-label">Availability Target</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">10B</div>
+        <div class="metric-label">Follow Graph Edges</div>
+      </div>
+    </div>
+
+    <h3>Core Design Decisions (Preview)</h3>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Hybrid Fanout (Push + Pull)</div>
+        <p>Push for normal users (&lt;10K followers), pull on read for celebrities (&gt;10K followers). This solves the celebrity problem without sacrificing feed freshness for 99.9% of users.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Sorted Set Feed Cache (Redis)</div>
+        <p>Each user's feed is a Redis ZSET of post IDs scored by timestamp. O(log N) insert and range query. 600GB total across a 20-node cluster.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">3-Stage ML Ranking</div>
+        <p>Candidate generation → Light ranker → Heavy ranker. Balances ranking quality against latency budget (80ms for ML inference within 300ms total).</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Event-Driven via Kafka</div>
+        <p>All writes produce events consumed by fanout, search indexer, analytics, and notification services. Decouples write path from downstream processing.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REQUIREMENTS ===== -->
+  <div class="section" id="sec-requirements">
+    <h2>Requirements</h2>
+    
+    <h3>Functional Requirements</h3>
+    <div class="card">
+      <table>
+        <tr><th>Feature</th><th>Description</th><th>Priority</th></tr>
+        <tr><td>Post creation</td><td>Text (280 chars), images, videos, links</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Feed generation</td><td>Personalized feed of posts from followees</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Follow/unfollow</td><td>Asymmetric follow relationships</td><td><span class="tag tag-red">P0</span></td></tr>
+        <tr><td>Interactions</td><td>Like, retweet, reply, bookmark</td><td><span class="tag tag-orange">P1</span></td></tr>
+        <tr><td>Notifications</td><td>Real-time for interactions on your posts</td><td><span class="tag tag-orange">P1</span></td></tr>
+        <tr><td>Search</td><td>Full-text search across posts + trends</td><td><span class="tag tag-blue">P2</span></td></tr>
+      </table>
+    </div>
+
+    <h3>Non-Functional Requirements</h3>
+    <div class="card">
+      <table>
+        <tr><th>Metric</th><th>Target</th><th>Rationale</th></tr>
+        <tr><td>Feed read latency (p99)</td><td><span class="hlg">&lt;300ms</span></td><td>Core UX — users abandon after 1s</td></tr>
+        <tr><td>Post publish latency</td><td>&lt;500ms</td><td>Write path can be slightly slower</td></tr>
+        <tr><td>Feed freshness</td><td>&lt;10s close friends, &lt;60s others</td><td>Timeliness drives engagement</td></tr>
+        <tr><td>Availability</td><td>99.99%</td><td>52 min downtime/year; revenue critical</td></tr>
+        <tr><td>Durability</td><td>Zero post loss</td><td>Content is user-generated IP</td></tr>
+        <tr><td>Consistency</td><td>Eventual (feed), Strong (posts)</td><td>Feed can lag; posts must persist reliably</td></tr>
+      </table>
+    </div>
+    
+    <h3>API Design</h3>
+    <pre>
+POST   /v1/posts                         → Create post
+       Body: { content, media_ids[], reply_to? }
+       Response: { post_id, created_at }
+
+GET    /v1/feed?cursor=X&limit=20        → Get personalized feed
+       Response: { posts[], next_cursor, has_more }
+       ↳ cursor is opaque string encoding (timestamp, post_id)
+
+POST   /v1/users/{id}/follow             → Follow user
+DELETE /v1/users/{id}/follow             → Unfollow user
+
+POST   /v1/posts/{id}/like               → Like a post
+DELETE /v1/posts/{id}/like               → Unlike
+
+GET    /v1/posts/{id}                    → Get single post with replies
+GET    /v1/users/{id}/posts?cursor=X     → User's own posts (timeline)
+GET    /v1/search?q=term&cursor=X        → Full-text search
+    </pre>
+    
+    <div class="tradeoff-callout">
+      <p><strong>Cursor-based vs Offset pagination</strong>: We use cursor-based pagination (encoding last-seen timestamp + post_id). Offset pagination breaks when new posts are inserted — user sees duplicates or misses posts. Cursor is <span class="hl">stable under concurrent writes</span>. Tradeoff: can't "jump to page 50" (not needed for infinite scroll).</p>
+    </div>
+  </div>
+
+  <!-- ===== ARCHITECTURE ===== -->
+  <div class="section" id="sec-architecture">
+    <h2>High-Level Architecture</h2>
+    <p>Click any component to see its deep dive.</p>
+    
+    <div class="arch-layer">
+      <div class="arch-label">Client Layer</div>
+      <div class="arch-boxes">
+        <div class="arch-box" onclick="archDetail(this, 'cdn')">
+          <div class="arch-box-name">CDN / Edge</div>
+          <div class="arch-box-tech">CloudFront + Edge PoPs</div>
+          <div class="arch-box-scale">Cache static + media</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'apigw')">
+          <div class="arch-box-name">API Gateway</div>
+          <div class="arch-box-tech">Envoy + Rate Limiter</div>
+          <div class="arch-box-scale">150K+ req/sec</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'lb')">
+          <div class="arch-box-name">Load Balancer</div>
+          <div class="arch-box-tech">L7 + Consistent Hashing</div>
+          <div class="arch-box-scale">User-affinity routing</div>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrows">▼ ▼ ▼</div>
+    
+    <div class="arch-layer">
+      <div class="arch-label">Core Services</div>
+      <div class="arch-boxes">
+        <div class="arch-box" onclick="archDetail(this, 'feed-svc')">
+          <div class="arch-box-name">Feed Service</div>
+          <div class="arch-box-tech">Assembly + Ranking</div>
+          <div class="arch-box-scale">p99 &lt; 200ms</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'post-svc')">
+          <div class="arch-box-name">Post Service</div>
+          <div class="arch-box-tech">Write path + Validation</div>
+          <div class="arch-box-scale">5K writes/sec</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'fanout-svc')">
+          <div class="arch-box-name">Fanout Service</div>
+          <div class="arch-box-tech">Hybrid push/pull</div>
+          <div class="arch-box-scale">Celebrity problem ✓</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'social-svc')">
+          <div class="arch-box-name">Social Graph</div>
+          <div class="arch-box-tech">Follow relationships</div>
+          <div class="arch-box-scale">10B edges</div>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrows">▼ ▼ ▼</div>
+    
+    <div class="arch-layer">
+      <div class="arch-label">Intelligence + Async</div>
+      <div class="arch-boxes">
+        <div class="arch-box" onclick="archDetail(this, 'ml-svc')">
+          <div class="arch-box-name">Ranking / ML</div>
+          <div class="arch-box-tech">3-stage pipeline</div>
+          <div class="arch-box-scale">50ms p50 inference</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'notif-svc')">
+          <div class="arch-box-name">Notifications</div>
+          <div class="arch-box-tech">WebSocket + Push</div>
+          <div class="arch-box-scale">Real-time delivery</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'search-svc')">
+          <div class="arch-box-name">Search / Index</div>
+          <div class="arch-box-tech">Elasticsearch</div>
+          <div class="arch-box-scale">25M docs/day indexed</div>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrows">▼ ▼ ▼</div>
+    
+    <div class="arch-layer">
+      <div class="arch-label">Data Layer</div>
+      <div class="arch-boxes">
+        <div class="arch-box" onclick="archDetail(this, 'redis-store')">
+          <div class="arch-box-name">Feed Cache</div>
+          <div class="arch-box-tech">Redis Cluster (ZSET)</div>
+          <div class="arch-box-scale">600GB, 20 nodes</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'pg-store')">
+          <div class="arch-box-name">Posts DB</div>
+          <div class="arch-box-tech">PostgreSQL (sharded)</div>
+          <div class="arch-box-scale">64 shards, author_id</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'graph-store')">
+          <div class="arch-box-name">Graph Store</div>
+          <div class="arch-box-tech">TAO-style adjacency</div>
+          <div class="arch-box-scale">MySQL + Redis cache</div>
+        </div>
+        <div class="arch-box" onclick="archDetail(this, 'kafka-store')">
+          <div class="arch-box-name">Message Bus</div>
+          <div class="arch-box-tech">Kafka (12 brokers)</div>
+          <div class="arch-box-scale">500K msgs/sec</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="arch-detail-panel" class="deep-dive" style="display:none; margin-top: 20px;"></div>
+  </div>
+
+  <!-- ===== WRITE PATH FLOW ===== -->
+  <div class="section" id="sec-write-flow">
+    <h2>Write Path — Post Creation Flow</h2>
+    <p class="scroll-hint">Click each step to see its deep dive ↓</p>
+    
+    <div class="flow-container">
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showFlowDetail('write', 0, this)">
+          <div class="flow-node">Client<br>POST /posts</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 1, this)">
+          <div class="flow-node">API GW<br>Auth+Rate</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 2, this)">
+          <div class="flow-node">Post Svc<br>Validate</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 3, this)">
+          <div class="flow-node">Media Svc<br>Upload S3</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 4, this)">
+          <div class="flow-node">PostgreSQL<br>Persist</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 5, this)">
+          <div class="flow-node">Kafka<br>Publish</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 6, this)">
+          <div class="flow-node">Fanout<br>Workers</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('write', 7, this)">
+          <div class="flow-node">Redis<br>Feed Caches</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="write-flow-detail" class="flow-detail"></div>
+    
+    <h3>Latency Budget — Write Path</h3>
+    <div class="card">
+      <table>
+        <tr><th>Step</th><th>Latency</th><th>Sync/Async</th><th>Notes</th></tr>
+        <tr><td>API Gateway (auth + rate limit)</td><td><span class="hlg">5ms</span></td><td>Sync</td><td>JWT validation, Redis rate check</td></tr>
+        <tr><td>Content validation + spam</td><td><span class="hlg">10ms</span></td><td>Sync</td><td>Regex + lightweight ML classifier</td></tr>
+        <tr><td>Media upload (if present)</td><td><span class="hlo">100-500ms</span></td><td>Sync</td><td>Client uploads to S3 via presigned URL (separate)</td></tr>
+        <tr><td>PostgreSQL write</td><td><span class="hlg">15ms</span></td><td>Sync</td><td>Including sync replication to 1 replica</td></tr>
+        <tr><td>Kafka publish</td><td><span class="hlg">5ms</span></td><td>Sync (ack=1)</td><td>Event published, ACK to client</td></tr>
+        <tr><td>Fanout to followers</td><td><span class="hlo">100ms-10s</span></td><td><strong>Async</strong></td><td>Happens after client gets 200 OK</td></tr>
+        <tr><td><strong>Total (client-perceived)</strong></td><td><strong><span class="hlg">~35ms</span></strong> (no media)</td><td></td><td>Under 500ms target</td></tr>
+      </table>
+    </div>
+    
+    <div class="tradeoff-callout">
+      <p><strong>Why async fanout?</strong> If we waited for fanout to complete before ACK'ing the client, a user with 100K followers would wait 10+ seconds. We decouple: client gets 200 OK after Kafka publish, fanout happens in background. <span class="hlo">Tradeoff</span>: a follower might see the post 1-30s after creation, not instantly. Acceptable for all but real-time chat use cases.</p>
+    </div>
+    
+    <div class="em-callout">
+      <p><strong>Incident scenario</strong>: Kafka consumer lag spikes to 5M messages. Fanout is delayed by 10 minutes. Users report "I posted but my friend doesn't see it." <strong>Runbook</strong>: (1) Check consumer lag dashboards, (2) Scale up fanout worker pods (pre-provisioned warm pool), (3) If backlog doesn't clear in 15 min, enable "pull-only mode" flag — all feeds become pull-on-read temporarily. (4) Post-incident: review if celebrity threshold needs adjustment.</p>
+    </div>
+  </div>
+
+  <!-- ===== READ PATH FLOW ===== -->
+  <div class="section" id="sec-read-flow">
+    <h2>Read Path — Feed Assembly Flow</h2>
+    <p class="scroll-hint">Click each step to see its deep dive ↓</p>
+    
+    <div class="flow-container">
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showFlowDetail('read', 0, this)">
+          <div class="flow-node">Client<br>GET /feed</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 1, this)">
+          <div class="flow-node">Feed Svc<br>Orchestrate</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 2, this)">
+          <div class="flow-node">Redis<br>Push Feed</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 3, this)">
+          <div class="flow-node">Pull<br>Celebrities</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 4, this)">
+          <div class="flow-node">Merge +<br>Dedup</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 5, this)">
+          <div class="flow-node">Hydrate<br>Posts</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 6, this)">
+          <div class="flow-node">Rank<br>(ML)</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('read', 7, this)">
+          <div class="flow-node">Return<br>Top 20</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="read-flow-detail" class="flow-detail"></div>
+    
+    <h3>Latency Budget — Read Path (p99 = 300ms)</h3>
+    <div class="card">
+      <table>
+        <tr><th>Step</th><th>p50</th><th>p99</th><th>Notes</th></tr>
+        <tr><td>Redis ZREVRANGE (push feed)</td><td><span class="hlg">2ms</span></td><td><span class="hlg">5ms</span></td><td>500 post IDs from sorted set</td></tr>
+        <tr><td>Celebrity pull (parallel, 5 users)</td><td><span class="hlg">10ms</span></td><td><span class="hlo">25ms</span></td><td>Parallel reads from Posts DB/cache</td></tr>
+        <tr><td>Merge + dedup</td><td><span class="hlg">1ms</span></td><td><span class="hlg">2ms</span></td><td>In-memory merge sort</td></tr>
+        <tr><td>Post hydration (batch, Redis)</td><td><span class="hlg">5ms</span></td><td><span class="hlg">15ms</span></td><td>MGET for 50 post objects</td></tr>
+        <tr><td>Light ranker</td><td><span class="hlg">3ms</span></td><td><span class="hlg">5ms</span></td><td>Logistic regression, 500→50</td></tr>
+        <tr><td>Heavy ranker (ML inference)</td><td><span class="hlo">50ms</span></td><td><span class="hlo">80ms</span></td><td>Transformer model, 50→20</td></tr>
+        <tr><td>Serialization + response</td><td><span class="hlg">5ms</span></td><td><span class="hlg">10ms</span></td><td>Proto/JSON encode</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong><span class="hlg">~76ms</span></strong></td><td><strong><span class="hlg">~142ms</span></strong></td><td>Well under 300ms budget</td></tr>
+      </table>
+    </div>
+
+    <div class="failure-callout">
+      <p><strong>Redis feed cache miss (cold user)</strong>: User hasn't logged in for 7+ days, feed cache evicted. Fallback: reconstruct feed by (1) fetching followee list from Social Graph, (2) querying Posts DB for each followee's recent posts, (3) merging and caching. Latency: ~1-2s for first load. After reconstruction, subsequent reads are fast. This affects &lt;5% of daily feed reads.</p>
+    </div>
+    
+    <div class="failure-callout">
+      <p><strong>Ranking ML service down</strong>: Feature-flagged fallback to chronological feed with light ranker only. Feed quality drops ~15% (measured by engagement), but latency actually <em>improves</em> by 50ms. Automated circuit breaker triggers if ML error rate > 5% for 30s.</p>
+    </div>
+  </div>
+
+  <!-- ===== FANOUT DEEP DIVE ===== -->
+  <div class="section" id="sec-fanout">
+    <h2>Fanout Deep Dive — The Heart of Feed Design</h2>
+    
+    <h3>The Celebrity Problem</h3>
+    <div class="card">
+      <p>This is <em>the</em> defining engineering challenge. Consider:</p>
+      <p>A celebrity with <span class="hl">10 million followers</span> posts once. Pure push fanout means writing that post ID to <span class="hlr">10 million Redis sorted sets</span>. At 5K celebrity posts/sec peak, that's 50 billion cache writes/sec. <span class="hlr">This is impossible</span> — no cache cluster survives this.</p>
+      <p>But pure pull fanout (compute feed on every read) means 150K reads/sec, each requiring fetching posts from all ~200 followees. That's <span class="hlr">30 million DB reads/sec</span>. Also impossible.</p>
+      <p>The solution is <span class="hlg">hybrid fanout</span>.</p>
+    </div>
+    
+    <h3>Toggle: Fanout Strategies Compared</h3>
+    <div class="toggle-group">
+      <button class="toggle-btn active" onclick="showToggle('fanout-compare', 0, this)">Push Only</button>
+      <button class="toggle-btn" onclick="showToggle('fanout-compare', 1, this)">Pull Only</button>
+      <button class="toggle-btn" onclick="showToggle('fanout-compare', 2, this)">Hybrid ✓</button>
+    </div>
+    
+    <div id="fanout-compare-0" class="toggle-content active">
+      <div class="card" style="border-left: 3px solid var(--red);">
+        <div class="card-title">Push Only (Fanout-on-Write)</div>
+        <p><strong>How it works</strong>: When a user posts, immediately write the post_id to every follower's feed cache.</p>
+        <p><strong>Pros</strong>: Feed reads are O(1) — just read from cache. Extremely fast read path.</p>
+        <p><strong>Cons</strong>: <span class="hlr">Explodes with celebrities</span>. User with 10M followers = 10M writes per post. Fanout latency can reach minutes. Massive Redis write throughput required. Wasted writes for inactive followers (70% may never read that day).</p>
+        <p><strong>Math</strong>: 5K celebrity posts/sec × 1M avg celebrity followers = <span class="hlr">5 billion writes/sec</span>. Need ~5,000 Redis nodes just for fanout. Cost: $2M+/month.</p>
+        <p><strong>Verdict</strong>: <span class="tag tag-red">REJECTED</span> — doesn't scale for celebrity users</p>
+      </div>
+    </div>
+    <div id="fanout-compare-1" class="toggle-content">
+      <div class="card" style="border-left: 3px solid var(--orange);">
+        <div class="card-title">Pull Only (Fanout-on-Read)</div>
+        <p><strong>How it works</strong>: No precomputed feeds. On every feed read, fetch the user's followee list, then query each followee's recent posts, merge and rank.</p>
+        <p><strong>Pros</strong>: Write path is trivial — just persist the post. No celebrity problem. Always fresh.</p>
+        <p><strong>Cons</strong>: <span class="hlo">Read path is expensive</span>. 200 followees × "get latest 10 posts" = 2,000 DB reads per feed request. At 150K feed reads/sec = <span class="hlr">300M DB reads/sec</span>. Read latency: 200-500ms even with caching.</p>
+        <p><strong>Math</strong>: Even with aggressive caching (90% hit), still need 30M DB reads/sec. Requires massive read replica fleet.</p>
+        <p><strong>Verdict</strong>: <span class="tag tag-orange">VIABLE but slow</span> — used by some systems but latency suffers</p>
+      </div>
+    </div>
+    <div id="fanout-compare-2" class="toggle-content">
+      <div class="card" style="border-left: 3px solid var(--green);">
+        <div class="card-title">Hybrid Push/Pull ✓ (Our Approach)</div>
+        <p><strong>How it works</strong>: Split users by follower count. <span class="hlg">Normal users (&lt;10K followers)</span>: push fanout-on-write. <span class="hl">Celebrities (&gt;10K followers)</span>: pull-on-read at feed assembly time.</p>
+        <p><strong>Push path (99.9% of users)</strong>: Avg 200 followers → 200 Redis ZADD per post. At 280 non-celebrity posts/sec: <span class="hlg">56K Redis writes/sec</span>. Very manageable.</p>
+        <p><strong>Pull path (0.1% of users, ~30% of content)</strong>: Feed Service knows which followees are celebrities. On feed read, parallel-fetch their latest posts (cached in Redis, hit rate >95%). Adds ~15ms to read path.</p>
+        <p><strong>Why 10K threshold?</strong> Below 10K, fanout completes in &lt;100ms and total cache write load is sustainable. Above 10K, fanout latency grows linearly and dominates total write throughput. 10K is the knee of the curve — empirically determined.</p>
+        <p><strong>Verdict</strong>: <span class="tag tag-green">CHOSEN</span> — best of both worlds</p>
+      </div>
+    </div>
+    
+    <h3>Fanout Worker Architecture</h3>
+    <div class="deep-dive">
+      <h4>Implementation Details</h4>
+      <p>Fanout workers are Kafka consumers processing <code>posts.created</code> events.</p>
+      <pre>
+Consumer Group: fanout-workers (32 consumers, 32 partitions)
+
+For each PostCreated event:
+  1. Check is_celebrity flag on author
+     → If celebrity: SKIP (handled on read path). Done.
+     → If normal user: continue
+
+  2. Fetch follower list from Social Graph cache (Redis SET)
+     → Returns list of follower_ids
+
+  3. For each follower_id:
+     a. ZADD feed:{follower_id} {timestamp} {post_id}
+     b. ZREMRANGEBYRANK feed:{follower_id} 0 -801
+        (trim to 800 entries)
+
+  4. Commit Kafka offset after all Redis writes succeed
+      </pre>
+      <p><strong>Parallelism</strong>: Each worker fans out to followers in batches of 100, using Redis pipeline (50x less round-trips than individual commands).</p>
+      <p><strong>Ordering guarantee</strong>: Kafka partition key = author_id, so all posts from the same author are processed in order within a partition. Cross-author ordering is not guaranteed but not needed — ranking handles final ordering.</p>
+    </div>
+    
+    <div class="em-callout">
+      <p><strong>Staffing</strong>: Fanout service owned by the Feed Infrastructure team (3 engineers). Key hire: someone with deep Kafka + Redis operational experience. <strong>Monitoring</strong>: Primary metric is "fanout lag" — histogram of time between PostCreated event timestamp and last follower cache update. Dashboard: per-partition consumer lag, Redis write latency p99, throughput. Alert: p99 fanout lag > 30s → PagerDuty. > 5 min → auto-scale consumers from warm pool.</p>
+    </div>
+  </div>
+
+  <!-- ===== RANKING / ML ===== -->
+  <div class="section" id="sec-ranking">
+    <h2>Ranking / ML Deep Dive</h2>
+    
+    <h3>Why Rank at All?</h3>
+    <div class="card">
+      <p>Chronological feeds have a <span class="hlo">fundamental engagement problem</span>: users follow 200+ accounts but only scroll through 50-100 posts per session. If the best posts are buried under low-quality content, users miss them and engagement drops. Twitter reported a <span class="hlg">~50% increase in engagement</span> after switching from chronological to ranked feeds.</p>
+    </div>
+    
+    <h3>3-Stage Ranking Pipeline</h3>
+    
+    <div class="flow-container">
+      <div class="flow-steps">
+        <div class="flow-step" onclick="showFlowDetail('rank', 0, this)">
+          <div class="flow-node" style="border-color: var(--purple);">Candidate<br>Gen<br><small>~500 posts</small></div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('rank', 1, this)">
+          <div class="flow-node" style="border-color: var(--orange);">Light<br>Ranker<br><small>500→50</small></div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('rank', 2, this)">
+          <div class="flow-node" style="border-color: var(--blue);">Heavy<br>Ranker<br><small>50→20</small></div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" onclick="showFlowDetail('rank', 3, this)">
+          <div class="flow-node" style="border-color: var(--green);">Diversity<br>+ Policy<br><small>Final 20</small></div>
+        </div>
+      </div>
+    </div>
+    <div id="rank-flow-detail" class="flow-detail"></div>
+    
+    <h3>Feature Store</h3>
+    <div class="deep-dive">
+      <h4>Architecture</h4>
+      <p>The Feature Store is a <span class="hl">Redis-backed precomputed feature cache</span>. Features are computed offline (batch) and in near-real-time (streaming).</p>
+      <pre>
+User Features (precomputed hourly):
+  user:{id}:features → {
+    avg_daily_sessions: 3.2,
+    preferred_content_types: [image, video],
+    active_hours: [9,10,11,12,18,19,20,21],
+    topic_affinities: {politics: 0.3, tech: 0.8, sports: 0.5},
+    engagement_rate: 0.04
+  }
+
+Post Features (computed at creation + updated streaming):
+  post:{id}:features → {
+    author_reputation: 0.85,
+    has_media: true,
+    media_type: "image",
+    early_engagement_velocity: 15.2,  // likes/min in first 10min
+    content_quality_score: 0.72,
+    hashtag_trending_score: 0.4
+  }
+
+Cross Features (precomputed daily):
+  affinity:{user_id}:{author_id} → {
+    interaction_count_30d: 12,
+    profile_visit_count: 3,
+    reply_rate: 0.15
+  }
+      </pre>
+      <p><strong>Latency</strong>: Feature lookup via Redis MGET: <span class="hlg">&lt;5ms for 50 posts' features</span>. Cache hit rate: 99%+ (features are precomputed and always warm).</p>
+    </div>
+    
+    <div class="tradeoff-callout">
+      <p><strong>Model complexity vs latency</strong>: We could use a larger model (GPT-scale) for ranking and get ~5% better engagement. But inference would take 500ms+, blowing our latency budget. The 3-stage pipeline is the engineering compromise: cheap filter, expensive model on small candidate set. This is exactly what Google/Meta/Twitter do in production.</p>
+    </div>
+    
+    <div class="em-callout">
+      <p><strong>A/B testing discipline</strong>: Every ranking model change goes through: (1) Offline evaluation on historical data (AUC, NDCG), (2) Shadow mode (run in parallel, log predictions, don't serve), (3) A/B test on 1% of users for 7 days, (4) Measure: DAU retention, time spent, interaction rate, (5) Full rollout only if statistically significant improvement (p &lt; 0.05). <strong>Team</strong>: 3 ML engineers + 1 data scientist. Weekly ranking review meeting with product.</p>
+    </div>
+  </div>
+
+  <!-- ===== DATA STORES ===== -->
+  <div class="section" id="sec-datastores">
+    <h2>Data Store Deep Dives</h2>
+    <p>Every data store choice is justified by its specific workload characteristics.</p>
+    
+    <div class="card">
+      <div class="card-title">1. Redis Cluster — Feed Cache</div>
+      <table>
+        <tr><th>Aspect</th><th>Detail</th></tr>
+        <tr><td>Why Redis</td><td>Sub-ms latency + native Sorted Set (ZSET) data structure. ZREVRANGEBYSCORE gives paginated chronological feed in O(log N + M). No other store offers this combo.</td></tr>
+        <tr><td>Why not Memcached</td><td>Memcached lacks sorted sets. We'd serialize/deserialize entire feed list on every read/write — O(N) instead of O(log N). At 800 items/feed, ~10x slower for pagination.</td></tr>
+        <tr><td>Schema</td><td><code>feed:{user_id}</code> → ZSET(post_id, timestamp)<br><code>post:{post_id}</code> → Hash(text, author, media_urls, counters)<br><code>user:{id}:follows</code> → SET(followee_ids)</td></tr>
+        <tr><td>Size math</td><td>50M users × 800 post IDs × 16 bytes = ~600GB. 20-node cluster (32GB RAM each) with replication.</td></tr>
+        <tr><td>Read throughput</td><td>~200K ops/sec (ZREVRANGE + MGET for hydration)</td></tr>
+        <tr><td>Write throughput</td><td>~60K ops/sec (ZADD from fanout workers)</td></tr>
+        <tr><td>Eviction</td><td>LRU on inactive users (no login 7 days). Cold start penalty: ~2s feed reconstruction.</td></tr>
+        <tr><td>Failure mode</td><td>Auto-failover to replica (&lt;5s). During failover, 5% of users get cold-start. No data loss — Redis is cache, source of truth is PostgreSQL.</td></tr>
+      </table>
+    </div>
+    
+    <div class="card">
+      <div class="card-title">2. PostgreSQL (Sharded) — Posts Source of Truth</div>
+      <table>
+        <tr><th>Aspect</th><th>Detail</th></tr>
+        <tr><td>Why Postgres</td><td>Posts need ACID transactions, strong consistency, and proven durability. Fixed schema, standard query patterns → relational is ideal. MVCC for concurrent reads.</td></tr>
+        <tr><td>Why not Cassandra/DynamoDB</td><td>Posts have a fixed schema with known query patterns (by post_id, by author_id+time). We don't need Cassandra's write-optimized LSM or multi-DC replication at this scale. Postgres is simpler to operate and offers richer indexing.</td></tr>
+        <tr><td>Schema</td><td><code>posts(post_id BIGINT PK, author_id BIGINT, content TEXT, media_urls JSONB, created_at TIMESTAMPTZ, like_count INT, reply_count INT)</code></td></tr>
+        <tr><td>Indexes</td><td><code>(author_id, created_at DESC)</code> for timeline, <code>(post_id)</code> for direct lookup. Snowflake ID embeds shard routing.</td></tr>
+        <tr><td>Sharding</td><td>64 shards by <code>author_id % 64</code>. "All posts by user X" hits single shard. Post lookups use shard routing from Snowflake ID.</td></tr>
+        <tr><td>Per-shard size</td><td>~400K posts/day → ~140M posts/year → ~420M rows at 3-year retention. Well within Postgres capability with monthly table partitioning.</td></tr>
+        <tr><td>Replication</td><td>1 primary + 2 read replicas per shard. Sync replication to 1 replica (RPO=0). Feed hydration reads go to replicas.</td></tr>
+        <tr><td>Failure mode</td><td>Patroni auto-failover to sync replica (&lt;30s). Zero data loss. During failover, writes return 503; clients retry. Reads continue on remaining replica.</td></tr>
+      </table>
+    </div>
+    
+    <div class="card">
+      <div class="card-title">3. Social Graph Store — TAO-style (MySQL + Redis)</div>
+      <table>
+        <tr><th>Aspect</th><th>Detail</th></tr>
+        <tr><td>Why not Neo4j</td><td>Our queries are simple adjacency lookups ("who does X follow?", "who follows X?"), not multi-hop graph traversals. A sharded relational store + cache is simpler, cheaper, and faster for these patterns. Neo4j enterprise licensing at 10B edges is extremely expensive.</td></tr>
+        <tr><td>Data model</td><td><code>follows(follower_id, followee_id, created_at)</code>. Two copies: forward index (shard by follower_id), reverse index (shard by followee_id).</td></tr>
+        <tr><td>Why two copies</td><td>"Who do I follow?" shards by follower_id. "Who follows me?" shards by followee_id. Single-shard queries in both directions. Tradeoff: 2x storage, write amplification on follow/unfollow.</td></tr>
+        <tr><td>Caching</td><td>Redis SETs for follower/followee lists. 95%+ cache hit rate. TTL=24h with event-driven invalidation on follow/unfollow.</td></tr>
+        <tr><td>Consistency</td><td>Read-after-write on primary shard. Feed sees eventual consistency (up to 60s) — acceptable UX.</td></tr>
+      </table>
+    </div>
+    
+    <div class="card">
+      <div class="card-title">4. Kafka — Event Bus</div>
+      <table>
+        <tr><th>Aspect</th><th>Detail</th></tr>
+        <tr><td>Why Kafka</td><td>Durable, ordered, replayable event log. Multiple consumers (fanout, search, analytics, notifications) each read independently. At 500K msgs/sec, Kafka is proven at this scale (LinkedIn runs 7T msgs/day).</td></tr>
+        <tr><td>Why not RabbitMQ/SQS</td><td>RabbitMQ: doesn't scale to 500K msgs/sec without massive clustering overhead. SQS: no ordering guarantees, no consumer group semantics, higher latency. Kafka's log-based model is ideal for event sourcing.</td></tr>
+        <tr><td>Topics</td><td><code>posts.created</code> (32 partitions), <code>interactions</code> (16 partitions), <code>follows</code> (8 partitions)</td></tr>
+        <tr><td>Cluster</td><td>12 brokers, replication factor 3, ISR min 2</td></tr>
+        <tr><td>Retention</td><td>7 days (allows replay for backfill or recovery)</td></tr>
+      </table>
+    </div>
+    
+    <div class="card">
+      <div class="card-title">5. Elasticsearch — Search Index</div>
+      <table>
+        <tr><th>Aspect</th><th>Detail</th></tr>
+        <tr><td>Why ES</td><td>Full-text search with relevance scoring + near-real-time indexing (&lt;1s). 25M new docs/day is standard ES workload. Supports trend detection via aggregations.</td></tr>
+        <tr><td>Index design</td><td>Posts index: 10 shards, 1 replica. Fields: text (analyzed), author_id (keyword), created_at (date), hashtags (keyword[]), engagement_score (float).</td></tr>
+        <tr><td>Indexing</td><td>Kafka consumer → ES bulk API (batches of 500, every 1s). Lag &lt;2s from post creation to searchability.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== FAILURE MODES ===== -->
+  <div class="section" id="sec-failures">
+    <h2>Failure Modes & Graceful Degradation</h2>
+    
+    <h3>CAP Theorem Position</h3>
+    <div class="card">
+      <p>We choose <span class="hl">AP (Availability + Partition tolerance)</span> for the feed read path. During network partitions, feeds may show stale data but the service remains available. The post write path is <span class="hlg">CP</span> — we'd rather reject a write than lose a post.</p>
+      <p>This is the correct tradeoff: a slightly stale feed is acceptable, a lost post is not.</p>
+    </div>
+    
+    <h3>Component Failure Matrix</h3>
+    <div class="card">
+      <table>
+        <tr><th>Component</th><th>Failure Scenario</th><th>Impact</th><th>Mitigation</th><th>Recovery Time</th></tr>
+        <tr>
+          <td><span class="hl">Redis Cluster</span></td>
+          <td>Single node dies</td>
+          <td>~5% users get cache miss</td>
+          <td>Auto-failover to replica. Cold-start reconstruction for affected users.</td>
+          <td><span class="hlg">&lt;5s</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">Redis Cluster</span></td>
+          <td>Full cluster outage</td>
+          <td>All feeds degrade</td>
+          <td>Switch to pull-only mode: Feed Service reads directly from Posts DB. Latency degrades to ~1-2s. CDN serves trending feed as fallback for unauthenticated users.</td>
+          <td><span class="hlo">5-30 min</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">PostgreSQL</span></td>
+          <td>Primary shard failure</td>
+          <td>1/64 of writes fail</td>
+          <td>Patroni auto-failover to sync replica. Writes 503 during failover, clients retry.</td>
+          <td><span class="hlg">&lt;30s</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">Kafka</span></td>
+          <td>Broker failure</td>
+          <td>No impact (RF=3)</td>
+          <td>Partition leaders auto-rebalance. No data loss.</td>
+          <td><span class="hlg">&lt;10s</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">Kafka</span></td>
+          <td>Consumer lag spike</td>
+          <td>Feed freshness degrades</td>
+          <td>Auto-scale consumers. If lag > 5min, enable pull-only mode.</td>
+          <td><span class="hlo">5-15 min</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">Ranking ML</span></td>
+          <td>Service timeout/crash</td>
+          <td>Feed quality drops ~15%</td>
+          <td>Circuit breaker → fall back to chronological feed with light ranker. Latency improves.</td>
+          <td><span class="hlg">Instant</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">Social Graph</span></td>
+          <td>Cache miss + DB slow</td>
+          <td>Celebrity pull fails</td>
+          <td>Serve push-only feed (missing celebrity posts). User sees partial feed — better than no feed.</td>
+          <td><span class="hlg">Instant</span></td>
+        </tr>
+        <tr>
+          <td><span class="hl">CDN</span></td>
+          <td>Edge PoP failure</td>
+          <td>Media loads slowly</td>
+          <td>Traffic routes to next-nearest PoP. Media latency increases but text feed unaffected.</td>
+          <td><span class="hlg">&lt;60s</span></td>
+        </tr>
+      </table>
+    </div>
+    
+    <h3>Cascading Failure Prevention</h3>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Circuit Breakers</div>
+        <p>Every inter-service call has a circuit breaker (Hystrix-style). If error rate > 5% over 30s window, circuit opens → requests go to fallback path immediately instead of waiting for timeouts. Half-open state tests recovery every 10s.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Bulkheads</div>
+        <p>Thread pools are isolated per downstream dependency. If the ML ranking service is slow, it can't exhaust threads needed for Redis reads. Each dependency gets its own connection pool with hard limits.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Load Shedding</div>
+        <p>When feed service CPU > 80%, start shedding by priority: anonymous feeds first, then search, then authenticated feeds (highest priority). Return 429 with Retry-After header.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Timeout Budgets</div>
+        <p>Total request timeout = 500ms. Each step gets a fraction. If Redis takes 100ms (normally 5ms), remaining steps get reduced budgets. Prevents slow components from causing total timeout.</p>
+      </div>
+    </div>
+    
+    <div class="tradeoff-callout">
+      <p><strong>Consistency vs Availability on Unfollow</strong>: When user A unfollows user B, B's posts should disappear from A's feed. We could synchronously purge B's posts from A's feed cache (consistent but slow) or let them age out naturally over 1-24 hours (fast but inconsistent). We choose <span class="hlo">eventual purge via background job</span>: Kafka event triggers async cache update. Worst case, user sees 1-2 posts from unfollowed user before purge completes. This is what Twitter does.</p>
+    </div>
+  </div>
+
+  <!-- ===== EM ANGLE ===== -->
+  <div class="section" id="sec-em">
+    <h2>Engineering Manager Perspective</h2>
+    
+    <h3>Team Structure & Staffing</h3>
+    <div class="card">
+      <table>
+        <tr><th>Team</th><th>Size</th><th>Scope</th><th>Key Hire Profile</th></tr>
+        <tr><td><span class="hl">Feed Core</span></td><td>4-5 engineers</td><td>Feed Service, read path, caching strategy</td><td>Senior backend, distributed systems experience, strong on latency optimization</td></tr>
+        <tr><td><span class="hl">Feed Infrastructure</span></td><td>3 engineers</td><td>Fanout service, Kafka pipelines, data consistency</td><td>Deep Kafka + Redis ops experience, comfortable with at-scale debugging</td></tr>
+        <tr><td><span class="hl">Feed Ranking</span></td><td>3 ML + 1 DS</td><td>Ranking models, feature store, A/B testing</td><td>ML engineer with production serving experience (not just notebooks)</td></tr>
+        <tr><td><span class="hl">Social Graph</span></td><td>2-3 engineers</td><td>Follow relationships, graph queries</td><td>Database internals, sharding, query optimization</td></tr>
+        <tr><td><span class="hl">Platform / Infra</span></td><td>3 engineers</td><td>Kafka, Redis, Postgres operations, CDN, monitoring</td><td>SRE / infrastructure, strong on observability and incident response</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>16-19 engineers</strong></td><td></td><td></td></tr>
+      </table>
+    </div>
+
+    <h3>Rollout Strategy</h3>
+    <div class="deep-dive">
+      <h4>Phased Rollout Plan</h4>
+      <p><strong>Phase 1 (Week 1-2): Shadow mode</strong> — New feed path runs in parallel with existing. Responses logged but not served. Compare latency, correctness, and engagement prediction accuracy.</p>
+      <p><strong>Phase 2 (Week 3): Internal dogfood</strong> — Serve to employees only (~1K users). Catch obvious bugs and UX issues.</p>
+      <p><strong>Phase 3 (Week 4): 1% canary</strong> — Random 1% of users. Monitor: error rate, p99 latency, engagement metrics (likes/session, time-on-feed). <span class="hlr">Kill switch</span>: auto-rollback if error rate > 0.5% or p99 > 500ms.</p>
+      <p><strong>Phase 4 (Week 5): 10% rollout</strong> — If canary is clean for 7 days. Expand monitoring to business metrics (DAU, ad revenue per session).</p>
+      <p><strong>Phase 5 (Week 6-7): 50% → 100%</strong> — Gradual ramp. Keep old path warm for 2 weeks as rollback target.</p>
+    </div>
+    
+    <h3>Monitoring & Observability</h3>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Key Dashboards</div>
+        <p><strong>Feed Health</strong>: p50/p99/p999 feed latency, error rate, cache hit ratio, empty feed rate (should be &lt;0.1%)</p>
+        <p><strong>Fanout Health</strong>: Consumer lag per partition, fanout latency histogram, Redis write throughput</p>
+        <p><strong>Data Pipeline</strong>: Kafka throughput, end-to-end event latency, consumer group offsets</p>
+        <p><strong>Business Metrics</strong>: Feed engagement rate, posts/DAU, likes/session, ad impressions/feed-load</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Alerting Tiers</div>
+        <p><span class="tag tag-red">P0 — Page immediately</span>: Feed error rate > 1%, Feed p99 > 1s, Redis cluster partitioned, Postgres primary unreachable</p>
+        <p><span class="tag tag-orange">P1 — Page during business hours</span>: Fanout lag > 5 min, Cache hit ratio &lt; 85%, ML service degraded</p>
+        <p><span class="tag tag-blue">P2 — Ticket</span>: Empty feed rate > 0.5%, Search index lag > 30s, Single read replica down</p>
+      </div>
+    </div>
+    
+    <h3>On-Call Structure</h3>
+    <div class="card">
+      <p><strong>Primary on-call</strong>: Rotates weekly among Feed Core + Feed Infra engineers (7 people in rotation = each person on-call every 7 weeks). <strong>Secondary</strong>: Infra/SRE engineer for data store issues.</p>
+      <p><strong>Escalation path</strong>: Primary → Secondary → EM → VP Engineering (for customer-facing incidents > 30 min)</p>
+      <p><strong>Incident response</strong>: (1) Acknowledge within 5 min, (2) Assess severity + blast radius, (3) Mitigate (rollback, feature flag, scale up), (4) Communicate (status page + internal Slack), (5) Fix, (6) Post-incident review within 48h (blameless).</p>
+      <p><strong>On-call health</strong>: Target &lt;2 pages/week. If consistently higher, invest in reliability work (error budget model). Engineers should not be on-call during the same sprint they're shipping new features.</p>
+    </div>
+    
+    <h3>Project Execution</h3>
+    <div class="deep-dive">
+      <h4>Building This From Scratch — 6-Month Plan</h4>
+      <p><strong>Month 1-2</strong>: Core infrastructure. Kafka cluster, Redis cluster, PostgreSQL sharding, basic Post Service, Social Graph with caching. <span class="hl">Goal</span>: write a post, retrieve it by ID. 3-4 engineers.</p>
+      <p><strong>Month 2-3</strong>: Feed assembly. Push fanout (non-celebrity only), basic chronological feed, cursor pagination. <span class="hl">Goal</span>: user sees chronological feed of posts from followees. 4-5 engineers.</p>
+      <p><strong>Month 3-4</strong>: Hybrid fanout. Celebrity detection, pull-on-read path, merge logic. <span class="hl">Goal</span>: feed works correctly for both normal and celebrity users. 3 engineers.</p>
+      <p><strong>Month 4-5</strong>: Ranking pipeline. Feature store, light ranker, heavy ranker, A/B testing framework. <span class="hl">Goal</span>: ranked feed outperforms chronological. 3 ML + 1 DS + 1 backend.</p>
+      <p><strong>Month 5-6</strong>: Production hardening. Monitoring, alerting, runbooks, load testing (10x expected peak), chaos engineering, security review. All hands.</p>
+    </div>
+  </div>
+
+  <!-- ===== SCALE MATH ===== -->
+  <div class="section" id="sec-scale">
+    <h2>Scale Reasoning — Every Decision Grounded in Numbers</h2>
+    
+    <h3>Traffic Derivation</h3>
+    <div class="card">
+      <pre>
+Given: 50M DAU
+
+Read Path:
+  Avg feed reads/user/day: 10 (open app, scroll, refresh)
+  Total reads/day: 50M × 10 = 500M
+  Avg reads/sec: 500M / 86400 = ~5,800/sec
+  Peak multiplier: 25-30x (lunch hour + evening surge in largest timezone)
+  Peak reads/sec: <span style="color: var(--green);">~150,000/sec</span>
+
+Write Path:
+  Avg posts/user/day: 0.5 (not all users post daily)
+  Total posts/day: 50M × 0.5 = 25M
+  Avg writes/sec: 25M / 86400 = ~290/sec
+  Peak multiplier: 15-20x
+  Peak writes/sec: <span style="color: var(--green);">~5,000/sec</span>
+
+Read:Write ratio: <span style="color: var(--blue);">30:1</span> — classic read-heavy workload
+      </pre>
+    </div>
+    
+    <h3>Storage Derivation</h3>
+    <div class="card">
+      <pre>
+Posts:
+  25M posts/day × 1KB avg (text + metadata, excl. media) = 25GB/day
+  Per year: ~9TB
+  3-year retention: ~27TB across 64 shards = <span style="color: var(--green);">~420GB per shard</span>
+  → Well within PostgreSQL per-instance capacity
+
+Feed Cache (Redis):
+  50M users × 800 post IDs × (8 byte post_id + 8 byte score) = 640GB
+  With Redis overhead (~2x): <span style="color: var(--green);">~1.2TB total</span>
+  20 nodes × 64GB RAM (50% utilization) = 640GB usable ✓
+
+Post Cache (Redis):
+  Hot posts: ~100M active posts × 1KB = 100GB
+  <span style="color: var(--green);">5 nodes × 32GB RAM</span>
+
+Social Graph:
+  10B edges × 24 bytes (two int64 IDs + timestamp) = 240GB
+  2x for forward + reverse index = 480GB
+  <span style="color: var(--green);">16 MySQL shards</span> (30GB each)
+  Redis cache for hot adjacency lists: ~50GB
+
+Media (S3):
+  ~30% of posts have images: 7.5M images/day × 500KB avg = 3.75TB/day
+  Per year: <span style="color: var(--orange);">~1.4PB</span>
+  S3 tiering: hot (30 days) → infrequent access → glacier
+      </pre>
+    </div>
+    
+    <h3>Why Each Store Was Chosen (Scale-Justified)</h3>
+    <div class="card">
+      <table>
+        <tr><th>Decision</th><th>Scale Factor</th><th>Why This, Not That</th></tr>
+        <tr>
+          <td>Redis ZSET for feed cache</td>
+          <td>200K ops/sec, &lt;1ms</td>
+          <td>At 150K reads/sec, we need sub-ms latency. Only Redis gives sorted set with O(log N) operations at this speed. Memcached can't sort. PostgreSQL can't serve at this latency.</td>
+        </tr>
+        <tr>
+          <td>PostgreSQL for posts (not Cassandra)</td>
+          <td>5K writes/sec</td>
+          <td>5K writes/sec is <em>easily</em> within Postgres capability (single node handles 50K+). We don't need Cassandra's write-optimized LSM at this write volume. Postgres gives us richer queries, ACID, and simpler ops.</td>
+        </tr>
+        <tr>
+          <td>Kafka (not SQS/RabbitMQ)</td>
+          <td>500K msgs/sec, 5 consumer groups</td>
+          <td>Multiple independent consumers (fanout, search, analytics, notifications) each reading the same events. Kafka's consumer group model is purpose-built for this. SQS would need 5 separate queues with message duplication.</td>
+        </tr>
+        <tr>
+          <td>64 PostgreSQL shards</td>
+          <td>25M posts/day, 3-year retention</td>
+          <td>27TB / 64 = 420GB per shard. Postgres handles this with monthly partitioning. At 10x scale (500M DAU), we'd reshard to 256+ shards — but cross that bridge when we get there.</td>
+        </tr>
+        <tr>
+          <td>Hybrid fanout threshold at 10K</td>
+          <td>Balance: 56K writes/sec (push) + 15ms read overhead (pull)</td>
+          <td>Below 10K: push fanout is 200 writes per post, total ~56K/sec — manageable. Above 10K: each post would add 10K+ writes. At 5K celebrity posts/sec, that's 50M+ writes/sec — Redis cluster can't handle it.</td>
+        </tr>
+        <tr>
+          <td>20-node Redis cluster</td>
+          <td>600GB data, 200K ops/sec</td>
+          <td>Each node: 32GB RAM, 10K ops/sec. 20 nodes give 640GB capacity and 200K ops/sec throughput. Auto-failover with replicas. At 10x scale: 200 nodes (still manageable with Redis Cluster protocol).</td>
+        </tr>
+      </table>
+    </div>
+    
+    <h3>What Changes at 500M DAU (10x)</h3>
+    <div class="card">
+      <p>At 10x scale, several design decisions need to change:</p>
+      <p><span class="hl">Feed Cache</span>: 200-node Redis cluster becomes operationally painful. Consider migrating to a custom distributed cache (like Twitter's Manhattan) or partitioned Memcached with a sorted-set abstraction layer.</p>
+      <p><span class="hl">PostgreSQL sharding</span>: 256+ shards with Vitess or CockroachDB for automated resharding. Cross-shard queries become a real problem — may need to precompute more aggregations.</p>
+      <p><span class="hl">Fanout</span>: Celebrity threshold may need to drop to 5K. Consider geographic fanout partitioning (EU users processed by EU fanout workers).</p>
+      <p><span class="hl">Multi-region</span>: At 500M DAU, single-region latency is unacceptable for global users. Need active-active multi-region with conflict resolution for the social graph and posts.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Section navigation
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('sec-' + id).classList.add('active');
+    event.currentTarget.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Architecture detail panel
+  const archDetails = {
+    'cdn': '<strong>CDN / Edge Layer</strong><br><br>CloudFront or Akamai edge PoPs serve static assets (JS bundles, images, video thumbnails) and cache anonymous/trending feeds at the edge. This offloads 60-70% of read traffic from origin servers. Without CDN, our origin would need 400K+ req/sec capacity.<br><br><strong>Key decisions</strong>: All media served via signed URLs with 24h TTL — origin never serves media directly. Lambda@Edge handles auth token validation, reducing round-trips by 1 hop (~30ms saved).<br><br><strong>Failure mode</strong>: CDN outage → traffic falls back to origin. Auto-scaling must handle 3x burst within 60s. Media becomes slower but feed text still works.',
+    'apigw': '<strong>API Gateway (Envoy)</strong><br><br>Stateless, horizontally scalable gateway handling auth, rate limiting, routing. ~50 Envoy instances behind NLB, each handling ~3K concurrent connections. Auto-scales on CPU (target 60%).<br><br><strong>Rate limiting</strong>: Token bucket per user (100 req/min reads, 10 req/min writes), stored in Redis sliding window.<br><br><strong>Circuit breaker</strong>: If downstream error rate > 5%, return cached/degraded response. Load shedding priority: auth feed reads > anonymous > search > analytics.',
+    'lb': '<strong>L7 Load Balancer</strong><br><br>Uses consistent hashing on user_id for feed requests → same user hits same feed service instance → local LRU cache hit rate goes from ~20% to ~60%. At 150K req/sec, this saves ~90K Redis lookups/sec.<br><br><strong>Tradeoff</strong>: Instance failure causes cache misses for affected users for ~30s until ring rebalances. Uses least-connections for write paths (no affinity benefit).',
+    'feed-svc': '<strong>Feed Service — THE CORE</strong><br><br>Assembles personalized feeds. 95% of all traffic. Merges pre-computed feed (from fanout) with real-time pull (for celebrities), applies ranking, returns paginated results.<br><br><strong>Steps</strong>: Redis ZREVRANGE (5ms) → Celebrity pull parallel (20ms) → Merge dedup (1ms) → Hydrate posts (10ms) → ML rank (80ms) → Return top 20.<br><br><strong>Failure</strong>: Redis miss → reconstruct from DB (~2s). ML down → chronological fallback. Full outage → trending feed from CDN.',
+    'post-svc': '<strong>Post Service — Write Path</strong><br><br>Validate → Upload media to S3 → Generate Snowflake ID → Write to PostgreSQL (sync replication) → Publish to Kafka → Return post_id.<br><br><strong>Snowflake IDs</strong>: 41 bits timestamp + 10 bits machine + 13 bits sequence. Time-ordered, unique without coordination, embed shard routing. B-tree friendly (unlike UUIDs).<br><br><strong>Durability</strong>: Sync replication to 1 replica before ACK. RPO=0. Adds ~5ms but non-negotiable for user content.',
+    'fanout-svc': '<strong>Fanout Service — Hybrid Push/Pull</strong><br><br>THE defining component. Push for < 10K followers (99.9% of users), pull for > 10K followers (celebrities). Kafka consumers process PostCreated events, ZADD to follower feed caches, trim to 800 entries.<br><br><strong>Math</strong>: 280 non-celebrity posts/sec × 200 avg followers = 56K Redis writes/sec — very manageable. Celebrity posts NOT fanned out — pulled on read by Feed Service.<br><br><strong>Monitoring</strong>: Fanout lag (time from event to last cache update). Alert at p99 > 30s.',
+    'social-svc': '<strong>Social Graph Service</strong><br><br>10B directed edges. TAO-style adjacency lists in sharded MySQL. Forward index (who do I follow?) sharded by follower_id. Reverse index (who follows me?) sharded by followee_id. Two copies of edge data — query speed vs storage tradeoff.<br><br><strong>Caching</strong>: Redis SETs for adjacency lists. 95%+ hit rate. Event-driven invalidation on follow/unfollow.',
+    'ml-svc': '<strong>Ranking / ML Service</strong><br><br>3-stage pipeline: Candidate Gen (500 posts) → Light Ranker (500→50, logistic regression, 3ms) → Heavy Ranker (50→20, transformer, 50-80ms). Predicts P(like), P(reply), P(share), P(dwell > 10s).<br><br><strong>Feature Store</strong>: Redis-backed, precomputed. User features (hourly batch), post features (streaming), cross features (daily). < 5ms lookup.<br><br><strong>A/B testing</strong>: Every model change: offline eval → shadow mode → 1% canary for 7 days → full rollout.',
+    'notif-svc': '<strong>Notification Service</strong><br><br>Kafka consumer for interaction events. Aggregates (5 likes → 1 notification). Routes to WebSocket (online users) or push gateway (FCM/APNs for offline). ~25 WebSocket servers, 2M connections each.<br><br><strong>Failure</strong>: WebSocket crash → client auto-reconnects. Missed notifications retrieved via pull endpoint on reconnect. Kafka guarantees at-least-once delivery.',
+    'search-svc': '<strong>Search / Elasticsearch</strong><br><br>Full-text search with relevance scoring. 10 shards, 1 replica. Kafka consumer → ES bulk API (batches of 500, every 1s). Indexing lag < 2s. Separate trending index for real-time hashtag aggregation.',
+    'redis-store': '<strong>Redis Cluster — Feed Cache</strong><br><br>Key: feed:{user_id} → ZSET(post_id, timestamp). 50M users × 800 entries × 16 bytes = ~600GB. 20-node cluster, 32GB each.<br><br><strong>Why not Memcached?</strong> Lacks sorted sets. Would need O(N) serialize/deserialize vs O(log N) ZADD/ZREVRANGE. 10x slower for pagination.',
+    'pg-store': '<strong>PostgreSQL (Sharded) — Posts</strong><br><br>64 shards by author_id % 64. Schema: posts(post_id, author_id, content, media_urls, created_at, counters). Indexes: (author_id, created_at DESC), (post_id). Monthly table partitioning. 1 primary + 2 replicas per shard. Patroni for auto-failover.',
+    'graph-store': '<strong>TAO-style Graph Store</strong><br><br>follows(follower_id, followee_id, created_at). Forward + reverse index on separate shard keys. MySQL shards + Redis SET cache. 95% cache hit rate. Why not Neo4j? Our queries are simple adjacency lookups, not traversals. Relational + cache is faster and cheaper at 10B edges.',
+    'kafka-store': '<strong>Kafka — Event Bus</strong><br><br>12 brokers, RF=3, ISR min 2. Topics: posts.created (32 partitions), interactions (16), follows (8). 7-day retention for replay. Consumed by fanout, search, analytics, notifications independently. Why not RabbitMQ? Doesn\'t scale to 500K msgs/sec. Why not SQS? No ordering, no consumer groups, higher latency.'
+  };
+
+  function archDetail(el, id) {
+    document.querySelectorAll('.arch-box').forEach(b => b.style.borderColor = '');
+    el.style.borderColor = 'var(--blue)';
+    const panel = document.getElementById('arch-detail-panel');
+    panel.innerHTML = archDetails[id] || '';
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Flow detail panels
+  const flowDetails = {
+    write: [
+      { title: 'Client → POST /v1/posts', detail: 'Client sends post content, optional media_ids (pre-uploaded via presigned S3 URL), and optional reply_to. JWT token in Authorization header. Request size typically < 2KB for text-only posts.' },
+      { title: 'API Gateway — Auth + Rate Limit', detail: 'Envoy validates JWT token (< 1ms, cached public key). Rate limiter checks Redis sliding window: 10 posts/min per user. If over limit, returns 429 with Retry-After header. Spam classifier runs lightweight check (regex + basic ML, 5ms).' },
+      { title: 'Post Service — Validation', detail: 'Content validation: max 280 chars, UTF-8 sanitization, link extraction + URL shortening, hashtag extraction, @mention resolution (lookup user IDs). If reply_to specified, verify parent post exists. Generate Snowflake ID: 41-bit timestamp + 10-bit machine + 13-bit sequence.' },
+      { title: 'Media Service — S3 Upload', detail: 'If post has media, client has already uploaded via presigned URL (separate flow). Media Service validates: file type, dimensions, virus scan. Generates thumbnails (150px, 300px, 600px). Returns CDN URLs. This is async — post can be published before thumbnails are fully generated.' },
+      { title: 'PostgreSQL — Persist', detail: 'INSERT into posts table on shard = author_id % 64. Synchronous replication to 1 replica before ACK (RPO=0). Write latency: ~15ms including replication. Snowflake ID used as primary key — B-tree friendly (monotonically increasing).' },
+      { title: 'Kafka — Publish Event', detail: 'Publish PostCreated event to posts.created topic, partition key = author_id. Event contains: post_id, author_id, timestamp, content hash. Producer ack=1 (leader ACK). At this point, client receives 200 OK with post_id. Everything downstream is async.' },
+      { title: 'Fanout Workers — Distribute', detail: 'Kafka consumers (32 instances, 1 per partition) read PostCreated events. Check if author is_celebrity flag. If normal user: fetch follower list from Social Graph cache, then ZADD post_id to each follower\'s Redis feed cache. Pipeline batches of 100 followers per Redis roundtrip. If celebrity: skip (handled on read path).' },
+      { title: 'Redis — Feed Cache Updated', detail: 'For each follower: ZADD feed:{follower_id} {timestamp} {post_id}, then ZREMRANGEBYRANK to trim to 800 entries. Average fanout per post: 200 followers. Total: 56K Redis writes/sec at peak. Each write < 0.1ms. Follower\'s next feed read will include this post.' }
+    ],
+    read: [
+      { title: 'Client → GET /v1/feed', detail: 'Client sends cursor (opaque string encoding last-seen timestamp + post_id) and limit=20. First request has no cursor (loads latest). Cursor-based pagination is stable under concurrent writes — no missed or duplicate posts.' },
+      { title: 'Feed Service — Orchestrate', detail: 'The orchestrator. Determines which followees are celebrities (cached in local memory, updated every 5 min from Social Graph). Launches parallel requests: (1) Redis feed cache read, (2) Celebrity post pulls. Manages latency budget across steps.' },
+      { title: 'Redis — Read Push Feed', detail: 'ZREVRANGEBYSCORE feed:{user_id} +inf {cursor_timestamp} LIMIT 0 500. Returns up to 500 post_ids with timestamps, ordered newest first. This is the pre-fanned-out feed from normal (non-celebrity) followees. O(log N + 500) operation, typically < 5ms.' },
+      { title: 'Pull Celebrity Posts', detail: 'For each celebrity the user follows (typically 3-10), parallel-fetch their latest N posts. First try: Redis cache of celebrity timeline. Cache miss: hit Posts DB read replica. All fetches run in parallel — latency is max(individual fetches), not sum. Typically 10-25ms.' },
+      { title: 'Merge + Dedup', detail: 'In-memory merge of push feed post_ids + celebrity post_ids. Merge sort by timestamp (both lists are pre-sorted). Deduplication by post_id (handles edge case of celebrity going below 10K threshold). Result: unified candidate list of ~500 posts. O(N) merge, < 2ms.' },
+      { title: 'Hydrate Posts', detail: 'Batch-fetch full post objects for top 50 candidates (after light ranking). Redis MGET for post:{post_id} hashes. Cache miss rate < 5% for recent posts. Hydrated object includes: text, author info, media URLs, engagement counts (approximate, updated every 30s).' },
+      { title: 'ML Ranking', detail: '3-stage pipeline: (1) Light ranker scores all 500 candidates — logistic regression on recency, author engagement rate, content type → top 50. (2) Feature Store lookup — user features, post features, cross features via Redis MGET (< 5ms). (3) Heavy ranker (transformer) scores 50 → 20 on P(like), P(reply), P(share), P(dwell > 10s). Total ML time: 50-80ms.' },
+      { title: 'Return Top 20', detail: 'Serialize top 20 posts with next_cursor (timestamp + post_id of last item) and has_more flag. Apply diversity filter (no more than 3 posts from same author). Apply policy filters (content warnings, age restrictions). Response size: ~20KB. Total latency: p50 ~80ms, p99 ~150ms.' }
+    ],
+    rank: [
+      { title: 'Candidate Generation', detail: '~500 posts from the merged push+pull feed. These are ALL posts the user is eligible to see. At this stage we\'ve spent ~25ms. The question now is: which 20 of these 500 should the user see first? Random selection would give 4% chance of showing the best post first. Ranking gives >80%.' },
+      { title: 'Light Ranker (500 → 50)', detail: 'Simple logistic regression model. Features: post age (exponential decay), author engagement rate (historical), content type (image/video/text), is_reply flag. Trained on click-through data, updated weekly. Inference: < 0.1ms per post, ~3ms total for 500 posts. Eliminates 90% of low-quality candidates cheaply.' },
+      { title: 'Heavy Ranker (50 → 20)', detail: 'Transformer-based deep model. Inputs: user embedding (128-dim, from Feature Store), post embedding (from content + engagement signals), cross features (user-author affinity). Predicts 4 targets: P(like), P(reply), P(share), P(dwell_time > 10s). Final score = weighted combination (tuned via A/B tests). Batch inference on 50 posts: 50ms p50, 80ms p99. Served by TensorFlow Serving on GPU instances.' },
+      { title: 'Diversity + Policy (Final 20)', detail: 'Post-ranking adjustments: (1) Diversity: cap 3 posts per author, interleave topics to avoid "filter bubble". (2) Policy: apply content warnings, age gates, hide posts from blocked users. (3) Freshness boost: slight re-rank to ensure at least 30% of feed is < 1 hour old (prevents "stale but popular" domination). (4) Ad slots: inject 1 ad per 5 organic posts (positions 4, 9, 14, 19).' }
+    ]
+  };
+
+  function showFlowDetail(flow, step, el) {
+    const container = el.closest('.section');
+    container.querySelectorAll('.flow-step').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    
+    const detailEl = document.getElementById(flow + '-flow-detail');
+    const data = flowDetails[flow][step];
+    detailEl.innerHTML = '<div class="flow-detail-title">' + data.title + '</div><p>' + data.detail + '</p>';
+    detailEl.classList.add('show');
+  }
+
+  // Toggle comparisons
+  function showToggle(group, index, btn) {
+    for (let i = 0; i < 5; i++) {
+      const el = document.getElementById(group + '-' + i);
+      if (el) el.classList.toggle('active', i === index);
+    }
+    btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>

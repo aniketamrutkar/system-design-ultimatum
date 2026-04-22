@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Google Photos — System Design</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#08080e;--bg2:#0d0d18;--bg3:#12121f;--bg4:#16162a;--border:#1e1e30;--border2:#2a2a45;--text:#c8c8d8;--text-dim:#5a5a78;--text-mid:#8888a8;--blue:#5b9cf5;--blue-dim:#0d1e3a;--blue-mid:#1a3a6a;--green:#4ecb8a;--green-dim:#0a2018;--green-mid:#1a4030;--orange:#f0a050;--orange-dim:#2a1a08;--red:#f06060;--red-dim:#2a0f0f;--purple:#a78bfa;--purple-dim:#1a0f35;--teal:#2dd4bf;--teal-dim:#082520;--amber:#fbbf24;--amber-dim:#241a00;--coral:#fb7185;--coral-dim:#2a0818}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.7}
+.header{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.header-title{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#fff}
+.header-sub{font-size:12px;color:var(--text-mid);margin-top:2px}
+.header-badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:4px 10px;border-radius:20px;letter-spacing:.5px}
+.badge-blue{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-mid)}
+.badge-green{background:var(--green-dim);color:var(--green);border:1px solid var(--green-mid)}
+.nav-wrap{position:sticky;top:57px;z-index:99;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.nav{display:flex;padding:0 20px;gap:2px;white-space:nowrap}
+.nav-btn{background:none;border:none;color:var(--text-mid);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.nav-btn:hover{color:var(--text)}.nav-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+.container{max-width:1200px;margin:0 auto;padding:28px 24px}
+.section{display:none}.section.active{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1000px){.grid3,.grid4{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin-bottom:16px}
+.card-title{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--blue);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
+.metric{background:var(--bg3);border-radius:8px;padding:16px;text-align:center}
+.metric-value{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--green)}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-top:4px}
+.callout{border-radius:10px;padding:16px 20px;margin:14px 0;font-size:14px}
+.callout-label{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:1.5px;margin-bottom:8px;display:block}
+.em-callout{background:var(--purple-dim);border:1px solid #2a1a5a}.em-callout .callout-label{color:var(--purple)}
+.failure-callout{background:var(--red-dim);border:1px solid #3a1515}.failure-callout .callout-label{color:var(--red)}
+.tradeoff-callout{background:var(--orange-dim);border:1px solid #3a2810}.tradeoff-callout .callout-label{color:var(--orange)}
+.insight-callout{background:var(--teal-dim);border:1px solid #0f3530}.insight-callout .callout-label{color:var(--teal)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+th{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid #0f0f20;vertical-align:top}tr:hover td{background:var(--bg3)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;letter-spacing:.3px}
+.tag-p0{background:var(--red-dim);color:var(--red);border:1px solid #4a1a1a}
+.tag-p1{background:var(--orange-dim);color:var(--orange);border:1px solid #3a2a10}
+.tag-p2{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-mid)}
+.tag-green{background:var(--green-dim);color:var(--green);border:1px solid var(--green-mid)}
+code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:3px;color:var(--green);border:1px solid var(--border)}
+pre{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:12px 0;color:var(--text);line-height:1.8}
+h2{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#fff;margin:24px 0 14px}
+h3{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--blue);margin:18px 0 10px}
+h4{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--text-mid);margin:14px 0 8px}
+p{margin-bottom:10px}ul,ol{margin:8px 0 10px 20px}li{margin-bottom:4px}
+.hl{color:var(--blue)}.hlg{color:var(--green)}.hlo{color:var(--orange)}.hlr{color:var(--red)}.hlp{color:var(--purple)}.hlt{color:var(--teal)}
+.arch-layer{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.arch-layer-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.arch-row{display:flex;gap:8px;flex-wrap:wrap}
+.arch-box{border-radius:8px;padding:10px 12px;border:1px solid;cursor:pointer;transition:all .2s;min-width:110px;flex:1}
+.arch-box:hover{transform:translateY(-1px)}.arch-box-name{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600}.arch-box-sub{font-size:10px;margin-top:3px;opacity:.7}
+.ab-gray{background:var(--bg3);border-color:var(--border)}.ab-teal{background:#081a18;border-color:#0f3530}
+.ab-blue{background:var(--blue-dim);border-color:var(--blue-mid)}.ab-amber{background:var(--amber-dim);border-color:#3a2800}
+.ab-coral{background:var(--coral-dim);border-color:#3a1020}.ab-purple{background:var(--purple-dim);border-color:#2a1a4a}
+.ab-green{background:var(--green-dim);border-color:var(--green-mid)}
+.arch-detail-panel{background:var(--bg2);border:1px solid var(--blue-mid);border-radius:10px;padding:20px;margin-top:16px;display:none}
+.arch-detail-panel.show{display:block}
+.arch-arrow{text-align:center;color:var(--text-dim);font-size:18px;margin:4px 0}
+.flow-wrap{margin:16px 0}
+.flow-steps{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+.flow-step{cursor:pointer;padding:8px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:11px;transition:all .2s;white-space:nowrap}
+.flow-step:hover,.flow-step.active{background:var(--blue-dim);border-color:var(--blue-mid);color:var(--blue)}
+.flow-arrow-h{color:var(--text-dim);font-size:14px}
+.flow-detail-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;min-height:80px;display:none}
+.flow-detail-box.show{display:block}
+.flow-detail-title{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--teal);margin-bottom:10px}
+.dd-nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.dd-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text-mid);font-family:'JetBrains Mono',monospace;font-size:10px;padding:6px 12px;border-radius:20px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.dd-btn:hover{border-color:var(--border2);color:var(--text)}.dd-btn.active{background:var(--blue-dim);border-color:var(--blue-mid);color:var(--blue)}
+.dd-content-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:22px}
+.dd-header{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.dd-title{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#fff}
+.dd-tech{font-size:12px;color:var(--teal);margin-top:4px}.dd-scale{font-size:12px;color:var(--text-dim);margin-top:2px}
+.phase{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:14px}
+.phase-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.phase-badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:4px 12px;letter-spacing:.5px}
+.pb-1{background:var(--green-dim);color:var(--green);border:1px solid var(--green-mid);border-radius:20px}
+.pb-2{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue-mid);border-radius:20px}
+.pb-3{background:var(--purple-dim);color:var(--purple);border:1px solid #3a1a6a;border-radius:20px}
+.phase-title{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#fff}
+.phase-duration{font-size:12px;color:var(--text-dim);margin-left:auto}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="header-title">Google Photos — End-to-End System Design</div>
+    <div class="header-sub">Global · 1B+ users · Upload · View · Search · Sharing · ML · Caching</div>
+  </div>
+  <div class="header-badges">
+    <span class="badge badge-blue">Staff / Principal depth</span>
+    <span class="badge badge-green">Google rubric: Outstanding</span>
+  </div>
+</div>
+<div class="nav-wrap"><nav class="nav">
+  <button class="nav-btn active" onclick="show('overview',this)">Overview</button>
+  <button class="nav-btn" onclick="show('requirements',this)">Requirements</button>
+  <button class="nav-btn" onclick="show('architecture',this)">Architecture</button>
+  <button class="nav-btn" onclick="show('deepdives',this)">Deep Dives</button>
+  <button class="nav-btn" onclick="show('upload',this)">Upload Flow</button>
+  <button class="nav-btn" onclick="show('view',this)">View Flow</button>
+  <button class="nav-btn" onclick="show('viral',this)">Viral/Surge</button>
+  <button class="nav-btn" onclick="show('datastores',this)">Data Stores</button>
+  <button class="nav-btn" onclick="show('systems',this)">Systems Thinking</button>
+  <button class="nav-btn" onclick="show('nfr',this)">Non-Functional</button>
+  <button class="nav-btn" onclick="show('tradeoffs',this)">Tradeoffs</button>
+  <button class="nav-btn" onclick="show('em',this)">EM Angle</button>
+  <button class="nav-btn" onclick="show('scalemath',this)">Scale Math</button>
+</nav></div>
+<div class="container">
+<!-- OVERVIEW -->
+<div class="section active" id="sec-overview">
+<h2>Google Photos — System Design</h2>
+<div class="callout insight-callout"><span class="callout-label">PROBLEM STATEMENT</span>Design a global-scale photo storage and management platform serving <strong>1B+ MAU / 500M DAU</strong>. Engineering challenges: (1) ingest 4B photos/day at 162 GB/s sustained, (2) serve trillions of variants with &gt;97% CDN hit rate at p99 &lt;200ms, (3) run ML pipelines (CLIP, FaceNet, YOLO) without touching the write-path latency, (4) zero data loss on irreplaceable personal memories — 11 nines durability.</div>
+<div class="grid4" style="margin-top:20px">
+<div class="metric"><div class="metric-value">1B+</div><div class="metric-label">Monthly active users</div></div>
+<div class="metric"><div class="metric-value">4B</div><div class="metric-label">Photos uploaded / day</div></div>
+<div class="metric"><div class="metric-value">4 EB</div><div class="metric-label">Total corpus stored</div></div>
+<div class="metric"><div class="metric-value">&lt;200ms</div><div class="metric-label">p99 thumbnail SLO</div></div>
+<div class="metric"><div class="metric-value">97%+</div><div class="metric-label">CDN hit rate target</div></div>
+<div class="metric"><div class="metric-value">99.99%</div><div class="metric-label">Availability SLO</div></div>
+<div class="metric"><div class="metric-value">11-nine</div><div class="metric-label">Durability (RPO=0)</div></div>
+<div class="metric"><div class="metric-value">11.5M</div><div class="metric-label">Peak media req/sec</div></div>
+</div>
+<div class="grid2" style="margin-top:20px">
+<div class="card"><div class="card-title">User Types</div><ul>
+<li><span class="hl">End users</span> — upload, view, search, share, manage photos &amp; videos</li>
+<li><span class="hl">Shared album recipients</span> — view-only or contributor access via link</li>
+<li><span class="hl">Third-party apps</span> — OAuth 2.0 API (print services, editors, frames)</li>
+<li><span class="hl">Internal operators</span> — CSAM moderation, abuse review dashboard</li>
+<li><span class="hl">ML pipeline workers</span> — async batch consumers of media &amp; metadata events</li>
+</ul></div>
+<div class="card"><div class="card-title">Five Core Architectural Decisions</div><ul>
+<li><span class="hlg">Content-addressed storage</span> — photo_id = SHA-256(bytes) → dedup + immutable URLs + infinite CDN TTL, no invalidation</li>
+<li><span class="hlt">4-tier cache hierarchy</span> — client LRU → CDN edge → regional NVMe/Redis → origin Colossus</li>
+<li><span class="hlo">Async ML pipeline</span> — CLIP/FaceNet/YOLO runs off write-path via Kafka; photos visible in grid immediately, searchable in ~30s</li>
+<li><span class="hlp">Saga orchestration</span> — upload is a 3-phase saga (initiate→transfer→commit); compensating actions on each failure</li>
+<li><span class="hl">Write-once semantics</span> — photos never mutated; edits produce new derived objects; original preserved forever</li>
+</ul></div>
+</div></div>
+<!-- REQUIREMENTS -->
+<div class="section" id="sec-requirements">
+<h2>Requirements</h2>
+<h3>Functional Requirements</h3>
+<table>
+<tr><th>Feature</th><th>Description</th><th>Priority</th></tr>
+<tr><td>Photo/video upload</td><td>Resumable TUS protocol, multi-file, up to 4K video / 200 MB per file, mobile auto-backup</td><td><span class="tag tag-p0">P0</span></td></tr>
+<tr><td>Photo viewing</td><td>Paginated grid, full-resolution view, multi-resolution progressive load with skeleton placeholders</td><td><span class="tag tag-p0">P0</span></td></tr>
+<tr><td>Storage &amp; backup</td><td>Unlimited compressed storage (free tier); original-quality requires Google One subscription</td><td><span class="tag tag-p0">P0</span></td></tr>
+<tr><td>Delete &amp; Trash</td><td>Soft delete, 60-day recovery window, permanent delete, bulk operations, shared-album unlink</td><td><span class="tag tag-p0">P0</span></td></tr>
+<tr><td>Album management</td><td>Create/edit/delete albums, add/remove photos, drag-reorder, cover photo selection</td><td><span class="tag tag-p0">P0</span></td></tr>
+<tr><td>CSAM detection</td><td>PhotoDNA + perceptual hash on every upload synchronously before metadata commit — legal requirement</td><td><span class="tag tag-p0">P0</span></td></tr>
+<tr><td>Semantic search</td><td>Natural-language queries via CLIP embeddings ("beach sunset with kids"), scene/object labels, OCR text-in-image</td><td><span class="tag tag-p1">P1</span></td></tr>
+<tr><td>Face grouping</td><td>FaceNet clusters faces per user, user labels clusters with names, search by person</td><td><span class="tag tag-p1">P1</span></td></tr>
+<tr><td>Sharing</td><td>Share albums/photos via link, shared albums with optional contributor mode, FCM notifications</td><td><span class="tag tag-p1">P1</span></td></tr>
+<tr><td>Memories / On This Day</td><td>ML-curated highlights from past years; auto-generated collage videos</td><td><span class="tag tag-p1">P1</span></td></tr>
+<tr><td>Photo editing</td><td>Auto-enhance, filters, crop, brightness/contrast/shadows — edits create new derived objects</td><td><span class="tag tag-p1">P1</span></td></tr>
+<tr><td>Video streaming</td><td>Adaptive bitrate HLS/DASH, lazy transcode to 360p/720p/1080p/4K on first request</td><td><span class="tag tag-p1">P1</span></td></tr>
+<tr><td>Partner OAuth API</td><td>Scoped access (photoslibrary.readonly / appendonly) for print, edit, frame apps</td><td><span class="tag tag-p2">P2</span></td></tr>
+<tr><td>Google Lens integration</td><td>Object ID, text extraction, product search from within a photo</td><td><span class="tag tag-p2">P2</span></td></tr>
+</table>
+<h3>Non-Functional Requirements</h3>
+<table>
+<tr><th>Dimension</th><th>Target</th><th>Justification</th></tr>
+<tr><td>Availability</td><td>99.99% (52 min/year downtime)</td><td>Primary backup for most users; extended outage = permanent trust destruction and user exit</td></tr>
+<tr><td>Thumbnail latency</td><td>p99 &lt;200ms CDN hit · &lt;800ms miss</td><td>Grid render must complete within 1 scroll event; &gt;500ms causes visible jank and abandonment</td></tr>
+<tr><td>Search latency</td><td>p99 &lt;500ms</td><td>Users compare to Google.com — anything &gt;1s feels broken for a Google product</td></tr>
+<tr><td>Upload throughput</td><td>100 Mbps sustained per session</td><td>4K video ~350 MB — users expect background upload in &lt;30s on WiFi</td></tr>
+<tr><td>Durability</td><td>11 nines (99.999999999%)</td><td>Irreplaceable personal memories; data loss = permanent damage; cannot be undone</td></tr>
+<tr><td>Consistency — own data</td><td>Strong</td><td>Stale photo count or recently-deleted photo re-appearing = catastrophic user experience</td></tr>
+<tr><td>Consistency — shared albums</td><td>Eventual (~2s)</td><td>Contributor upload visible to others in &lt;2s acceptable; cross-region sync latency unavoidable</td></tr>
+<tr><td>Privacy — face data</td><td>Never leaves user's home region</td><td>Biometric data — GDPR Article 9; legal liability on cross-region replication</td></tr>
+<tr><td>CDN hit rate</td><td>&gt;97%</td><td>Origin fetch + transcode = 500ms+; every miss above 3% materially impacts grid load time</td></tr>
+<tr><td>Peak scale multiplier</td><td>5× holiday surge</td><td>Diwali/Christmas/NYE upload volume spikes 5×; must autoscale to full capacity in &lt;5 minutes</td></tr>
+<tr><td>Post-upload search lag</td><td>&lt;60s SLO</td><td>ML pipeline must complete CLIP index within 60s of upload for newly uploaded photos to appear in search</td></tr>
+</table>
+<h3>Capacity Estimates</h3>
+<div class="card"><div class="card-title">Back of Envelope</div><pre>
+Users:                  1B MAU · 500M DAU · 500M uploaders
+Photos uploaded/day:    500M users × 8 photos avg = 4B photos/day
+Average photo size:     3.5 MB (HEIC/JPEG compressed; ~8 MB RAW original)
+Upload ingestion:       4B × 3.5 MB ÷ 86,400s = ~162 GB/s avg | peak 5× = ~810 GB/s
+Upload req/sec:         4B ÷ 86,400 = ~46K/s avg | peak ~230K/s
+Storage growth/year:    162 GB/s × 86,400 × 365 = ~5.1 PB/day = 1.86 EB/year
+Total corpus (7yr):     ~4 EB originals | 8 variants each = ~32 EB with derivatives | 3× geo-rep = ~24 EB raw
+Photo view req/sec:     1B DAU × 200 views/day ÷ 86,400 = ~2.3M/s avg | peak ~11.5M/s
+CDN absorbs 97%:        ~345K req/s reach origin at peak
+Redis metadata cache:   500M users × 2 KB active metadata = ~1 TB/region
+Transcode workers:      46K uploads/s × 4s GPU avg = 184K concurrent jobs → ~2,300 A100 GPUs
+Kafka throughput:       ~100K events/s → 500 partitions
+CLIP vector DB:         4T photos × 512 dims × 4B = ~8.2 PB → ScaNN PQ → ~512 TB indexed
+</pre></div>
+<h3>Core API Design</h3>
+<pre>
+# Upload (TUS resumable — client computes SHA-256 before initiating)
+POST   /v1/uploads/initiate         → {session_id, gcs_signed_url, expires_at}
+PATCH  {gcs_signed_url}             → chunked binary (5 MB chunks, TUS protocol)
+HEAD   /v1/uploads/{session_id}     → {Upload-Offset, status}
+
+# Media serving — CDN-fronted, content-addressed, immutable
+GET  /p/{user_hash}/{photo_id}?w={w}&q={q}&fmt={fmt}   # thumbnail/variant
+GET  /p/{user_hash}/{photo_id}/original                  # full resolution
+
+# Library
+GET    /v1/library?page_token=&per_page=50   # reverse-chron grid, cursor-paginated
+DELETE /v1/library/{photo_id}                # → trash
+POST   /v1/library/{photo_id}/restore        # ← from trash
+
+# Albums
+POST   /v1/albums                             # create
+GET    /v1/albums/{id}?page_token=            # contents
+PATCH  /v1/albums/{id}                        # title / cover
+POST   /v1/albums/{id}/photos                 # add photos (array)
+
+# Search
+GET    /v1/search?q=beach+sunset&page_token=  # semantic CLIP + keyword hybrid
+GET    /v1/search/people/{person_id}          # by face cluster
+
+# Sharing
+POST   /v1/shares                             # create link → {share_token}
+GET    /v1/shares/{token}                     # public shared album (no auth)
+
+# Partner OAuth v2
+GET    /v2/mediaItems?albumId=&pageSize=      # read
+POST   /v2/mediaItems:batchCreate             # write (appendonly scope)
+</pre>
+<h3>Key Clarifying Decisions</h3>
+<table>
+<tr><th>Question</th><th>Decision</th><th>Why</th></tr>
+<tr><td>Storage model: unlimited or capped?</td><td>Compressed unlimited (free); original quality = Google One paid tier</td><td>Compression reduces corpus by ~60%; storage upsell is core monetization</td></tr>
+<tr><td>Are photos mutable after upload?</td><td>No — write-once. Edits create new derived objects.</td><td>Enables content-addressed caching with infinite TTL; no cache invalidation needed for originals</td></tr>
+<tr><td>Face recognition: on-device or server?</td><td>On-device enrollment (ML Kit), server-side clustering for cross-device grouping</td><td>Avoids sending raw biometric data across regions; satisfies GDPR Article 9 constraint</td></tr>
+<tr><td>Video storage: original or transcode-only?</td><td>Store original + async transcode to HLS at 4 bitrates</td><td>Users expect original preservation; HLS required for adaptive streaming across network conditions</td></tr>
+<tr><td>Shared album consistency?</td><td>Eventual (~2s) — acceptable for social feature</td><td>Strong consistency = cross-region synchronous writes = 300ms latency tax on every contributor upload</td></tr>
+</table>
+</div>
+<!-- ARCHITECTURE -->
+<div class="section" id="sec-architecture">
+<h2>System Architecture — 8 Layers</h2>
+<div class="callout insight-callout"><span class="callout-label">ARCHITECTURAL PATTERN</span><strong>Write-fan-out + Read-cache-first.</strong> Every upload flows: resumable ingestion service → blob commit to Colossus → Kafka fan-out to async consumers (transcode, ML, index, cache-warm). Every read checks 4 cache tiers before touching origin. The metadata plane (Bigtable) and media plane (Colossus/GCS) scale independently. Kafka is the integration bus — write path decoupled from all downstream intelligence.</div>
+
+<div class="arch-layer"><div class="arch-layer-label">L1 — Clients</div><div class="arch-row">
+<div class="arch-box ab-gray" onclick="archDetail(this,'android')"><div class="arch-box-name">Android App</div><div class="arch-box-sub">Auto-backup · on-device ML</div></div>
+<div class="arch-box ab-gray" onclick="archDetail(this,'ios')"><div class="arch-box-name">iOS App</div><div class="arch-box-sub">BGProcessingTask · HEIC</div></div>
+<div class="arch-box ab-gray" onclick="archDetail(this,'web')"><div class="arch-box-name">Web PWA</div><div class="arch-box-sub">Service Worker · IndexedDB</div></div>
+<div class="arch-box ab-gray" onclick="archDetail(this,'partner')"><div class="arch-box-name">Partner API Clients</div><div class="arch-box-sub">OAuth 2.0 scoped apps</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:#081a18;border-color:#0f3530"><div class="arch-layer-label">L2 — Edge</div><div class="arch-row">
+<div class="arch-box ab-teal" onclick="archDetail(this,'cdn')"><div class="arch-box-name">CDN / Media PoPs</div><div class="arch-box-sub">200+ nodes · LIRS eviction</div></div>
+<div class="arch-box ab-teal" onclick="archDetail(this,'armor')"><div class="arch-box-name">Cloud Armor / WAF</div><div class="arch-box-sub">DDoS · OWASP rules</div></div>
+<div class="arch-box ab-teal" onclick="archDetail(this,'glb')"><div class="arch-box-name">Global LB (Anycast)</div><div class="arch-box-sub">Geo-routing · health failover</div></div>
+<div class="arch-box ab-teal" onclick="archDetail(this,'gateway')"><div class="arch-box-name">API Gateway (Envoy)</div><div class="arch-box-sub">JWT authn · rate-limit</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--blue-dim);border-color:var(--blue-mid)"><div class="arch-layer-label">L3A — Write Path</div><div class="arch-row">
+<div class="arch-box ab-blue" onclick="archDetail(this,'uploadsvc')"><div class="arch-box-name">Upload Service</div><div class="arch-box-sub">TUS protocol · session state</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'dedupsvc')"><div class="arch-box-name">Dedup Service</div><div class="arch-box-sub">SHA-256 · bloom filter</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'ingestsvc')"><div class="arch-box-name">Ingest Coordinator</div><div class="arch-box-sub">Saga orchestrator · state machine</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'scanner')"><div class="arch-box-name">Safety Scanner</div><div class="arch-box-sub">PhotoDNA · CSAM · NSFW</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--blue-dim);border-color:var(--blue-mid)"><div class="arch-layer-label">L3B — Read Path</div><div class="arch-row">
+<div class="arch-box ab-blue" onclick="archDetail(this,'libsvc')"><div class="arch-box-name">Library Service</div><div class="arch-box-sub">Grid · albums · metadata</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'searchsvc')"><div class="arch-box-name">Search Service</div><div class="arch-box-sub">CLIP · ScaNN · OCR · faces</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'mediasvc')"><div class="arch-box-name">Media Serving</div><div class="arch-box-sub">Variant routing · fmt negotiation</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'sharesvc')"><div class="arch-box-name">Share Service</div><div class="arch-box-sub">Links · contributor albums</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'trashsvc')"><div class="arch-box-name">Trash / Lifecycle</div><div class="arch-box-sub">60-day TTL · hard delete</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--blue-dim);border-color:var(--blue-mid)"><div class="arch-layer-label">L3C — Async Intelligence</div><div class="arch-row">
+<div class="arch-box ab-blue" onclick="archDetail(this,'transcode')"><div class="arch-box-name">Transcode Pipeline</div><div class="arch-box-sub">JPEG/WEBP/AVIF/HLS · A100</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'mlpipe')"><div class="arch-box-name">ML Pipeline</div><div class="arch-box-sub">CLIP · YOLO · FaceNet · OCR</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'indexsvc')"><div class="arch-box-name">Index Service</div><div class="arch-box-sub">ScaNN writes · inverted index</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'notifsvc')"><div class="arch-box-name">Notification Service</div><div class="arch-box-sub">FCM · APNs · WebSocket</div></div>
+<div class="arch-box ab-blue" onclick="archDetail(this,'warmer')"><div class="arch-box-name">Cache Warmer</div><div class="arch-box-sub">Pre-warm CDN on upload</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--amber-dim);border-color:#3a2800"><div class="arch-layer-label">L4 — Async Event Bus (Kafka / Google Pub/Sub)</div><div class="arch-row">
+<div class="arch-box ab-amber" onclick="archDetail(this,'k1')"><div class="arch-box-name">photo.uploaded</div><div class="arch-box-sub">100 partitions</div></div>
+<div class="arch-box ab-amber" onclick="archDetail(this,'k2')"><div class="arch-box-name">photo.transcoded</div><div class="arch-box-sub">50 partitions</div></div>
+<div class="arch-box ab-amber" onclick="archDetail(this,'k3')"><div class="arch-box-name">photo.indexed</div><div class="arch-box-sub">50 partitions</div></div>
+<div class="arch-box ab-amber" onclick="archDetail(this,'k4')"><div class="arch-box-name">photo.deleted</div><div class="arch-box-sub">30 partitions</div></div>
+<div class="arch-box ab-amber" onclick="archDetail(this,'k5')"><div class="arch-box-name">album.updated</div><div class="arch-box-sub">30 partitions</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--coral-dim);border-color:#3a1020"><div class="arch-layer-label">L5 — Data Stores</div><div class="arch-row">
+<div class="arch-box ab-coral" onclick="archDetail(this,'bigtable')"><div class="arch-box-name">Bigtable</div><div class="arch-box-sub">Photo metadata · 4T rows</div></div>
+<div class="arch-box ab-coral" onclick="archDetail(this,'colossus')"><div class="arch-box-name">Colossus / GCS</div><div class="arch-box-sub">Blob store · 4+ EB</div></div>
+<div class="arch-box ab-coral" onclick="archDetail(this,'spanner')"><div class="arch-box-name">Cloud Spanner</div><div class="arch-box-sub">Albums · shares · ACID</div></div>
+<div class="arch-box ab-coral" onclick="archDetail(this,'redis')"><div class="arch-box-name">Redis Cluster</div><div class="arch-box-sub">Hot metadata · sessions</div></div>
+<div class="arch-box ab-coral" onclick="archDetail(this,'scann')"><div class="arch-box-name">Vertex AI ScaNN</div><div class="arch-box-sub">CLIP vectors · ANN search</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--purple-dim);border-color:#2a1a4a"><div class="arch-layer-label">L6 — External Integrations</div><div class="arch-row">
+<div class="arch-box ab-purple" onclick="archDetail(this,'gauth')"><div class="arch-box-name">Google Identity</div><div class="arch-box-sub">OAuth 2.0 · OIDC</div></div>
+<div class="arch-box ab-purple" onclick="archDetail(this,'fcm')"><div class="arch-box-name">FCM / APNs</div><div class="arch-box-sub">Push notifications</div></div>
+<div class="arch-box ab-purple" onclick="archDetail(this,'pdna')"><div class="arch-box-name">PhotoDNA (NCMEC)</div><div class="arch-box-sub">CSAM hash matching</div></div>
+<div class="arch-box ab-purple" onclick="archDetail(this,'gone')"><div class="arch-box-name">Google One Billing</div><div class="arch-box-sub">Storage subscription</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer" style="background:var(--green-dim);border-color:var(--green-mid)"><div class="arch-layer-label">L7 — Multi-Region</div><div class="arch-row">
+<div class="arch-box ab-green" onclick="archDetail(this,'r-us')"><div class="arch-box-name">US (us-central1)</div><div class="arch-box-sub">Primary write region</div></div>
+<div class="arch-box ab-green" onclick="archDetail(this,'r-eu')"><div class="arch-box-name">EU (europe-west1)</div><div class="arch-box-sub">GDPR data residency</div></div>
+<div class="arch-box ab-green" onclick="archDetail(this,'r-in')"><div class="arch-box-name">India (asia-south1)</div><div class="arch-box-sub">DPDP compliance</div></div>
+<div class="arch-box ab-green" onclick="archDetail(this,'r-ap')"><div class="arch-box-name">APAC (asia-east1)</div><div class="arch-box-sub">Low-latency serving</div></div>
+</div></div>
+<div class="arch-arrow">↓</div>
+
+<div class="arch-layer"><div class="arch-layer-label">L8 — Observability + CI/CD</div><div class="arch-row">
+<div class="arch-box ab-gray" onclick="archDetail(this,'mon')"><div class="arch-box-name">Cloud Monitoring</div><div class="arch-box-sub">SLO dashboards · error budget</div></div>
+<div class="arch-box ab-gray" onclick="archDetail(this,'trace')"><div class="arch-box-name">Cloud Trace</div><div class="arch-box-sub">Distributed tracing</div></div>
+<div class="arch-box ab-gray" onclick="archDetail(this,'log')"><div class="arch-box-name">Cloud Logging</div><div class="arch-box-sub">Structured JSON · 30d hot</div></div>
+<div class="arch-box ab-gray" onclick="archDetail(this,'cicd')"><div class="arch-box-name">GKE + Spinnaker</div><div class="arch-box-sub">Canary deploys · rollback</div></div>
+</div></div>
+
+<div class="arch-detail-panel" id="arch-detail-panel"><h4 id="arch-detail-title" style="color:var(--blue);margin-bottom:10px"></h4><div id="arch-detail-body"></div></div>
+</div>
+<!-- DEEP DIVES -->
+<div class="section" id="sec-deepdives"><h2>Subsystem Deep Dives</h2><div class="dd-nav" id="dd-nav"></div><div id="dd-content"></div></div>
+
+<!-- UPLOAD FLOW -->
+<div class="section" id="sec-upload">
+<h2>Upload Flow — 3-Phase Saga</h2>
+<div class="callout insight-callout"><span class="callout-label">KEY INSIGHT</span>The Upload Service is <strong>never in the byte-transfer path</strong>. It issues a GCS signed URL; the client writes bytes directly to Colossus. The service only handles protocol signaling (TUS session management). This eliminates the upload service as a bandwidth bottleneck at 810 GB/s peak ingestion.</div>
+<div class="flow-wrap"><div class="flow-steps">
+<div class="flow-step" onclick="showFlow('up',0,this)">1. Initiate</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('up',1,this)">2. Dedup Check</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('up',2,this)">3. Chunk Transfer</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('up',3,this)">4. Safety Scan</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('up',4,this)">5. Commit Metadata</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('up',5,this)">6. Kafka Fan-out</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('up',6,this)">7. Cache Warm</div>
+</div></div>
+<div class="flow-detail-box" id="up-flow-detail"></div>
+<h3>Saga Compensation on Failure</h3>
+<table>
+<tr><th>Step fails</th><th>Compensating action</th><th>User impact</th></tr>
+<tr><td>Initiate (network)</td><td>Client retries with same SHA-256 checksum. Session in Redis (24h TTL). Any pod can resume.</td><td>Transparent — upload resumes</td></tr>
+<tr><td>Chunk transfer (partial)</td><td>TUS HEAD → client gets last committed byte offset → resumes from checkpoint</td><td>No re-upload from scratch</td></tr>
+<tr><td>Safety scan: CSAM match</td><td>GCS blob deleted immediately. Metadata NOT committed. NCMEC report filed within 24h. Account suspended.</td><td>Silent failure — no error reveals detection</td></tr>
+<tr><td>Metadata commit (3 retries fail)</td><td>Orphan cleanup cron (hourly): GCS blobs with no Bigtable row → deleted. Dedup allows re-upload.</td><td>Photo not visible; retry upload succeeds</td></tr>
+<tr><td>Transcode crash</td><td>Kafka offset not committed → job replayed on restart. Idempotent transcode (same output for same input).</td><td>Photo visible (original); thumbnails available after ~30s retry</td></tr>
+<tr><td>ML pipeline DLQ</td><td>Dead letter queue; photo visible but unsearchable until ML catches up</td><td>Grid shows photo; search result arrives within hours</td></tr>
+</table>
+</div>
+
+<!-- VIEW FLOW -->
+<div class="section" id="sec-view">
+<h2>View Flow — 4-Tier Cache Traversal</h2>
+<div class="callout insight-callout"><span class="callout-label">KEY INSIGHT</span>Grid open fires N parallel thumbnail fetches, one per visible photo. Each fetch independently traverses the cache hierarchy and short-circuits on first hit. The <strong>weighted average latency is ~52ms</strong> — well within the 200ms p99 SLO — because 90%+ of requests hit the first two client-side cache tiers with sub-10ms response.</div>
+<div class="flow-wrap"><div class="flow-steps">
+<div class="flow-step" onclick="showFlow('vw',0,this)">1. Grid Open</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vw',1,this)">2. Client Memory</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vw',2,this)">3. Client Disk</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vw',3,this)">4. CDN Edge PoP</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vw',4,this)">5. Regional NVMe</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vw',5,this)">6. Origin Colossus</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vw',6,this)">7. Prefetch Engine</div>
+</div></div>
+<div class="flow-detail-box" id="vw-flow-detail"></div>
+<h3>Latency Budget Validation</h3>
+<table>
+<tr><th>Cache tier</th><th>Hit rate</th><th>p99 latency</th><th>% of all requests</th></tr>
+<tr><td>Client memory (LRU-K, 50 MB)</td><td>40%</td><td>1ms</td><td>40%</td></tr>
+<tr><td>Client disk (OkHttp/URLCache, 500 MB)</td><td>25% of remaining</td><td>10ms</td><td>25%</td></tr>
+<tr><td>CDN edge PoP (LIRS eviction)</td><td>85% of remaining</td><td>35ms</td><td>~30%</td></tr>
+<tr><td>Regional Redis/NVMe (ARC eviction)</td><td>70% of CDN miss</td><td>180ms</td><td>~3.75%</td></tr>
+<tr><td>Origin Colossus/GCS</td><td>100% fallback</td><td>600ms</td><td>~1.25%</td></tr>
+<tr><td><strong>Weighted average</strong></td><td>—</td><td><strong>~52ms ✓ SLO met</strong></td><td>100%</td></tr>
+</table>
+<div class="callout em-callout"><span class="callout-label">EM PERSPECTIVE — HIGHEST-ROI OPTIMIZATION</span>The 1.25% of requests hitting origin at 600ms is the primary driver of p99 proximity to the 200ms SLO ceiling. The cache warmer service (pre-warms 5 common variants within 15s of upload) is the single highest-ROI optimization post-launch. It converts cold origin fetches to regional NVMe hits for newly uploaded photos — the most common "miss" pattern.</div>
+</div>
+
+<!-- VIRAL / SURGE -->
+<div class="section" id="sec-viral">
+<h2>Viral Share / Holiday Surge Handling</h2>
+<div class="callout insight-callout"><span class="callout-label">SCENARIO</span>A shared album goes viral on WhatsApp India: 10M recipients click within 5 minutes = 33K req/s against one album. Simultaneously it is Diwali — global upload is 5× normal. The system must survive both without cascading failure.</div>
+<div class="flow-wrap"><div class="flow-steps">
+<div class="flow-step" onclick="showFlow('vr',0,this)">1. Click Storm</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vr',1,this)">2. CDN Coalescing</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vr',2,this)">3. Auto-scale</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vr',3,this)">4. Load Shedding</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vr',4,this)">5. Upload Throttle</div><span class="flow-arrow-h">→</span>
+<div class="flow-step" onclick="showFlow('vr',5,this)">6. Recovery</div>
+</div></div>
+<div class="flow-detail-box" id="vr-flow-detail"></div>
+<h3>Pre-scaling Playbook</h3>
+<table>
+<tr><th>Trigger</th><th>Action</th><th>Lead time</th></tr>
+<tr><td>Known holiday (calendar-based)</td><td>Pre-scale upload workers 3× baseline; reserve GPU transcode fleet; warm CDN with regional popular content</td><td>2 hours before</td></tr>
+<tr><td>Viral album (&gt;10K fetches/min)</td><td>CDN "priority hot" tier — disable TTL revalidation 1h; Route 53 shifts 30% more traffic to nearest PoP</td><td>~90s automated</td></tr>
+<tr><td>Upload CPU &gt;60% for 30s</td><td>K8s HPA: pre-warmed pods ready in 45s; Borg deprioritises batch ML to free cluster capacity</td><td>45s to ready</td></tr>
+<tr><td>Transcode queue &gt;50K</td><td>Deprioritise old re-transcode jobs; add GPU spot instances; shed non-critical ML inference</td><td>5 minutes</td></tr>
+</table>
+</div>
+
+<!-- DATA STORES -->
+<div class="section" id="sec-datastores">
+<h2>Data Stores</h2>
+<table>
+<tr><th>Store</th><th>Data owned</th><th>Why chosen</th><th>Rejected alternatives</th></tr>
+<tr><td><span class="hl">Bigtable</span></td><td>Photo metadata (photo_id, user_id, upload_ts, EXIF, faces[], labels[], geo, status, trash_at)</td><td>Row key = userID#reverseTimestamp gives chronological scans for free. Sub-10ms reads at petabyte scale. No schema migrations needed. Ideal for write-heavy time-series append workload.</td><td><span class="hlr">DynamoDB</span>: Google infra, vendor mismatch. <span class="hlr">Cassandra</span>: multi-region tuning complexity; manual compaction ops. <span class="hlr">PostgreSQL</span>: cannot scale to 4T rows without heroic sharding.</td></tr>
+<tr><td><span class="hl">Cloud Spanner</span></td><td>Albums, album_photos, shares, user_accounts, subscriptions — anything requiring ACID across rows</td><td>TrueTime-based external consistency. Albums require multi-row ACID: photo_count + album_photos must be consistent. Only Spanner offers this globally without sacrificing latency.</td><td><span class="hlr">CockroachDB</span>: Google infra, not at this scale. <span class="hlr">Bigtable</span>: no multi-row transactions. <span class="hlr">Aurora Global</span>: AWS, write latency cross-region worse than Spanner.</td></tr>
+<tr><td><span class="hl">Colossus / GCS</span></td><td>All raw blobs (photos, videos), transcoded variant files, ML model weights</td><td>Reed-Solomon (6+3) erasure coding → 11-nine durability at 1.5× storage overhead. Google's internal DFS — direct Borg job integration. Object immutable after write. Lifecycle auto-moves cold objects to Coldline (90% cost reduction).</td><td><span class="hlr">S3</span>: AWS, non-starter on Google infra. <span class="hlr">HDFS</span>: not designed for object workload, no native geo-replication. <span class="hlr">Ceph</span>: ops overhead at EB scale.</td></tr>
+<tr><td><span class="hl">Redis Cluster</span></td><td>Hot metadata (last 30d per user), JWT session cache, rate-limit counters, album member lists</td><td>Sub-millisecond reads for metadata needed at grid-render time. Write-through to Bigtable ensures no data loss on Redis failure — Redis is acceleration, not source of truth. ARC eviction optimal for bursty access patterns.</td><td><span class="hlr">Memcached</span>: no sorted sets (need for timeline queries), no replication, no persistence. <span class="hlr">Hazelcast</span>: heavier JVM footprint at 50-node scale.</td></tr>
+<tr><td><span class="hl">Vertex AI ScaNN</span></td><td>512-dim CLIP embeddings (4T photos); 128-dim FaceNet per detected face; per-region isolation for GDPR</td><td>Google's ScaNN achieves 2× recall@10 vs FAISS at billion-vector scale. Native Vertex AI pipeline integration. Product quantization compresses 8.2 PB → 512 TB. Per-user-region index ensures GDPR face data never crosses borders.</td><td><span class="hlr">Pinecone</span>: external vendor — data leaves Google infra, GDPR violation. <span class="hlr">Weaviate</span>: unproven at 4T vector scale. <span class="hlr">pgvector</span>: PostgreSQL I/O model wrong for ANN at this scale.</td></tr>
+</table>
+<h3>Key Schemas</h3>
+<div class="grid2">
+<div class="card"><div class="card-title">Bigtable — photos table</div><pre style="font-size:11px">
+Row key: {user_id}#{rev_ts}#{photo_id}
+// rev_ts = MAX_LONG - epoch_ms
+// → scan returns newest photos first
+
+Column families:
+  meta:  photo_id, user_id, upload_ts,
+         mime_type, w, h, size_bytes,
+         status (ACTIVE|TRASH|DELETED)
+  exif:  taken_at, lat, lng, altitude,
+         make, model, iso, aperture
+  ml:    clip_ref, scene_labels[],
+         object_labels[], face_ids[],
+         ocr_text, colors[]
+  trash: trashed_at, orig_album_ids[]
+</pre></div>
+<div class="card"><div class="card-title">Spanner — albums + shares</div><pre style="font-size:11px">
+albums(
+  album_id       STRING(36) PK,
+  owner_user_id  STRING(36),
+  title          STRING(500),
+  cover_photo_id STRING(64),
+  photo_count    INT64,
+  created_at     TIMESTAMP,
+  is_shared      BOOL
+)
+album_photos(
+  album_id  STRING(36),
+  photo_id  STRING(64),
+  added_at  TIMESTAMP,
+  added_by  STRING(36),
+  PRIMARY KEY (album_id, photo_id)
+)
+shares(
+  share_token    STRING(36) PK,
+  album_id       STRING(36),
+  expires_at     TIMESTAMP,
+  is_contributor BOOL,
+  view_count     INT64
+)
+</pre></div>
+</div>
+</div>
+<!-- SYSTEMS THINKING -->
+<div class="section" id="sec-systems">
+<h2>Systems Thinking</h2>
+<h3>Conway's Law — Architecture Determines Org Structure</h3>
+<div class="card"><div class="card-title">Team Boundaries from Service Decomposition</div>
+<p>The service split maps directly to team ownership. <span class="hl">Upload Pipeline team</span> owns TUS, dedup, safety scanner, ingest coordinator. <span class="hl">Media Serving team</span> owns CDN config, variant routing, cache warming, format negotiation. <span class="hl">ML/Search team</span> owns CLIP pipeline, ScaNN, FaceNet clustering, OCR. <span class="hl">Storage Platform team</span> owns Bigtable schema, Spanner, Colossus lifecycle policy, Redis cluster. <span class="hl">Sharing &amp; Social team</span> owns album management, share links, contributor mode, notifications.</p>
+<p><span class="hlp">Non-obvious sequencing:</span> Storage Platform must be hired and operational <em>before</em> Upload Pipeline. Bigtable row key design is the most irreversible schema decision in the entire system — making it wrong costs 18+ months to migrate at 4T rows. ML engineers must start in Phase 1 despite delivering no user-visible features — they need 6+ months of photo data before any model can be trained meaningfully.</p>
+</div>
+<h3>3–5 Year Technology Evolution</h3>
+<table>
+<tr><th>Component</th><th>External force</th><th>Current design accommodates?</th><th>Evolution trigger</th></tr>
+<tr><td>Photo search</td><td>Multimodal LLMs replacing CLIP + BM25 hybrid</td><td>Yes — vector DB abstraction layer; ML pipeline decoupled from serving index</td><td>When GPT-4V-class model achieves &lt;100ms inference → swap CLIP embedding model without schema change</td></tr>
+<tr><td>Video transcoding</td><td>AV1 codec adoption; AI super-resolution (4K upscale from 1080p)</td><td>Yes — codec abstracted behind transcode pipeline; CDN URL format negotiation</td><td>When AV1 browser support exceeds 90% → add as default output format</td></tr>
+<tr><td>On-device ML</td><td>Faster NPUs (Apple Neural Engine gen 5, Qualcomm Snapdragon)</td><td>Yes — on-device face enrollment already; server-side just aggregates embeddings</td><td>When on-device CLIP inference &lt;50ms → shift scene detection to device; server becomes sync target only</td></tr>
+<tr><td>Storage economics</td><td>Object storage cost dropping ~20%/year; HAMR drives 50 TB+ per disk</td><td>Yes — Coldline lifecycle policy already exploits cost tiers</td><td>Recalculate original-quality economics every 18 months; free original storage likely viable by 2027</td></tr>
+</table>
+<h3>Technical Debt to Manage Proactively</h3>
+<div class="grid2">
+<div class="callout failure-callout"><span class="callout-label">RISK — BIGTABLE ROW KEY LOCK-IN</span>The row key (userID#reverseTimestamp#photoID) optimises for chronological grid reads. If primary access patterns shift to "all photos of person X" or "all photos at location Y", a re-key migration across 4T rows is a multi-year project. This is the single most irreversible architectural decision. Instrument access patterns from day 1; review at 500M photos.</div>
+<div class="callout failure-callout"><span class="callout-label">RISK — ML INSTRUMENTATION DEBT</span>Every Phase 2 ML feature (Memories, smart albums, face confidence) depends on structured event data logged in Phase 1. Missing event fields = 3 months of data cleaning before model training begins. Analytics schema must be co-designed by ML engineers alongside Phase 1 product engineers. This is non-negotiable.</div>
+<div class="callout tradeoff-callout"><span class="callout-label">RISK — API CONTRACT DRIFT</span>14+ microservices without OpenAPI specs + consumer-driven contract tests (Pact) = hidden coupling. At this service count, unspecified contracts are the #1 source of production incidents within 18 months. Enforce from day 1: CI gate rejects PRs that modify an API without a contract test update.</div>
+<div class="callout tradeoff-callout"><span class="callout-label">RISK — RUNBOOK GAPS</span>The ML pipeline and cache warmer are highest-risk for runbook gaps — most complex, least understood by non-ML engineers. A service whose runbook says "call the person who built it" is an org SPOF. Every service must have a runbook complete enough for a new engineer to handle a P1 in their first on-call week.</div>
+</div>
+<h3>Adjacent Systems This Platform Enables</h3>
+<table>
+<tr><th>Adjacent product</th><th>Infrastructure reused</th><th>Engineering effort</th><th>Business value</th></tr>
+<tr><td>Google One storage management</td><td>Bigtable storage accounting, lifecycle policies, quota enforcement</td><td>2–3 months</td><td>Monetisation — subscription upsell trigger</td></tr>
+<tr><td>Pixel phone camera differentiation</td><td>Upload pipeline, TUS client SDK, on-device ML Kit integration</td><td>1 month (client SDK)</td><td>Hardware lock-in, ecosystem stickiness</td></tr>
+<tr><td>Arts &amp; Culture face match</td><td>FaceNet embeddings, ScaNN ANN search, media serving</td><td>3 months</td><td>Viral feature, brand visibility</td></tr>
+<tr><td>Print partner marketplace</td><td>OAuth API, media serving, Spanner album graph</td><td>4 months</td><td>Revenue share on print orders</td></tr>
+<tr><td>Google Workspace photo sharing</td><td>Share service, CDN, album management, contributor mode</td><td>2 months</td><td>Enterprise market penetration</td></tr>
+</table>
+<div class="callout insight-callout"><span class="callout-label">DATA FLYWHEEL</span>Google Photos is not just a product — it is the primary training data producer for Google's vision AI. Every photo uploaded generates behavioural signal (what users search for, what they label, what they share) that feeds the CLIP and FaceNet models. The Kafka event bus is the integration point: new ML business lines consume from topics without the Photos product needing any code change.</div>
+</div>
+
+<!-- NON-FUNCTIONAL -->
+<div class="section" id="sec-nfr">
+<h2>Non-Functional Requirements — Implementation Depth</h2>
+<h3>Security Architecture — Three Layers</h3>
+<div class="card"><div class="card-title">Layer 1 — Identity</div>
+<ul>
+<li><strong>JWT:</strong> RS256 (asymmetric — private key in Vault; public JWKS distributed to all services). Claims: sub (user_id), region, storage_tier, scopes[]. TTL: 1h.</li>
+<li><strong>Refresh tokens:</strong> HttpOnly + Secure + SameSite=Strict cookie. 30-day TTL. Rotated on every use. Stored in Spanner with revocation column. Revocation propagates in &lt;5min via Redis pub/sub.</li>
+<li><strong>mTLS:</strong> All service-to-service calls. cert-manager + Vault. Certificate rotation every 24h. Upload Service → GCS uses GCP service account key, not mTLS.</li>
+<li><strong>Partner OAuth:</strong> Authorization code + PKCE. Scopes: photoslibrary.readonly / appendonly. Token introspection at API Gateway on every call. Rate limit: 10K req/day per app.</li>
+</ul></div>
+<div class="card"><div class="card-title">Layer 2 — Authorization</div>
+<ul>
+<li><strong>Resource ownership:</strong> <code>photo.owner_user_id == jwt.sub</code> enforced in Library Service (not just gateway) — gateway-only is insufficient for defense-in-depth.</li>
+<li><strong>Shared album access:</strong> Share token validated against Spanner shares table on every request. is_contributor checked before accepting write operations.</li>
+<li><strong>Partner scopes:</strong> Checked at API Gateway AND Library Service. API Gateway failure → second enforcement point catches it.</li>
+</ul></div>
+<div class="card"><div class="card-title">Layer 3 — Data Protection</div>
+<ul>
+<li><strong>TLS 1.3 minimum</strong> — 1.2 explicitly disabled via CDN config. Applied globally as of 2024 migration.</li>
+<li><strong>Encryption at rest:</strong> All Colossus objects encrypted with AES-256-GCM. Per-user key envelope managed by Cloud KMS. Face embeddings use a separate KMS key ring with stricter IAM.</li>
+<li><strong>PII columns:</strong> email, phone, name encrypted at column level in Spanner. Face embeddings never returned raw to any client — only cluster_id returned.</li>
+<li><strong>Secrets:</strong> Vault dynamic secrets, rotated every 24h. Zero env-var secrets enforced via CI secret-scanning (detect-secrets pre-commit hook).</li>
+</ul></div>
+<h3>Privacy &amp; Legal Compliance</h3>
+<table>
+<tr><th>Regulation</th><th>Implementation (not checkbox)</th></tr>
+<tr><td>GDPR (EU)</td><td>EU user region stored in JWT claim. Upload Service routes writes to europe-west1 only for EU users (enforced in routing layer, not policy doc). Face embeddings = biometric = stored encrypted in EU, never replicated. Right to erasure: soft delete → 30d grace → hard delete cascade (Bigtable row, GCS blob, ScaNN vector). Data portability: <code>GET /v1/export</code> → ZIP in 72h. Consent management: per-purpose consent versioned in Spanner; re-consent triggered on purpose change.</td></tr>
+<tr><td>DPDP (India)</td><td>india flag in user JWT claim. All data written to asia-south1. Cross-border transfer explicitly prohibited at Spanner row-level policy. Breach pipeline: PagerDuty → Legal → CERT-In within 72h. Consent notice in English + regional language. Data fiduciary consent before ML model training on Indian user photos.</td></tr>
+<tr><td>CCPA (California)</td><td>Opt-out of ML training (user_id blocklist enforced at Vertex AI batch pipeline — checked before each training run). Right to deletion: same pipeline as GDPR erasure. Consumer request portal at /privacy. Response SLA: 45 days. Non-discrimination enforcement: same storage tier, same CDN speed for opted-out users.</td></tr>
+<tr><td>CSAM (mandatory)</td><td>PhotoDNA hash match on every upload — synchronous, blocks metadata commit. Hash DB synced daily from NCMEC. On match: blob deleted, account suspended, NCMEC report filed within 24h. Augmented by Google perceptual hash + ML classifier for novel material not in PhotoDNA DB. Match is silent — no error to uploader reveals detection.</td></tr>
+</table>
+<h3>Multi-Region Write Strategy</h3>
+<table>
+<tr><th>Data type</th><th>Write primary</th><th>Replication</th><th>RPO</th></tr>
+<tr><td>Photo blobs</td><td>User's home region</td><td>Colossus geo-replication async, 3 regions</td><td>&lt;5 min</td></tr>
+<tr><td>Photo metadata (Bigtable)</td><td>User's home region</td><td>Async Pub/Sub MirrorMaker → read replicas</td><td>&lt;2 min</td></tr>
+<tr><td>Albums, shares (Spanner)</td><td>Any (multi-master TrueTime)</td><td>Synchronous Spanner replication</td><td>Zero — external consistency</td></tr>
+<tr><td>Face embeddings</td><td>User's home region ONLY</td><td>Never cross-region — GDPR Article 9 biometric</td><td>Zero (no cross-region)</td></tr>
+</table>
+<h3>3-Year Capacity Growth Model</h3>
+<table>
+<tr><th>Metric</th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr>
+<tr><td>MAU</td><td>500M</td><td>750M</td><td>1.2B</td></tr>
+<tr><td>Photos stored</td><td>1.5T</td><td>3T</td><td>6T</td></tr>
+<tr><td>Raw storage (3× geo)</td><td>~4 EB</td><td>~8 EB</td><td>~16 EB</td></tr>
+<tr><td>Peak req/sec (media)</td><td>3M</td><td>6M</td><td>12M</td></tr>
+<tr><td>GPU transcode workers</td><td>2,300</td><td>4,600</td><td>9,200</td></tr>
+<tr><td>Redis nodes (64 GB ea)</td><td>50/region</td><td>100/region</td><td>200/region</td></tr>
+<tr><td>Infra cost/month</td><td>~$85M</td><td>~$160M</td><td>~$310M</td></tr>
+</table>
+</div>
+<!-- TRADEOFFS -->
+<div class="section" id="sec-tradeoffs">
+<h2>Key Tradeoffs</h2>
+<div class="callout tradeoff-callout"><span class="callout-label">TRADEOFF 1 — CONTENT-ADDRESSED STORAGE (SHA-256 AS PHOTO_ID)</span>
+<strong>Chosen:</strong> photo_id = SHA-256(bytes). Enables: (1) instant dedup — same image from 2 devices = 1 blob, (2) immutable URLs = infinite CDN TTL, (3) integrity verification on retrieval, (4) saves ~30% GCS writes.<br>
+<strong>Rejected:</strong> UUID-based IDs — simple, but two identical uploads store two copies; requires cache invalidation logic on every upload; no integrity guarantee.<br>
+<strong>Cost accepted:</strong> SHA-256 computation on client before upload (~50ms on modern phones). Photo ID derived from content — slightly unusual mental model for engineers new to the system.<br>
+<strong>Reversal trigger:</strong> If Google moves to server-side hashing (unlikely — adds 162 GB/s of hashing load to upload service). SHA-256 collision not a practical concern in our lifetime.
+</div>
+<div class="callout tradeoff-callout"><span class="callout-label">TRADEOFF 2 — ASYNC ML vs SYNC ON UPLOAD PATH</span>
+<strong>Chosen:</strong> All ML (CLIP, FaceNet, YOLO, OCR) runs async via Kafka after blob is committed. Upload completes in ~2s. ML results arrive 10–30s later.<br>
+<strong>Rejected:</strong> Sync ML on upload path. CLIP ViT-L/14 alone takes 800ms GPU inference time. Face detection adds another 500ms. Upload p99 would exceed 5s — unacceptable for a backup product.<br>
+<strong>Cost accepted:</strong> Photos unsearchable for ~30s post-upload. Users with fast fingers searching immediately after a new upload may not find it yet.<br>
+<strong>Reversal trigger:</strong> When on-device CLIP inference &lt;100ms (feasible with Apple Neural Engine gen 5) — shift to device-side embedding, server just ingests the vector. Search becomes instant post-upload.
+</div>
+<div class="callout tradeoff-callout"><span class="callout-label">TRADEOFF 3 — BIGTABLE ROW KEY DESIGN</span>
+<strong>Chosen:</strong> userID#reverseTimestamp#photoID. Chronological grid view = single sequential Bigtable scan — extremely efficient.<br>
+<strong>Rejected — photoID only:</strong> Uniform key distribution, but full-table scan required to get a user's library. <strong>Rejected — userID#photoID:</strong> Scan works but returns photos in ID order, not time order; requires client-side sort or secondary index overhead.<br>
+<strong>Cost accepted:</strong> Hot-row problem for power users (millions of photos concentrate load on few row ranges). Mitigated by Redis caching metadata for users active in the last 30 days. <br>
+<strong>Reversal trigger:</strong> If the primary access pattern shifts from "recent photos" to "photos of person X" — would require adding person_id as a row key dimension, which means a table migration.
+</div>
+<div class="callout tradeoff-callout"><span class="callout-label">TRADEOFF 4 — EAGER vs LAZY TRANSCODING</span>
+<strong>Chosen:</strong> Hybrid — eager for common variants (64px, 128px, 256px, 512px, 1080p JPEG+WEBP) on upload; lazy for rare variants (4K, AVIF, custom crops) on first request.<br>
+<strong>Rejected — eager-only:</strong> Transcoding all 8+ variants costs 3× GPU time; 4K requested by &lt;5% of users. <strong>Rejected — lazy-only:</strong> First request for any thumbnail hits 600ms+ transcode wait; catastrophic grid experience for newly-uploaded photos.<br>
+<strong>Cost accepted:</strong> Rare variant first-serve is slow (~600ms). Storage for pre-computed common variants is 5× the photo count.<br>
+<strong>Reversal trigger:</strong> If average display resolution moves to 4K (when 4K monitors become universal) → promote 4K to "eager" variant.
+</div>
+<div class="callout tradeoff-callout"><span class="callout-label">TRADEOFF 5 — SPANNER FOR ALBUMS vs BIGTABLE</span>
+<strong>Chosen:</strong> Cloud Spanner for albums, shares, subscriptions. More expensive ($0.30/GB vs Bigtable's $0.065/GB) but provides multi-row ACID transactions.<br>
+<strong>Rejected:</strong> Bigtable for albums. Adding a photo to an album must atomically: (a) increment photo_count in albums table, (b) insert row in album_photos table. Bigtable cannot do this. With Bigtable you'd need an eventually-consistent compensating pattern, creating ghost photo counts and album corruption bugs.<br>
+<strong>Cost accepted:</strong> ~4.5× storage cost on the album dataset. Justified because album data is orders of magnitude smaller than photo metadata — the cost difference is a rounding error at system scale.<br>
+<strong>Reversal trigger:</strong> Never — this is a correctness requirement, not a performance preference.
+</div>
+<h3>Build vs Buy</h3>
+<table>
+<tr><th>Component</th><th>Decision</th><th>Buy cost at scale</th><th>Reason</th></tr>
+<tr><td>CDN</td><td>Build (Google CDN)</td><td>Cloudflare: ~$50M/year</td><td>Core competency; tighter integration with Colossus origin; cost advantage at 276 TB/s egress</td></tr>
+<tr><td>Object storage</td><td>Build (Colossus/GCS)</td><td>S3: ~$200M/year for 4 EB</td><td>Google infra — 11-nine durability, erasure coding, cost unbeatable at scale</td></tr>
+<tr><td>Face recognition</td><td>Build (FaceNet + internal)</td><td>AWS Rekognition: ~$1/1K images → impossible at 4B/day</td><td>Cost-prohibitive; data privacy (cannot send biometric data to AWS); model quality requirements</td></tr>
+<tr><td>CSAM detection</td><td>Buy PhotoDNA + build own hash</td><td>PhotoDNA license: &lt;$1M/year</td><td>Legal liability if miss — not worth building. Supplement with proprietary classifier for novel material.</td></tr>
+<tr><td>Auth</td><td>Build (Google Identity)</td><td>Auth0: ~$1M/year</td><td>Photos is a Google product — auth is Google Identity. Cannot outsource. Identity is the product moat.</td></tr>
+</table>
+</div>
+
+<!-- EM ANGLE -->
+<div class="section" id="sec-em">
+<h2>Engineering Manager Perspective</h2>
+<div class="callout em-callout"><span class="callout-label">CORE HYPOTHESIS</span>Users will trust Google Photos as their primary photo backup if: (1) upload happens invisibly in the background, (2) photos are always retrievable, never lost, and (3) finding any photo takes less effort than scrolling. We validate reliability before adding ML intelligence.</div>
+<div class="grid2">
+<div class="card"><div class="card-title">In MVP</div><ul>
+<li>Photo/video upload (TUS resumable, auto-backup)</li>
+<li>Grid view + full-resolution view</li>
+<li>Manual album creation and management</li>
+<li>Trash + 60-day recovery</li>
+<li>Basic date/location search (no ML)</li>
+<li>2-tier cache: client + CDN only</li>
+<li>CSAM detection (legal — not optional)</li>
+<li>Android + iOS + Web</li>
+<li>Single US region</li>
+</ul></div>
+<div class="card"><div class="card-title">Not In MVP (and why)</div><ul>
+<li>Face grouping — needs 6+ months training data; model not ready</li>
+<li>Semantic CLIP search — corpus embeddings take 3+ months to generate</li>
+<li>Memories / On This Day — requires &gt;1 year of history per user</li>
+<li>Sharing / shared albums — Phase 2 social feature</li>
+<li>Multi-region (EU/India) — legal review takes 6+ weeks; deprioritise for MVP</li>
+<li>Partner OAuth API — not needed until ecosystem grows</li>
+<li>4-tier cache — regional NVMe added in Phase 2 when scale demands it</li>
+</ul></div>
+</div>
+<h3>MVP Success Metrics</h3>
+<ul>
+<li>Upload success rate &gt;99.5% (failure = trust destruction)</li>
+<li>Zero data loss incidents in first 12 months (hard requirement)</li>
+<li>&gt;60% of installed users have auto-backup enabled after 7 days</li>
+<li>Photo retrieval availability &gt;99.9% (Step toward 99.99%)</li>
+<li>p99 thumbnail load &lt;500ms on 4G (acceptable at MVP scale; tighten to 200ms in Phase 2)</li>
+</ul>
+
+<div class="phase">
+<div class="phase-header"><span class="phase-badge pb-1">PHASE 1</span><span class="phase-title">Core backup — prove the reliability hypothesis</span><span class="phase-duration">0 – 8 months</span></div>
+<p><strong>Goal:</strong> Users trust Google Photos with irreplaceable memories. Upload is invisible. Photos are always there.</p>
+<p><strong>Month 1–2:</strong> Infra foundation — Bigtable schema, Colossus setup, Spanner cluster, API Gateway, Google Identity integration. Storage Platform team delivers first.</p>
+<p><strong>Month 3–4:</strong> Upload pipeline (TUS, dedup, safety scan, saga), 2-tier cache (client + CDN), thumbnail serving. Android auto-backup.</p>
+<p><strong>Month 5–6:</strong> Library grid, album management (Spanner ACID), trash/restore, basic date/location search. SRE on-call rota established.</p>
+<p><strong>Month 7–8:</strong> iOS + Web PWA, observability stack (SLO dashboards, error budgets), first GameDay exercise (kill a region), public beta.</p>
+<div class="grid4" style="margin-top:16px">
+<div class="metric"><div class="metric-value">12</div><div class="metric-label">Backend engineers</div></div>
+<div class="metric"><div class="metric-value">6</div><div class="metric-label">Mobile engineers</div></div>
+<div class="metric"><div class="metric-value">3</div><div class="metric-label">SREs</div></div>
+<div class="metric"><div class="metric-value">2</div><div class="metric-label">ML engineers (data collection)</div></div>
+</div>
+<p style="margin-top:12px;font-size:13px;color:var(--text-dim)">Total: 28 engineers + 3 PMs + 2 designers. Infra cost: ~$8M/month. <strong>Critical dep:</strong> Colossus geo-replication must be certified before launch or we can't guarantee 11-nine durability.</p>
+</div>
+
+<div class="phase">
+<div class="phase-header"><span class="phase-badge pb-2">PHASE 2</span><span class="phase-title">Intelligence — make it indispensable</span><span class="phase-duration">8 – 18 months</span></div>
+<p><strong>Goal:</strong> Find any photo instantly. Share moments effortlessly. Google Photos becomes irreplaceable.</p>
+<p><strong>Month 9–11:</strong> CLIP embedding pipeline, ScaNN index, semantic search endpoint, Kafka ML consumers, Vertex AI setup. (ML engineers hired in Phase 1 now ship their first model.)</p>
+<p><strong>Month 12–14:</strong> FaceNet face grouping, face search, shared albums (contributor mode), share links, FCM notifications. EU region + GDPR enforcement.</p>
+<p><strong>Month 15–18:</strong> Memories / On This Day, full 4-tier cache (regional NVMe layer), India region (DPDP), advanced editing tools.</p>
+<div class="grid4" style="margin-top:16px">
+<div class="metric"><div class="metric-value">24</div><div class="metric-label">Backend engineers</div></div>
+<div class="metric"><div class="metric-value">8</div><div class="metric-label">ML engineers</div></div>
+<div class="metric"><div class="metric-value">6</div><div class="metric-label">SREs</div></div>
+<div class="metric"><div class="metric-value">4</div><div class="metric-label">Data engineers</div></div>
+</div>
+<p style="margin-top:12px;font-size:13px;color:var(--text-dim)">Total: ~50 engineers. Infra cost: ~$35M/month. <strong>Critical dep:</strong> ML training pipeline from Phase 1 must be complete and producing embeddings by month 9, or semantic search slips to month 14.</p>
+</div>
+
+<div class="phase">
+<div class="phase-header"><span class="phase-badge pb-3">PHASE 3</span><span class="phase-title">Platform — ecosystem and global scale</span><span class="phase-duration">18 – 36 months</span></div>
+<p><strong>Goal:</strong> Monetise via partner ecosystem. True global scale. Compliance in all target markets.</p>
+<p><strong>Month 18–22:</strong> OAuth Partner API (v2), video adaptive streaming (HLS/DASH), APAC region expansion.</p>
+<p><strong>Month 23–28:</strong> Google Lens integration, video editing, advanced ML (auto-enhance, background removal).</p>
+<p><strong>Month 29–36:</strong> Multi-region active-active validation, 11-nine durability GameDay, partner marketplace launch.</p>
+<div class="grid4" style="margin-top:16px">
+<div class="metric"><div class="metric-value">60</div><div class="metric-label">Backend engineers</div></div>
+<div class="metric"><div class="metric-value">15</div><div class="metric-label">ML engineers</div></div>
+<div class="metric"><div class="metric-value">12</div><div class="metric-label">SREs</div></div>
+<div class="metric"><div class="metric-value">8</div><div class="metric-label">Platform/infra</div></div>
+</div>
+<p style="margin-top:12px;font-size:13px;color:var(--text-dim)">Total: ~110 engineers. Infra cost: ~$85M/month. <strong>Critical dep:</strong> DPDP legal review (India) takes 6 weeks minimum — must start 8 weeks before launch date.</p>
+</div>
+
+<h3>Risk Register</h3>
+<table>
+<tr><th>Risk</th><th>Probability</th><th>Impact</th><th>Mitigation</th><th>Owner</th></tr>
+<tr><td>Data loss incident (hardware/bug)</td><td>Low</td><td>Critical</td><td>3-region Colossus replication; monthly restore GameDay; GCS object hold (7d before permanent delete)</td><td>Storage Platform</td></tr>
+<tr><td>CSAM miss (new attack vector)</td><td>Low–Med</td><td>Critical + Legal</td><td>PhotoDNA + perceptual hash + ML classifier in parallel; daily hash DB sync from NCMEC</td><td>Trust &amp; Safety</td></tr>
+<tr><td>GDPR enforcement (face data)</td><td>Medium</td><td>High</td><td>Face embeddings EU-only from day 1; legal review before EU public launch; privacy-by-design audit</td><td>Privacy + Legal</td></tr>
+<tr><td>Upload outage during holiday</td><td>Medium</td><td>High</td><td>Pre-scale 2h before known holidays; Kafka backlog as buffer; TUS resumes on recovery</td><td>Upload Team + SRE</td></tr>
+<tr><td>Bigtable schema migration needed</td><td>Low</td><td>High</td><td>Shadow writes to new schema 6+ months before cutover; dual-read period; feature flag gating</td><td>Storage Platform</td></tr>
+<tr><td>Key ML engineer departure</td><td>Medium</td><td>Medium</td><td>2+ engineers on every ML subsystem; model training fully documented; runbooks complete</td><td>ML Team EM</td></tr>
+</table>
+</div>
+
+<!-- SCALE MATH -->
+<div class="section" id="sec-scalemath">
+<h2>Scale Math — Back of Envelope</h2>
+<table>
+<tr><th>Metric</th><th>Calculation</th><th>Result</th><th>Architectural implication</th></tr>
+<tr><td>Upload req/s (avg)</td><td>500M uploaders × 8 photos/day ÷ 86,400</td><td>~46,000/s</td><td>~600 upload pods @ 80 concurrent TUS sessions each; stateless, Redis holds session state</td></tr>
+<tr><td>Upload req/s (peak 5×)</td><td>46K × 5</td><td>~230,000/s</td><td>K8s HPA pre-scaled 2h before holidays; burst needs ~3,000 pods; Borg cluster headroom reserved</td></tr>
+<tr><td>Ingestion bandwidth (avg)</td><td>46K req/s × 3.5 MB</td><td>~162 GB/s</td><td>162 Gbps aggregate ingress; Upload Service not in data path — GCS signed URLs eliminate bottleneck</td></tr>
+<tr><td>Ingestion (peak)</td><td>162 GB/s × 5</td><td>~810 GB/s</td><td>Colossus designed for this; network fabric is the constraint — requires 10× 100 Gbps uplinks per AZ</td></tr>
+<tr><td>View req/s (avg)</td><td>1B DAU × 200 views/day ÷ 86,400</td><td>~2.3M/s</td><td>97% CDN → 69K/s reach origin avg; Library Service handles metadata; Media Service handles blob routing</td></tr>
+<tr><td>View req/s (peak)</td><td>2.3M × 5</td><td>~11.5M/s</td><td>CDN absorbs 11.15M; origin sees 345K/s at peak → ~500 Media Serving pods @ 700 req/s each</td></tr>
+<tr><td>Storage growth/year</td><td>4B photos/day × 365 × 3.5 MB</td><td>~5.1 PB/day → 1.86 EB/year</td><td>With 3× geo-replication = 5.6 EB raw/year; Coldline lifecycle for &gt;90d-unaccessed objects reduces active cost by 60%</td></tr>
+<tr><td>Variant storage</td><td>4T photos × 8 variants × 150 KB avg</td><td>~4.8 EB</td><td>Roughly equal to original corpus; total system ~8 EB user data; 3× geo = ~24 EB raw Colossus</td></tr>
+<tr><td>Redis cluster size</td><td>500M users × 2 KB × 30d active</td><td>~1 TB/region</td><td>4 regions × 1 TB = 4 TB Redis; 50 r6g.2xlarge nodes (64 GB each) per region; consistent hash 150 vnodes</td></tr>
+<tr><td>Transcode workers</td><td>46K uploads/s × 4s GPU avg</td><td>~184K concurrent jobs</td><td>~2,300 A100 GPUs @ 80 jobs each; reserved fleet (60% cost vs on-demand); ~$3.5M/day at list price</td></tr>
+<tr><td>Kafka throughput</td><td>46K uploads + 46K transcodes + 10K deletes + misc</td><td>~110K events/s</td><td>550 partitions @ 200 events/partition/s; 18 Kafka brokers @ 30 partitions each; 7-day retention</td></tr>
+<tr><td>CDN egress bandwidth</td><td>2.3M req/s × 150 KB avg thumbnail</td><td>~276 TB/s</td><td>200+ PoPs × ~1.4 TB/s each; each PoP needs multiple 100 Gbps uplinks; CDN is largest cost component</td></tr>
+<tr><td>ScaNN vector index</td><td>4T photos × 512 dims × 4B float32</td><td>~8.2 PB raw</td><td>Product quantization (16×) → ~512 TB indexed; ANN search p99 ~180ms; separate index per user region</td></tr>
+<tr><td>Infra cost (Year 1)</td><td>Storage + compute + network + ML GPU</td><td>~$85M/month = ~$1.02B/year</td><td>Google One revenue: 5% of 1B users × $36/year = ~$1.8B/year. Storage infra = 57% of subscription revenue — acceptable given ecosystem value of keeping 1B users in Google's advertising and AI training flywheel.</td></tr>
+</table>
+<div class="callout em-callout"><span class="callout-label">UNIT ECONOMICS CHECK</span>Infrastructure at $85M/month against ~$150M/month in Google One storage revenue (Year 1, conservative). Infrastructure = 57% of direct revenue. That sounds tight — but Google Photos is not a storage product; it is a user retention product. Every Photos user is materially more engaged in the Google ecosystem (Search, Gmail, YouTube, Pixel hardware). The real ROI is impossible to isolate from Google's $240B/year advertising business that benefits from Photos engagement signals.</div>
+</div>
+
+</div><!-- end .container -->
+<script>
+// ===== TAB NAVIGATION =====
+function show(id,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='deepdives'&&!window._ddReady)initDD();
+}
+
+// ===== ARCHITECTURE DETAIL =====
+const archData={
+  android:{title:'Android App',body:'<p><strong>Auto-backup:</strong> WorkManager (requires WiFi + charging by default). On-device face enrollment via ML Kit FaceDetector. HEIC→JPEG conversion before upload. <strong>Cache:</strong> LRU-K memory cache (50 MB) + OkHttp disk cache (500 MB). <strong>Upload:</strong> TUS client computes SHA-256 before initiating. Scroll-velocity prefetch engine pre-fires requests for next viewport batch. <strong>Tech:</strong> Kotlin, Jetpack Compose, WorkManager, ExoPlayer (video), CameraX.</p>'},
+  ios:{title:'iOS App',body:'<p><strong>Auto-backup:</strong> BGProcessingTask (background fetch). PhotoKit integration for library access. HEIC natively supported — no conversion needed. <strong>Cache:</strong> NSCache (50 MB memory) + URLCache (500 MB disk). <strong>Upload:</strong> Same TUS protocol, SHA-256 pre-computed before chunking. AVPlayer for video playback. <strong>Tech:</strong> Swift, SwiftUI, Core Data for local metadata index.</p>'},
+  web:{title:'Web PWA',body:'<p><strong>Service Worker (Workbox):</strong> Caches thumbnails in CacheStorage for offline browsing. IndexedDB for metadata. Background sync API for upload resumption. <strong>Upload:</strong> Fetch API with ReadableStream for chunking; progress events via TransferredBytes. Accept header negotiation: AVIF > WEBP > JPEG. <strong>Tech:</strong> React, Workbox, IntersectionObserver for lazy-load, WebCodecs API for client-side thumbnail generation.</p>'},
+  partner:{title:'Partner API Clients',body:'<p>Third-party apps (print services, editing tools) access via OAuth 2.0 + PKCE. Scopes: <code>photoslibrary.readonly</code> (read grid + albums), <code>photoslibrary.appendonly</code> (create new photos). Rate limit: 10K req/day per app. Token introspection at API Gateway on every request. All partner traffic routed through isolated API Gateway tier — blast radius contained from main user traffic.</p>'},
+  cdn:{title:'CDN / Media PoPs',body:'<p><strong>200+ global PoPs.</strong> Cache key: <code>/p/{user_hash}/{photo_id}?w={w}&q={q}&fmt={fmt}</code>. Content-addressed URL → infinite TTL (bytes immutable). Private photos: 5-min TTL + surrogate key for instant purge on delete. <strong>Eviction:</strong> LIRS (Low Inter-Reference Recency Set) — outperforms LRU for bursty viral content access patterns. <strong>Request coalescing:</strong> 1,000 concurrent CDN misses for same key → only 1 upstream GCS request fires. Probabilistic early refresh: CDN pre-fetches at 80% TTL with probability ∝ remaining TTL — prevents thundering herd on expiry.</p>'},
+  armor:{title:'Cloud Armor / WAF',body:'<p>Layer 3/4 volumetric DDoS mitigation (Gbps-scale). Layer 7 WAF: OWASP Top 10, SQL injection, XSS. Adaptive Protection: ML-based anomaly detection identifies new DDoS patterns in ~1 min. reCAPTCHA Enterprise for bot detection. Rate limiting before traffic reaches API Gateway: 1000 req/min per user IP, 100 req/min for unauthenticated.</p>'},
+  glb:{title:'Global Load Balancer (Anycast)',body:'<p>Single Anycast IP — BGP routes users to nearest PoP automatically. Geo-routing enforces data residency: JWT region claim determines which backend cluster handles the request. Health-based failover: if a region fails, traffic reroutes in &lt;60s (3× 10s health check intervals + 30s DNS TTL propagation). Connection draining: 30s grace on region failover.</p>'},
+  gateway:{title:'API Gateway (Envoy)',body:'<p><strong>Functions:</strong> JWT validation (RS256 public key from JWKS), rate limiting (per-user: 1000 req/min; per-partner-app: 10K req/day), request routing to microservices, mTLS termination for internal calls, structured request logging to Cloud Logging. <strong>Scale:</strong> 290K req/s peak across 300 Envoy pods @ 1K req/s each. HPA on request queue depth. p99 gateway overhead: &lt;5ms.</p>'},
+  uploadsvc:{title:'Upload Service',body:'<p><strong>TUS (tus.io) protocol.</strong> Client computes SHA-256 and sends as <code>Upload-Checksum: sha256 {base64}</code> header. Upload Service validates checksum on completion — detects corruption during transit. <strong>Session state:</strong> stored in Redis (24h TTL). Any pod can resume any session — stateless service. Issues GCS resumable upload URL for direct client→GCS transfer. Upload Service only handles signaling, never touches blob bytes. <strong>Scale:</strong> 46K concurrent sessions; 600 pods.</p>'},
+  dedupsvc:{title:'Dedup Service',body:'<p>Receives SHA-256 from Upload Service. <strong>Step 1:</strong> Redis bloom filter (50M entries, &lt;0.01% false-positive) — sub-ms check. <strong>Step 2 (if bloom positive):</strong> Bigtable exact lookup by photo_id. <strong>On duplicate:</strong> return existing photo_id, create new metadata row pointing to existing GCS blob. Zero bytes transferred to GCS. Saves ~30% storage (same photo from multiple devices is extremely common). <strong>False positive impact:</strong> Rare re-upload attempt for non-duplicate; user transparently gets their upload succeeded.</p>'},
+  ingestsvc:{title:'Ingest Coordinator (Saga)',body:'<p>Owns upload saga state machine: INITIATED → UPLOADING → SCANNING → COMMITTED → INDEXED. Uses Spanner for saga state (must be ACID — Bigtable insufficient here). Saga steps are idempotent — any step can be replayed safely. Publishes <code>photo.uploaded</code> to Kafka only after successful Bigtable + Spanner metadata commit. Compensating actions registered for every step at initiation time.</p>'},
+  scanner:{title:'Safety Scanner',body:'<p><strong>Synchronous — blocks metadata commit.</strong> Step 1: PhotoDNA hash match (NCMEC DB, synced daily) — 50ms. Step 2: Perceptual hash (pHash/dHash) for near-duplicate CSAM — 20ms. Step 3: NSFW ML classifier on 256px thumbnail — 80ms GPU. <strong>On CSAM match:</strong> GCS blob deleted, metadata NOT committed, user reported to NCMEC within 24h, account suspended. Match is silent — no error to uploader reveals detection mechanism. All CSAM events logged to immutable, access-controlled audit log (7-year retention).</p>'},
+  libsvc:{title:'Library Service',body:'<p><strong>Grid reads:</strong> Bigtable row scan (userID#reverseTimestamp range query) — returns 50 rows in ~10ms. Redis caches metadata for users active in last 30d (80% hit rate). Pagination via page_token = base64(last_row_key). <strong>Writes:</strong> Trash → Bigtable status update + Kafka photo.deleted event. Album add → Spanner transaction (atomic photo_count increment + album_photos insert). <strong>Scale:</strong> 2.3M req/s; 97% hit Redis or CDN metadata; ~70K/s touch Bigtable.</p>'},
+  searchsvc:{title:'Search Service',body:'<p><strong>Pipeline:</strong> query → CLIP text encoder (80ms GPU) → ScaNN ANN search top-100 (180ms) → Bigtable metadata fetch for 100 candidates (80ms) → re-rank by date × similarity (10ms) = ~350ms total. <strong>Face search:</strong> person_id → face cluster lookup → all photo_ids in cluster via Bigtable. <strong>OCR search:</strong> keyword match on ocr_text column in Bigtable (for text-in-image queries). <strong>Fallback:</strong> if ScaNN unavailable, fall back to label-based keyword search — reduced recall but always available.</p>'},
+  mediasvc:{title:'Media Serving',body:'<p>Routes variant requests to correct GCS path. Handles only CDN misses (~3% of traffic). <strong>Format negotiation:</strong> reads Accept header; AVIF > WEBP > JPEG priority. <strong>On miss:</strong> check if variant exists in GCS → serve if present. If not → trigger lazy transcode (separate on-demand pool), serve original-quality photo immediately while variant generates (progressive JPEG). Lazy variant ready in ~600ms; cached to CDN on completion.</p>'},
+  sharesvc:{title:'Share Service',body:'<p>Creates share tokens (UUID v4, stored in Spanner). Share URL: <code>photos.google.com/share/{token}</code>. <strong>On access:</strong> validate token → check expiry → load album via Library Service (read-only). Contributor mode: write requests validated against is_contributor flag. <strong>Viral protection:</strong> &gt;10K unique IPs/min on one token → CDN "priority hot" classification, 60-min no-revalidation window. Rate limit: 1K req/min per token before CDN shields origin.</p>'},
+  trashsvc:{title:'Trash / Lifecycle Service',body:'<p>State machine: ACTIVE → TRASH (trashed_at written, original_album_ids saved) → DELETED (60 days later). Daily cron: scan Bigtable trash column family for trashed_at &lt; now−60d. For each: (1) Emit photo.deleted to Kafka. (2) CDN purge consumer fires surrogate key purge (all variants from all PoPs in &lt;500ms). (3) ScaNN delete consumer removes CLIP embedding. (4) GCS blob: 7-day hold before deletion (safety buffer for bug mitigation). (5) Bigtable row: status=DELETED, compacted in 24h.</p>'},
+  transcode:{title:'Transcode Pipeline',body:'<p>Consumes photo.uploaded. <strong>Eager variants (all uploads):</strong> 64px, 128px, 256px, 512px, 1080px — JPEG + WEBP. Total 10 variants per photo. <strong>Lazy variants (on first request):</strong> 4K, AVIF, custom crops. <strong>Video:</strong> HLS at 360p/720p/1080p/4K. <strong>Workers:</strong> 2,300 A100 GPU pods on Borg. Kafka topic: transcode.requested (partitioned by user_id for ordering). Idempotent: same input → same output; safe to replay. On completion: writes to GCS, updates Bigtable variant_paths, publishes photo.transcoded.</p>'},
+  mlpipe:{title:'ML Pipeline',body:'<p>Consumes photo.transcoded (runs on 512px variant). <strong>Parallel jobs:</strong> (1) CLIP ViT-L/14 → 512-dim embedding → Vertex AI ScaNN. (2) YOLO-v8 → scene_labels[], object_labels[] → Bigtable ml column. (3) FaceNet → 128-dim per face → face cluster service (DBSCAN nightly). (4) Google Vision OCR → ocr_text → Bigtable. (5) Color palette extractor → dominant_colors[]. All async — no user latency impact. Dead letter queue on failure; photo unsearchable until retry succeeds. Emits photo.indexed when all complete.</p>'},
+  indexsvc:{title:'Index Service',body:'<p>Consumes photo.indexed. <strong>Writes:</strong> CLIP embedding to ScaNN (upsert). Face embedding to per-user face index. Keyword inverted index update (date, location, filename). <strong>Failure:</strong> photo visible in grid but missing from search results. DLQ with exponential backoff retry. SRE alert if index lag &gt;120s. No user-visible latency dependency — failure degrades search quality, not photo availability.</p>'},
+  notifsvc:{title:'Notification Service',body:'<p>Consumes Kafka events: photo.uploaded (shared album contributor notify), album.updated (member join/share). <strong>Channels:</strong> FCM (Android), APNs (iOS), WebSocket (web tab open). <strong>Fanout:</strong> shared album with 500 contributors → FCM topic-based multicast (1 API call, FCM fans out). Deduplication: notification_id = hash(event_id+user_id) in Redis 24h TTL — prevents duplicate push on Kafka consumer retry. FCM quota: 1M msg/s globally.</p>'},
+  warmer:{title:'Cache Warmer',body:'<p>Consumes photo.transcoded. <strong>Action:</strong> fires synthetic HTTP GET for 5 most common variant URLs → CDN and regional NVMe cache them. Nearest CDN PoP to uploader inferred from upload IP geo. <strong>Effect:</strong> first viewer of a newly-uploaded photo hits cache instead of cold origin. Reduces new-photo miss rate from 100% to ~5% within 15s of upload. Highest-ROI post-launch optimisation for p99 latency improvement. No Kafka events emitted — terminal step.</p>'},
+  k1:{title:'Kafka: photo.uploaded',body:'<p><strong>Published by:</strong> Ingest Coordinator (after Bigtable commit confirmed). <strong>Consumers:</strong> Transcode Pipeline (consumer group: transcoder), Cache Warmer (consumer group: warmer), Notification Service (consumer group: notifier-shared-albums). <strong>Payload:</strong> {photo_id, user_id, gcs_path, size_bytes, mime_type, upload_region, sha256, album_ids[]}. <strong>Partitions:</strong> 100, keyed by user_id hash (ordering within user preserved). <strong>Retention:</strong> 7 days. Consumer groups independent — transcode crash doesn\'t block notification.</p>'},
+  k2:{title:'Kafka: photo.transcoded',body:'<p><strong>Published by:</strong> Transcode Pipeline (after all eager variants written to GCS). <strong>Consumers:</strong> ML Pipeline, Index Service, Cache Warmer (priority channel). <strong>Payload:</strong> {photo_id, user_id, variant_paths{64px:url, 256px:url, ...}, transcode_ms, region}. <strong>Partitions:</strong> 50. Triggers the entire ML intelligence fan-out chain.</p>'},
+  k3:{title:'Kafka: photo.indexed',body:'<p><strong>Published by:</strong> Index Service (after ScaNN write + Bigtable ml column update). <strong>Consumers:</strong> Internal analytics only (no user-facing consumer). <strong>Payload:</strong> {photo_id, user_id, scene_labels[], face_cluster_ids[], has_ocr, indexed_at}. Primarily used for monitoring ML pipeline lag (SRE alert: indexed_at - upload_ts &gt; 60s).</p>'},
+  k4:{title:'Kafka: photo.deleted',body:'<p><strong>Published by:</strong> Trash Service (on permanent delete). <strong>Consumers:</strong> CDN Purge Worker (surrogate key purge, &lt;500ms across all PoPs), ScaNN Delete Worker (remove CLIP embedding), Redis Invalidation Worker (evict hot metadata). <strong>Critical SLA:</strong> CDN purge must complete within 60s — deleted photo must not be accessible via share links. SRE PagerDuty alert if purge lag &gt;30s.</p>'},
+  k5:{title:'Kafka: album.updated',body:'<p><strong>Published by:</strong> Library Service + Share Service (on album photo add/remove, cover change, member change). <strong>Consumers:</strong> Cache Invalidation (Redis eviction of album metadata), Notification Service (push to contributors). <strong>Payload:</strong> {album_id, change_type, changed_by, affected_photo_ids[], timestamp}. 30 partitions — low volume, high importance for sharing feature UX.</p>'},
+  bigtable:{title:'Bigtable — Photo Metadata',body:'<p><strong>Row key:</strong> {user_id}#{reverse_timestamp}#{photo_id}. Reverse timestamp = MAX_LONG − epoch_ms → scan returns newest photos first automatically (no sorting needed). <strong>Scale:</strong> 4T rows, ~6 PB metadata, 600 Bigtable nodes. <strong>Hot row mitigation:</strong> Redis caches metadata for users active in last 30d — Bigtable only touched on cold load or mutation. <strong>Column family design:</strong> meta, exif, ml, trash — separate families for independent TTL policies and read-column filtering (grid read only needs meta; ML pipeline reads only ml column).</p>'},
+  colossus:{title:'Colossus / GCS — Blob Store',body:'<p>Google\'s internal DFS, exposed as GCS. <strong>Erasure coding:</strong> Reed-Solomon (6 data + 3 parity) shards → 11-nine durability at only 1.5× storage overhead (vs 3× for full replication). <strong>Geo-replication:</strong> 3 regions per object. Object immutable after first write — no versioning complexity. <strong>Lifecycle policy:</strong> objects not accessed in 90d → auto-move to Coldline storage (90% cost reduction). <strong>Access:</strong> GCS signed URLs for direct client access; Upload Service issues resumable session URLs with 24h expiry.</p>'},
+  spanner:{title:'Cloud Spanner — Albums & Shares',body:'<p><strong>Why Spanner over everything else:</strong> TrueTime-based external consistency. Album operations (add photo: increment photo_count + insert album_photos row) require multi-row ACID. No distributed DB other than Spanner offers this at global scale. <strong>Scale:</strong> 200 Spanner nodes across 3 regions. albums: ~50B rows. album_photos: ~4T rows. <strong>Cost:</strong> $0.30/GB vs Bigtable $0.065/GB — justified only for ACID-requiring data. Album dataset is orders smaller than photo metadata; cost premium is negligible at system scale.</p>'},
+  redis:{title:'Redis Cluster — Metadata Cache',body:'<p><strong>Use cases:</strong> (1) Hot photo metadata last 30d — 80% grid-read hit rate. (2) JWT session introspection cache (5-min TTL). (3) Rate-limit sliding window counters (sorted sets, ZADD). (4) Bloom filter for dedup fast-path. (5) Upload session state (24h TTL hash maps). <strong>Cluster:</strong> 50 r6g.2xlarge nodes (64 GB RAM each) per region. Consistent hashing, 150 virtual nodes. Write-through to Bigtable — Redis is acceleration, not source of truth. <strong>Failure mode:</strong> Redis node fails → consistent hash remaps 1/150 keys to neighbours; Bigtable fallback for cache miss.</p>'},
+  scann:{title:'Vertex AI ScaNN — Vector Search',body:'<p>Stores 512-dim CLIP embeddings for 4T photos, 128-dim FaceNet embeddings per face. <strong>Product quantization:</strong> compresses 8.2 PB raw → ~512 TB indexed. ANN search: top-100 candidates in ~180ms at billion-vector scale. ScaNN achieves 2× recall@10 vs FAISS at Google scale (per internal benchmarks). <strong>Per-region isolation:</strong> EU face embeddings never replicated outside europe-west1 (GDPR biometric constraint). Index rebuilt incrementally (streaming upserts, not full rebuild) — 46K new vectors/second ingestion sustained.</p>'},
+  gauth:{title:'Google Identity',body:'<p>OAuth 2.0 + OIDC. Photos is a Google product — account linkage assumed. JWT issued by Google Identity Platform. API Gateway validates using Google\'s public JWKS endpoint (cached 5 min). Partner OAuth: separate client registration portal, restricted scopes, 10K req/day hard limit per registered app. Session: access token 1h, refresh token 30d (HttpOnly cookie, rotated on use, revocable via Spanner revocation table).</p>'},
+  fcm:{title:'FCM / APNs — Push Notifications',body:'<p>Firebase Cloud Messaging (Android) + Apple Push Notification Service (iOS). Use cases: shared album contribution, Memories ready, storage quota warning, backup complete (silent push). <strong>Fanout:</strong> album with 500 contributors → FCM topic-based multicast (1 API call). WebSocket channel for web app while tab open. <strong>Dedup:</strong> notification_id = hash(event_id + user_id) in Redis 24h — prevents duplicate on Kafka retry. FCM quota: 1M msg/s globally.</p>'},
+  pdna:{title:'PhotoDNA (NCMEC)',body:'<p>Microsoft PhotoDNA perceptual hash matching for CSAM. Hash DB synced daily from NCMEC. Synchronous check on every upload — blocks metadata commit until scan completes (~50ms). Robust to JPEG compression and minor cropping. False positive rate: &lt;1 in 50 billion (Microsoft published). Augmented by Google\'s own perceptual hash implementation (pHash/dHash) for near-duplicate detection, and an ML-based CSAM classifier for novel material not yet in PhotoDNA DB.</p>'},
+  gone:{title:'Google One Billing',body:'<p>Storage accounting: Bigtable accumulates bytes_stored per user_id, updated on every upload commit and hard delete. Quota check: enforced at Upload Service as pre-flight check before TUS session issued. Quota exceeded → HTTP 402 with upgrade URL. Plans: 15 GB free, 100 GB $1.99/month, 200 GB $2.99/month, 2 TB $9.99/month. Revenue attribution: each upload tagged with subscription_tier for billing analytics Kafka consumer.</p>'},
+  'r-us':{title:'US Region (us-central1)',body:'<p>Primary write region for US users. Hosts: all US user Bigtable data (primary), Spanner multi-region write leader, Colossus primary + 2 cross-region replicas, Kafka cluster (mirrored to EU/APAC). No data residency restriction for US users — data can replicate to EU and APAC for CDN serving efficiency.</p>'},
+  'r-eu':{title:'EU Region (europe-west1)',body:'<p>GDPR data residency enforcement. EU user data NEVER leaves this region. Enforced at Upload Service via JWT region claim routing (not just policy document). Face embeddings: EU-only, zero cross-region replication (GDPR Article 9 biometric). Separate Kafka cluster — no MirrorMaker to non-EU regions for user data events. Legal basis: Art. 6 GDPR explicit consent for ML processing; Art. 9 explicit consent for face data.</p>'},
+  'r-in':{title:'India Region (asia-south1)',body:'<p>DPDP Act (Digital Personal Data Protection, 2023) compliance. Indian user data localised here. Cross-border transfer prohibited at Spanner row-level access policy. Breach pipeline: PagerDuty → Legal → CERT-In within 72h. Consent notice in English + local language (Hindi default). Data fiduciary consent before ML training on Indian photos. Launch requires 6-week legal review — must start 8 weeks before India GA date.</p>'},
+  'r-ap':{title:'APAC Region (asia-east1)',body:'<p>Low-latency serving for South-East Asia, Japan, Korea, Australia. Read replica of US user data (no data residency restriction for non-IN/non-EU APAC users). Colossus geo-replica. No write primary — all writes route to US or IN based on JWT region claim. CDN PoPs in APAC backed by this region\'s Colossus for cache miss origin fetches.</p>'},
+  mon:{title:'Cloud Monitoring',body:'<p>Key SLO dashboards: upload success rate (target &gt;99.5%), thumbnail p99 (target &lt;200ms), CDN hit rate (target &gt;97%), transcode queue depth (alert &gt;50K), ML pipeline lag (alert if indexed_at - upload_ts &gt;120s). Error budget burn rate alerting: 2% of monthly budget consumed in 1h → PagerDuty page. Custom metric: photos_not_in_search_count (should approach zero within 60s of upload; alert if sustained &gt;200 photos).</p>'},
+  trace:{title:'Cloud Trace — Distributed Tracing',body:'<p>Every upload tagged with trace_id from client (generated before SHA-256 computation). Upload saga steps are spans. Allows root-cause analysis: "why did user X\'s photo take 45s to appear in search?" → trace shows transcode worker queued behind 10K holiday batch jobs. Sampling: 100% for failed uploads (regardless of volume), 1% for successful. Trace retention: 30 days.</p>'},
+  log:{title:'Cloud Logging',body:'<p>Structured JSON from all services. Key fields: user_id (hashed — never raw PII in logs), photo_id, operation, latency_ms, cache_tier_hit, error_code. PII never logged. CSAM events: separate restricted log sink (access-controlled, immutable, 7-year retention for legal). Retention: 30d hot (queryable), 1 year cold (archive). Log-based metrics feed Cloud Monitoring SLO dashboards.</p>'},
+  cicd:{title:'GKE + Spinnaker CI/CD',body:'<p>Internal services on Borg; external-facing on GKE. <strong>Spinnaker canary:</strong> new version → 1% traffic → automated canary analysis (latency p99, error rate delta) → 10% → 50% → 100% over 4 hours. Rollback trigger: error rate increase &gt;0.5% vs baseline. Rollback completes in &lt;2 min (traffic shifted, old pods kept warm for 5 min). <strong>Deployment gate:</strong> no deployment during known holiday windows (Diwali, Christmas, NYE) except P0 fixes.</p>'}
+};
+
+function archDetail(el,id){
+  document.querySelectorAll('.arch-box').forEach(b=>b.style.outline='');
+  el.style.outline='2px solid var(--blue)';
+  const panel=document.getElementById('arch-detail-panel');
+  const d=archData[id];
+  if(d){
+    document.getElementById('arch-detail-title').textContent=d.title;
+    document.getElementById('arch-detail-body').innerHTML=d.body;
+    panel.classList.add('show');
+    panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+}
+
+// ===== FLOW DATA =====
+const upFlow=[
+  {title:'1. Initiate Upload',detail:'<p><strong>API:</strong> <code>POST /v1/uploads/initiate</code> body: {sha256, size_bytes, mime_type, album_ids[]}. Client computes SHA-256 on full file before sending (50ms on modern phone). <strong>Service:</strong> Upload Service → Dedup Service (Redis bloom filter, sub-ms). <strong>DB:</strong> If bloom hit → Bigtable exact lookup (10ms). Duplicate found → return existing photo_id immediately; zero GCS write. New → create Redis session (24h TTL), issue GCS signed resumable URL. <strong>Latency budget:</strong> ~80ms. <strong>Failure:</strong> Network drop → client retries with same sha256 → idempotent, same session returned.</p>'},
+  {title:'2. Dedup Check',detail:'<p><strong>Service:</strong> Dedup Service checks SHA-256 against Redis bloom filter (50M entries, &lt;0.01% FP). On probable hit → Bigtable lookup (10ms). On confirmed duplicate → return existing photo_id; Ingest Coordinator creates new metadata row in Bigtable pointing to existing GCS blob. Zero bytes uploaded. <strong>Saves:</strong> ~30% GCS writes — same photo from 2 devices extremely common. <strong>False positive:</strong> rare redundant Bigtable lookup; no incorrect dedup possible.</p>'},
+  {title:'3. Chunk Transfer',detail:'<p><strong>Protocol:</strong> TUS client sends PATCH chunks (5 MB each) directly to GCS signed URL. Upload Service not in data path for bytes — only handles HEAD (resume offset check) and completion notification. Client tracks offset locally. <strong>Resumption:</strong> network drop → HEAD /v1/uploads/{session_id} → {Upload-Offset: last_committed_byte} → resume from checkpoint. <strong>Redis:</strong> session hash updated on each chunk commit (offset, checksum_so_far). <strong>Bandwidth:</strong> direct client→GCS, ~100 Mbps per session on WiFi. <strong>Latency:</strong> network-bound (3–30s for full file).</p>'},
+  {title:'4. Safety Scan',detail:'<p><strong>Service:</strong> Safety Scanner. Synchronous — must complete before metadata commit. <strong>Step 1:</strong> PhotoDNA hash match vs NCMEC DB (daily sync) — 50ms. <strong>Step 2:</strong> pHash/dHash near-duplicate CSAM detection — 20ms. <strong>Step 3:</strong> NSFW ML classifier on 256px thumbnail — 80ms GPU. <strong>Total: ~150ms.</strong> On CSAM match: GCS blob deleted immediately, metadata NOT committed, user reported to NCMEC ≤24h, account suspended, event logged to immutable audit log. Match is silent to uploader — no error reveals detection.</p>'},
+  {title:'5. Commit Metadata',detail:'<p><strong>Service:</strong> Ingest Coordinator (Saga). <strong>DB ops:</strong> (1) Bigtable write: photo metadata row (user_id#revTs#photo_id → meta + exif columns), ~10ms. (2) Spanner write: album_photos row if album_ids provided (atomic with album photo_count increment), ~20ms. These two writes are NOT in the same transaction (different stores) — Bigtable write goes first; if Spanner fails, album entry is missing but photo is visible. Compensating action: album_photos repair job. <strong>Kafka:</strong> Emit photo.uploaded after Bigtable commit confirmed. <strong>Failure:</strong> Bigtable fails 3× → saga failed → orphan cleanup cron (hourly) deletes GCS blob.</p>'},
+  {title:'6. Kafka Fan-out',detail:'<p><strong>Triggered by photo.uploaded event. All consumer groups independent:</strong><br>• <strong>Transcode Pipeline</strong> (consumer group: transcoder): generates 10 eager variants in ~4s GPU time. Emits photo.transcoded.<br>• <strong>Cache Warmer</strong> (consumer group: warmer): pre-warms 5 common variant URLs to CDN + regional NVMe.<br>• <strong>Notification Service</strong> (consumer group: notifier): if shared album, FCM push to contributors.<br><strong>Failure isolation:</strong> Transcode crash doesn\'t block notification. Each consumer group manages its own offset — failure retries independently. 7-day Kafka retention ensures no event lost even during extended outage.</p>'},
+  {title:'7. Cache Warm',detail:'<p><strong>Service:</strong> Cache Warmer (consumes photo.transcoded — runs after variants exist in GCS). <strong>Action:</strong> fires synthetic GET requests for 5 most common variant URLs → CDN origin caches responses → regional NVMe caches responses. Nearest CDN PoP inferred from upload IP geolocation. <strong>Effect:</strong> first viewer hits cache within 15s of upload (vs cold origin at 600ms). New-photo cache miss rate drops from 100% to ~5%. <strong>Over-warm:</strong> ~20% of pre-warmed variants never viewed — acceptable cost for the p99 improvement. This is the highest-ROI single optimisation for grid view latency.</p>'}
+];
+
+const vwFlow=[
+  {title:'1. Grid Open',detail:'<p><strong>API:</strong> <code>GET /v1/library?per_page=50</code>. Library Service returns 50 photo metadata rows from Redis (1ms) — includes photo_id, taken_at, width, height, and pre-computed variant URL for each. Client renders skeleton placeholders instantly, then fires N parallel thumbnail GET requests for the visible viewport (typically 12–24 photos on mobile).</p>'},
+  {title:'2. Client Memory Cache',detail:'<p>LRU-K in-process cache, 50 MB. Cache key: full variant URL (content-addressed → same URL = same bytes always). LRU-K (K=2): thumbnail must be accessed twice before promotion to protected space — prevents single grid scroll from evicting frequently-used recent photos. Hit rate: ~40% for photos visible in current session. Latency: 1ms. No network. Eviction: LRU-K; trim runs on backgrounding.</p>'},
+  {title:'3. Client Disk Cache',detail:'<p>OkHttp disk cache (Android) / URLCache (iOS), 500 MB. Holds thumbnails from last 7–14 days of usage. Hit rate: ~25% of grid fetches (session-miss photos from recent history). Cache key: variant URL (immutable → no invalidation needed). Latency: 5–20ms (NVMe read on modern phone). Background trim job runs on app backgrounding to maintain 500 MB ceiling. No network call.</p>'},
+  {title:'4. CDN Edge PoP',detail:'<p>URL: <code>/p/{user_hash}/{photo_id}?w=256&q=85&fmt=webp</code>. Content-addressed → immutable bytes → infinite TTL (private photos: 5-min TTL + surrogate key). CDN PoP serves from edge cache if present. <strong>Request coalescing:</strong> 1,000 concurrent misses for same URL → 1 upstream request fires → all 1,000 waiters get same response. <strong>Eviction:</strong> LIRS algorithm — optimal for bursty viral content. Hit rate: ~85% of requests that reach CDN (after client-cache misses). Latency: 20–50ms from user to nearest PoP.</p>'},
+  {title:'5. Regional NVMe Cache',detail:'<p>NVMe SSD pool behind regional Redis cluster. Holds hot thumbnails for recently-uploaded photos (cache warmer writes here). Hit rate: ~70% of CDN misses. Latency: 3–5ms for bytes + 30ms network = ~35ms total. <strong>Eviction:</strong> ARC (Adaptive Replacement Cache) — dynamically balances recency vs frequency, excellent for mixed access patterns. <strong>Failure:</strong> Redis node down → consistent hash remaps 1/150 keys to neighbours, no data loss (Redis is cache, not source of truth).</p>'},
+  {title:'6. Origin Colossus/GCS',detail:'<p>~1.25% of requests reach here (after all cache tiers miss). Media Serving routes to correct GCS bucket + object path. GCS read: ~200ms for 150 KB thumbnail. Response streamed back → regional cache write-back → CDN write-back → client. Next request for same photo from same region: CDN hit. <strong>Failure:</strong> GCS regional outage → Colossus geo-replica in failover region serves within 60s (DNS failover via health checks). <strong>Latency total:</strong> 400–600ms end-to-end. This is the "cold start" case that the cache warmer eliminates for new uploads.</p>'},
+  {title:'7. Prefetch Engine',detail:'<p>Client-side ML model tracks scroll velocity, direction, acceleration. Fires variant GET requests for next-viewport batch while user reads current viewport. Android: custom RecyclerView scroll listener + Glide preload API. iOS: UICollectionView prefetching API + custom velocity model. Aggressiveness: 3× viewport ahead on fast scroll, 1× on slow/stopped. Effect: eliminates visible loading for normal browsing behaviour. Network over-fetch: ~15% (prefetched photos user never reaches). Acceptable UX tradeoff — thumbnail is 150 KB, 15% overhead is negligible vs the latency improvement.</p>'}
+];
+
+const vrFlow=[
+  {title:'1. Click Storm Detected',detail:'<p>Viral WhatsApp share: 10M recipients click within 5 min = 33K req/s against one album. <strong>Detection:</strong> CDN access log streaming analyzer (10s window) detects &gt;10K unique IPs/min against single share_token. <strong>Action:</strong> Share Service marks album as "viral" in Redis → CDN ignores TTL revalidation for 60 min → all PoPs serve from edge cache without hitting origin. <strong>Latency from detection to mitigation:</strong> ~90 seconds (fully automated, no human needed).</p>'},
+  {title:'2. CDN Request Coalescing',detail:'<p>33K req/s → CDN PoPs serve from cache. CDN hit rate for viral content: &gt;99.9%. Any PoP miss → request coalescing: only 1 upstream request per unique URL per PoP, all concurrent waiters receive same response. <strong>Even worst case:</strong> 200 PoPs all miss simultaneously → origin receives max 200 requests (one per PoP), not 33K. Probabilistic early refresh prevents thundering herd on TTL expiry: CDN pre-fetches at 80% TTL with probability proportional to remaining TTL.</p>'},
+  {title:'3. Upload Surge Auto-scale',detail:'<p>Diwali: 5× normal upload volume = 230K upload req/s. <strong>Trigger 1:</strong> K8s HPA — upload_queue_depth &gt;5K OR CPU &gt;60% for 30s → scale up upload pods (45s to ready from pre-warmed AMI). <strong>Trigger 2:</strong> Kafka transcode lag &gt;100K → add GPU spot instances → deprioritise old re-transcode batch jobs. <strong>Pre-scaling (best practice):</strong> SRE team pre-scales 2h before Diwali (date known) to 3× baseline — avoids cold-start lag during first surge minutes when HPA is still reacting.</p>'},
+  {title:'4. Load Shedding Priority',detail:'<p>If autoscale cannot keep up (unexpected viral + holiday collision):<br><strong>Never shed:</strong> Photo viewing, photo download (user-initiated, visible impact)<br><strong>Shed at 80% capacity:</strong> Real-time ML pipeline (delay index by hours — no user-visible impact immediately)<br><strong>Shed at 70%:</strong> Old re-transcode batch jobs, Memories generation<br><strong>Shed at 60%:</strong> Smart album suggestions, non-urgent notifications<br><strong>Mechanism:</strong> Kafka consumer group pauses → jobs accumulate in topic (7d retention) → resume when capacity recovers. No jobs lost.</p>'},
+  {title:'5. Upload Throttling',detail:'<p>If ingestion becomes a bottleneck: <strong>Tier-based rate limiting.</strong> Google One subscribers: never throttled. Free users: upload speed capped to 20 Mbps during surge (from 100 Mbps normal). <strong>Implementation:</strong> Upload Service reads storage_tier from JWT claim → applies token bucket in Redis (key: user_id, refill rate = tier-based). HTTP 429 returned with Retry-After header. TUS sessions persist — upload resumes at full speed when throttle lifts. <strong>UX:</strong> Background upload continues, just slower. User sees no error.</p>'},
+  {title:'6. Recovery',detail:'<p><strong>Kafka backlog drain:</strong> ML pipeline resumes from offset → processes accumulated photos → photo.indexed events catch up within 2–4h of surge end. <strong>Cache stabilisation:</strong> Viral album CDN hit rate stays &gt;99% for 24h post-surge (content stays hot). <strong>Autoscale-down:</strong> HPA cooldown 15 min → pods scale down gradually over 30 min (avoids immediate over-release triggering another surge). <strong>Post-mortem:</strong> any surge requiring &gt;4× autoscale triggers mandatory GameDay exercise within 30 days to test that exact scenario deliberately.</p>'}
+];
+
+function showFlow(type,step,el){
+  const flows={up:upFlow,vw:vwFlow,vr:vrFlow};
+  const data=flows[type];
+  const id=type+'-flow-detail';
+  el.closest('.flow-wrap').querySelectorAll('.flow-step').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  const box=document.getElementById(id);
+  box.innerHTML='<div class="flow-detail-title">'+data[step].title+'</div>'+data[step].detail;
+  box.classList.add('show');
+}
+
+// ===== DEEP DIVES =====
+const ddData={
+  1:{title:'Upload Pipeline',tech:'TUS Protocol · SHA-256 dedup · GCS signed URLs · Kafka fan-out',scale:'46K uploads/s avg · 230K peak · 162 GB/s ingestion',body:`
+<h3>Architecture</h3><p>A <span class="hl">3-phase saga</span>: initiation + dedup → chunked transfer to GCS → post-commit fan-out. The Upload Service handles only TUS protocol signaling — never touches blob bytes. Client writes directly to Colossus via GCS signed URL at full network speed. The Ingest Coordinator orchestrates the saga state machine using Spanner (ACID required for saga state).</p>
+<div class="callout insight-callout"><span class="callout-label">WHY SHA-256 CLIENT-SIDE</span>Computing SHA-256 on the client before uploading enables: (1) instant dedup check — same file from 2 devices = zero extra GCS write, (2) content-addressed URL = immutable = infinite CDN TTL, (3) integrity verification on GCS commit. The ~50ms computation on a modern phone is the best-ROI 50ms in the entire system.</div>
+<h3>TUS Resumable Protocol</h3><pre>POST /v1/uploads/initiate
+Body: {sha256, size_bytes, mime_type}
+Response: {session_id, gcs_signed_url, expires_at}
+
+PATCH {gcs_signed_url}        # 5 MB chunks, direct to GCS
+Headers: Upload-Offset: {last_committed}
+         Upload-Checksum: sha256 {base64_chunk_hash}
+
+HEAD /v1/uploads/{session_id} # Resume query
+Response: Upload-Offset: {N}  # Client resumes from byte N</pre>
+<div class="callout failure-callout"><span class="callout-label">FAILURE — METADATA COMMIT FAILS</span>GCS blob written, Bigtable write fails (after 3 retries). Photo not visible. Orphan cleanup cron runs hourly — finds GCS objects with no Bigtable row for blob SHA-256 → deletes GCS blob. User retries upload → dedup check finds no Bigtable entry → proceeds normally. Max orphan lifetime: 1 hour. Zero permanent storage leak.</div>`},
+  2:{title:'Media Serving & CDN',tech:'Colossus/GCS · CDN (200+ PoPs) · LIRS eviction · Surrogate keys · 4-tier cache',scale:'11.5M req/s peak · 97%+ CDN hit rate · 276 TB/s egress',body:`
+<h3>Cache Key Design</h3><pre>/p/{user_hash}/{photo_id}?w={width}&q={quality}&fmt={format}
+Example: /p/a3f9/sha256abc123/w=256&q=85&fmt=webp</pre>
+<p>Content-addressed: same bytes → same URL → <strong>infinite TTL for immutable content</strong>. Private photos: 5-min TTL + surrogate key tag for instant purge on delete. Public shared photos: 1-year TTL, no revalidation.</p>
+<div class="callout insight-callout"><span class="callout-label">INVALIDATION STRATEGY</span>Three mechanisms in parallel: (1) Surrogate key purge on photo.deleted Kafka event — all variants purged across all PoPs in &lt;500ms. (2) Redis pub/sub fan-out to regional NVMe caches. (3) Hash-based busting — edited photos get new photo_id → old URL ages out naturally, no explicit purge needed for edits.</div>
+<div class="callout failure-callout"><span class="callout-label">FAILURE — CDN PURGE DELAYED</span>CDN purge consumer crashes. Deleted photo remains accessible via CDN for up to 5 min (private photo TTL). DLQ retries purge. SRE PagerDuty alert if purge lag &gt;30s. Manual purge via CDN API available. GCS 7-day hold means blob accessible even if CDN serves stale — not a GDPR violation within the hold window, but a potential UX issue for shared link access after delete.</div>`},
+  3:{title:'Search Service',tech:'CLIP ViT-L/14 · Vertex AI ScaNN · FaceNet · Bigtable OCR · ANN search',scale:'500K search req/day · p99 &lt;500ms · 4T photo vectors indexed',body:`
+<h3>Query Pipeline</h3><pre>User query: "beach sunset with kids"
+  → CLIP text encoder (ViT-L/14)       80ms GPU
+  → 512-dim embedding
+  → ScaNN ANN search top-100            180ms
+  → Bigtable metadata fetch (100 rows)   80ms
+  → Re-rank: date recency × similarity   10ms
+  → Return top-50 with page_token       ~350ms total</pre>
+<h3>Search Types Supported</h3>
+<table><tr><th>Type</th><th>Index used</th><th>Example</th></tr>
+<tr><td>Semantic</td><td>CLIP ScaNN</td><td>"birthday party 2022"</td></tr>
+<tr><td>Object/scene</td><td>labels[] Bigtable</td><td>"photos of cats"</td></tr>
+<tr><td>Text-in-image</td><td>ocr_text Bigtable</td><td>"boarding pass to Goa"</td></tr>
+<tr><td>Person</td><td>face_ids → FaceNet cluster</td><td>"photos of Priya"</td></tr>
+<tr><td>Location</td><td>H3 geo cell index in Bigtable</td><td>"photos in Manali"</td></tr>
+<tr><td>Date range</td><td>Row key scan (reverse timestamp)</td><td>"January 2023"</td></tr></table>
+<div class="callout tradeoff-callout"><span class="callout-label">TRADEOFF — ANN vs EXACT SEARCH</span>ScaNN returns approximate nearest neighbours (recall@10 ~95%). The 5% miss = some relevant photos absent from results. Exact cosine search: 100% recall, 100× slower at 4T vectors. Chosen: ANN. Users don't notice 1–2 missing results from 50 shown; they would notice 5s search latency on a Google product.</div>`},
+  4:{title:'ML Pipeline',tech:'CLIP ViT-L/14 · YOLO-v8 · FaceNet · Google Vision OCR · A100 GPUs · Kafka',scale:'46K photos/s indexed · 30s post-upload SLO · 2,300 GPU workers',body:`
+<h3>Pipeline DAG</h3><pre>photo.transcoded (256px variant available)
+  │
+  ├─► CLIP ViT-L/14           512-dim → ScaNN
+  ├─► YOLO-v8                 labels[] → Bigtable ml
+  ├─► FaceNet detection       128-dim → face cluster svc
+  ├─► Google Vision OCR       ocr_text → Bigtable ml
+  └─► Color palette           colors[] → Bigtable ml
+                                ↓
+                        photo.indexed event emitted</pre>
+<h3>Face Clustering</h3><p>FaceNet extracts 128-dim embedding per detected face. DBSCAN clustering runs nightly per user. New photo face → ScaNN ANN search in user-scoped face index → assign to nearest cluster or create new cluster. User labels cluster "Priya" → all photos in cluster searchable by name. Cluster merging when user manually links two clusters (same person).</p>
+<div class="callout em-callout"><span class="callout-label">GDPR BIOMETRIC CONSTRAINT</span>Face embeddings are biometric data under GDPR Article 9. Must be: (1) stored encrypted with dedicated KMS key ring, (2) never replicated outside user's home region (EU embeddings EU-only), (3) deleted within 30 days of erasure request, (4) not used for cross-user identification. Legal review required before EU launch. Privacy lawyer hire must happen in Phase 1, not Phase 2.</div>`},
+  5:{title:'Album & Share Service',tech:'Cloud Spanner · Redis · Kafka · FCM · Surrogate key CDN purge',scale:'50B albums · 4T album_photos rows · ACID transactions globally',body:`
+<h3>Why Spanner (Not Bigtable)</h3><p>Album operations need multi-row ACID: adding a photo must atomically (1) insert into album_photos, (2) increment photo_count. These are different row key spaces. Bigtable cannot do this — you'd get ghost photo counts and album corruption. Spanner's TrueTime provides external consistency: album photo count is always correct.</p>
+<h3>Share Link Viral Protection</h3><p>Share token → album metadata cached at CDN (5-min TTL). Viral detection (&gt;10K req/min on one token): extend CDN cache to 60 min, disable revalidation. Contributor mode writes still reach origin (can't cache writes). Rate limit: 1K unique IPs/min per token before CDN shields origin. Shared album photos served with long TTL (content-addressed, immutable).</p>
+<div class="callout failure-callout"><span class="callout-label">FAILURE — SPANNER REGIONAL OUTAGE</span>Spanner writes unavailable. Album mutations (add photo, change cover) fail with 503. <strong>Reads still work</strong> — Spanner serves reads from regional replicas during write outage. Recovery: Spanner SLA guarantees availability with regional failover in &lt;30s. RPO: zero (synchronous replication). Photo viewing unaffected — served from Colossus, not Spanner.</div>`},
+  6:{title:'Trash & Lifecycle Service',tech:'Bigtable TTL scan · Cloud Scheduler · GCS object hold · Kafka CDN purge',scale:'4B delete operations/year · 60-day recovery · Zero permanent data loss',body:`
+<h3>State Machine</h3><pre>
+ACTIVE ──(user deletes)──► TRASH ──(60 days)──► DELETED
+           trashed_at set      ▲          GCS blob: 7-day hold
+           album_ids saved     │          then permanent purge
+                          (user restores)
+</pre>
+<h3>Hard Delete Cascade</h3><ol>
+<li>Trash Service emits photo.deleted Kafka event</li>
+<li>CDN Purge consumer: surrogate key purge all variants across 200+ PoPs (&lt;500ms)</li>
+<li>ScaNN Delete consumer: remove CLIP embedding from vector index</li>
+<li>Redis Invalidation: evict metadata from hot cache</li>
+<li>Bigtable: status=DELETED (row compacted in 24h)</li>
+<li>GCS: 7-day object hold → then permanent deletion (safety buffer for bug mitigation)</li>
+</ol>
+<div class="callout em-callout"><span class="callout-label">EM PERSPECTIVE — GDPR RIGHT TO ERASURE</span>GDPR Art. 17 requires erasure "without undue delay." Our pipeline completes in &lt;30 minutes for the full cascade. The 7-day GCS hold is a legal risk: if a user requests erasure and a regulator checks within 7 days, the bytes still exist. Legal team must review whether this constitutes "undue delay." Alternative: synchronous GCS delete on commit, keeping only Bigtable status flag as backup for recovery. Trade-off: less safety net vs. full GDPR compliance.</div>`},
+  7:{title:'Notification Service',tech:'FCM · APNs · WebSocket · Kafka · Redis dedup · Topic multicast',scale:'500M push/day · &lt;5s delivery SLO · 1M FCM msg/s quota',body:`
+<h3>Notification Types</h3>
+<table><tr><th>Event</th><th>Trigger</th><th>Channel</th></tr>
+<tr><td>Shared album contribution</td><td>album.updated (photo added by contributor)</td><td>FCM topic multicast</td></tr>
+<tr><td>Memory ready</td><td>ML pipeline completes Memories generation</td><td>FCM high-priority</td></tr>
+<tr><td>Storage quota (90%)</td><td>Upload Service quota check</td><td>FCM + email</td></tr>
+<tr><td>Backup complete</td><td>photo.indexed (all ML done)</td><td>Silent FCM (badge update)</td></tr>
+</table>
+<h3>Fan-out for Large Albums</h3><p>Shared album with 500 contributors → FCM topic-based multicast: 1 API call to FCM, which fans out to all subscriber devices. Topic subscribed on album join, unsubscribed on leave (Spanner event → Notification Service updates FCM subscription). Deduplication: notification_id = SHA-256(event_id + user_id) stored in Redis 24h → prevents duplicate delivery on Kafka consumer retry.</p>`}
+};
+
+window._ddReady=false;
+function initDD(){
+  window._ddReady=true;
+  const nav=document.getElementById('dd-nav');
+  Object.entries(ddData).forEach(([n,d])=>{
+    const btn=document.createElement('button');
+    btn.className='dd-btn';btn.id='dd-btn-'+n;
+    btn.textContent=n+'. '+d.title;
+    btn.onclick=()=>showDD(n);
+    nav.appendChild(btn);
+  });
+  showDD(1);
+}
+function showDD(n){
+  document.querySelectorAll('[id^="dd-btn-"]').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('dd-btn-'+n);
+  if(btn)btn.classList.add('active');
+  const d=ddData[n];
+  document.getElementById('dd-content').innerHTML=`<div class="dd-content-wrap"><div class="dd-header"><div class="dd-title">${d.title}</div><div class="dd-tech">${d.tech}</div><div class="dd-scale">${d.scale}</div></div>${d.body}</div>`;
+}
+</script>
+</body></html>
